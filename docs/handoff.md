@@ -27,6 +27,14 @@ Review pass 1 (2026-11-21, Claude's reviewer agents; most important first)
 - [ ] Booking caveats (e.g. Sky Garden needs booking). Add them to `verify_note` or `deal`.
 - [ ] Voiceover scripts that give a real "why now" line, because the current reasons are generic.
 
+Review pass 2 (commit 0cb0343; voice fixes confirmed, live call 0.93 s, 26 tests pass)
+- [ ] Don't overwrite `enriched.json` when Google fails. Today `venues_near` falls back to sample IDs (`bowl-1`) on any HTTP error, so one Google failure wipes verified enrichments. Raise and let the activity retry, or skip the write.
+- [ ] Write only verified entries, with no `{}` placeholders, once the agents land (Contract 1).
+- [ ] Add the 3×-a-day schedule. Right now refresh only runs on demand via `run_once`.
+- [ ] Confirm the worker runs on the same machine as the app, because it writes `data/enriched.json` to local disk. If the worker is remote, the app never sees the file.
+- [ ] Map MIME types to Voxtral's format names: `audio/mpeg` → `mp3`, `audio/x-wav` → `wav`, and Safari's `audio/mp4`. So far only webm and wav are checked.
+- [ ] Split the activity into "fetch venues" and "write enriched.json" so the Studio timeline reads clearly once the agents sit between them.
+
 ## Blocked
 - (none)
 

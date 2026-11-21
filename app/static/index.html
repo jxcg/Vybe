@@ -2,17 +2,130 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#16221a">
   <title>Vybe</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
   <style>
-    /* Plain UI: just enough layout for full-screen swipe cards. */
-    body { margin: 0; font-family: system-ui, sans-serif; }
-    .stack { height: 100dvh; overflow-y: scroll; scroll-snap-type: y mandatory; }
-    .card { height: 100dvh; scroll-snap-align: start; scroll-snap-stop: always;
-            box-sizing: border-box; padding: 24px; display: flex; flex-direction: column;
-            justify-content: flex-end; gap: 8px; border-bottom: 1px solid #ccc; }
-    .chips span { border: 1px solid #999; border-radius: 12px; padding: 2px 8px; margin-right: 4px; }
-    .setup { padding: 24px; display: grid; gap: 12px; max-width: 320px; }
+    /* Palette from the Figma "Blank Street colour study". */
+    :root {
+      --pine: #16221a;
+      --pine-2: #1f3024;
+      --leaf: #4d6b45;
+      --matcha: #8fb878;
+      --cream: #f1f5df;
+      --lime: #dcef9a;
+      --amber: #e3c27a;
+      --red: #e58a7a;
+      --glass: rgba(241, 245, 223, 0.10);
+      --glass-line: rgba(241, 245, 223, 0.16);
+      --muted: rgba(241, 245, 223, 0.66);
+      --mono: "JetBrains Mono", ui-monospace, monospace;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; height: 100%; background: var(--pine); color: var(--cream);
+                 font-family: Inter, system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+    button { font: inherit; color: inherit; cursor: pointer; }
+    button:focus-visible, a:focus-visible, input:focus-visible {
+      outline: 2px solid var(--lime); outline-offset: 2px; }
+
+    /* Swipe stack: one full-screen card per snap point. */
+    .stack { position: fixed; inset: 0; overflow-y: scroll; scroll-snap-type: y mandatory;
+             scrollbar-width: none; overscroll-behavior: contain; }
+    .stack::-webkit-scrollbar { display: none; }
+    .card { position: relative; height: 100dvh; scroll-snap-align: start; scroll-snap-stop: always;
+            overflow: hidden; isolation: isolate; }
+
+    /* Deep-green glow that drifts diagonally on a slow 12s loop, plus fine grain. */
+    .glow { position: absolute; inset: -30%; z-index: -2;
+            background:
+              radial-gradient(40% 35% at 50% 40%, rgba(143,184,120,0.95), transparent 70%),
+              radial-gradient(60% 50% at 30% 20%, rgba(77,107,69,0.9), transparent 75%),
+              linear-gradient(180deg, var(--pine-2), var(--pine) 70%);
+            animation: drift 12s ease-in-out infinite alternate; }
+    .card:nth-child(3n+2) .glow { animation-delay: -4s; }
+    .card:nth-child(3n) .glow { animation-delay: -8s; }
+    @keyframes drift { from { transform: translate(-8%, -6%); } to { transform: translate(8%, 10%); } }
+    .grain { position: absolute; inset: 0; z-index: -1; opacity: 0.35; mix-blend-mode: overlay;
+             pointer-events: none;
+             background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); }
+    .shade { position: absolute; inset: 0; z-index: -1;
+             background: linear-gradient(180deg, transparent 35%, rgba(22,34,26,0.75) 62%, var(--pine) 85%); }
+    @media (prefers-reduced-motion: reduce) { .glow { animation: none; } }
+
+    /* Fixed chrome: header and the voice bar stay put while cards scroll. */
+    .top { position: fixed; top: 0; left: 0; right: 0; z-index: 10; pointer-events: none;
+           padding: max(20px, env(safe-area-inset-top)) 24px 0; display: grid;
+           grid-template-columns: 1fr auto 1fr; align-items: center; }
+    .top > * { pointer-events: auto; }
+    .wordmark { font-weight: 700; font-size: 30px; letter-spacing: -0.03em; }
+    .tab { font-weight: 500; font-size: 15px; padding-bottom: 4px; border-bottom: 2px solid var(--cream); }
+    .area { grid-column: 1 / -1; font-family: var(--mono); font-size: 11px; letter-spacing: 0.08em;
+            color: var(--muted); margin-top: 14px; text-transform: uppercase; }
+    .round { width: 44px; height: 44px; border-radius: 50%; border: 1px solid var(--glass-line);
+             background: rgba(22,34,26,0.45); backdrop-filter: blur(8px); display: grid;
+             place-items: center; padding: 0; }
+    .round svg { width: 20px; height: 20px; }
+    .round[aria-pressed="true"] { background: var(--cream); color: var(--pine); }
+
+    .info { position: absolute; left: 24px; right: 84px; bottom: calc(150px + env(safe-area-inset-bottom)); }
+    .actions { position: absolute; right: 20px; bottom: calc(232px + env(safe-area-inset-bottom));
+               display: grid; gap: 12px; }
+    .badge { display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px; border-radius: 999px;
+             font-size: 13px; font-weight: 500; color: var(--pine); }
+    .badge::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+    .badge.plenty { background: var(--matcha); }
+    .badge.soon { background: var(--amber); }
+    .badge.last { background: var(--red); }
+    .name { font-size: clamp(26px, 7vw, 34px); font-weight: 600; letter-spacing: -0.02em;
+            line-height: 1.1; margin: 14px 0 8px; }
+    .meta { font-size: 16px; }
+    .dot { color: var(--muted); margin: 0 6px; }
+    .scores { margin-top: 6px; font-size: 13px; color: var(--muted); }
+    .scores strong { color: var(--lime); font-weight: 600; }
+    .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+    .chips span { background: var(--glass); border: 1px solid var(--glass-line); border-radius: 999px;
+                  padding: 6px 12px; font-size: 12.5px; }
+
+    .leave { position: absolute; left: 24px; right: 24px; bottom: calc(84px + env(safe-area-inset-bottom));
+             border-top: 1px solid var(--glass-line); padding-top: 14px; display: flex;
+             align-items: flex-end; justify-content: space-between; gap: 12px; }
+    .label { font-family: var(--mono); font-size: 11px; letter-spacing: 0.08em; color: var(--muted); }
+    .time { font-size: 38px; font-weight: 600; letter-spacing: -0.02em; line-height: 1.1; margin-top: 4px; }
+    .directions { display: inline-flex; align-items: center; gap: 14px; padding: 13px 18px;
+                  border-radius: 999px; background: var(--lime); color: var(--pine); font-weight: 600;
+                  font-size: 15px; text-decoration: none; white-space: nowrap; }
+
+    .voicebar { position: fixed; z-index: 10; left: 0; right: 0;
+                bottom: calc(18px + env(safe-area-inset-bottom)); display: flex; justify-content: center;
+                align-items: center; pointer-events: none; }
+    .voicebar > * { pointer-events: auto; }
+    .talk { display: inline-flex; align-items: center; gap: 10px; padding: 12px 22px; border-radius: 999px;
+            border: 1px solid var(--glass-line); background: rgba(22,34,26,0.7); backdrop-filter: blur(8px);
+            font-weight: 500; font-size: 14px; }
+    .talk svg { width: 18px; height: 18px; }
+    .hint { position: absolute; right: 24px; color: var(--muted); font-size: 12px; font-family: var(--mono); }
+
+    /* Setup and empty screens share the same look. */
+    .screen { min-height: 100dvh; display: grid; align-content: center; gap: 16px; padding: 32px 24px;
+              max-width: 420px; margin: 0 auto; position: relative; isolation: isolate; overflow: hidden; }
+    .screen h1 { font-size: 44px; letter-spacing: -0.03em; margin: 0; }
+    .screen p { color: var(--muted); margin: 0; }
+    .field { display: grid; gap: 8px; }
+    .row { display: flex; gap: 8px; }
+    .input { flex: 1; min-width: 0; padding: 13px 16px; border-radius: 14px; border: 1px solid var(--glass-line);
+             background: var(--glass); color: var(--cream); font: inherit; }
+    .input::placeholder { color: var(--muted); }
+    .pill { padding: 13px 18px; border-radius: 999px; border: 1px solid var(--glass-line);
+            background: var(--glass); font-weight: 500; }
+    .pill.primary { background: var(--lime); color: var(--pine); border-color: transparent; font-weight: 600; }
+    .pill:disabled { opacity: 0.5; cursor: default; }
+    .seg { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+    .seg button[aria-pressed="true"], .toggle[aria-pressed="true"] { background: var(--cream); color: var(--pine); }
+    .toggles { display: flex; gap: 8px; }
+    .toggle { flex: 1; }
+    .status { min-height: 20px; font-size: 14px; color: var(--matcha); }
   </style>
 </head>
 <body>
@@ -23,7 +136,20 @@
   <script>
     // shortcut: React from a CDN with no build step, move to Vite once the UI grows
     const html = htm.bind(React.createElement);
-    const BADGES = { plenty: "🟢 Plenty of time", soon: "🟡 Leave soon", last: "🔴 Last chance" };
+    const BADGES = { plenty: "Plenty of time", soon: "Leave soon", last: "Last chance" };
+
+    const ICONS = {
+      sound: html`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H3v6h3l5 4V5z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/></svg>`,
+      muted: html`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H3v6h3l5 4V5z"/><path d="m16 9 5 5M21 9l-5 5"/></svg>`,
+      heart: html`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M12 20s-7-4.4-9.2-8.6C1.3 8.4 3.2 5 6.6 5c2 0 3.4 1.1 4.4 2.5C12 6.1 13.4 5 15.4 5c3.4 0 5.3 3.4 3.8 6.4C19 15.6 12 20 12 20z"/></svg>`,
+      heartOn: html`<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 20s-7-4.4-9.2-8.6C1.3 8.4 3.2 5 6.6 5c2 0 3.4 1.1 4.4 2.5C12 6.1 13.4 5 15.4 5c3.4 0 5.3 3.4 3.8 6.4C19 15.6 12 20 12 20z"/></svg>`,
+      save: html`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M6 3h12v18l-6-4.5L6 21V3z"/></svg>`,
+      saveOn: html`<svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 3h12v18l-6-4.5L6 21V3z"/></svg>`,
+      share: html`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3M7 8l5-5 5 5M5 13v7h14v-7"/></svg>`,
+      mic: html`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>`,
+      arrow: html`<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7M8 7h9v9"/></svg>`,
+      settings: html`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg>`,
+    };
 
     function load(key, fallback) {
       try { return JSON.parse(localStorage.getItem(key)) ?? fallback; } catch { return fallback; }
@@ -31,109 +157,202 @@
     function save(key, value) {
       try { localStorage.setItem(key, JSON.stringify(value)); } catch {}
     }
+    function toggleIn(list, id) { return list.includes(id) ? list.filter(x => x !== id) : [...list, id]; }
+
+    // "18:23" → "6:23 pm"
+    function clock(hhmm) {
+      const [h, m] = hhmm.split(":").map(Number);
+      return `${h % 12 || 12}:${String(m).padStart(2, "0")} ${h < 12 ? "am" : "pm"}`;
+    }
+    function priceText(c) {
+      if (c.price === 0) return "Free";
+      if (c.price) return `£${c.price.toFixed(2)}`;
+      return "£".repeat(c.price_level);
+    }
+
+    function Backdrop() {
+      return html`<div class="glow" aria-hidden="true"></div><div class="grain" aria-hidden="true"></div>`;
+    }
 
     function Setup({ onDone }) {
-      const [p, setP] = React.useState({ budget: 2, student: false, adult: true });
+      const [p, setP] = React.useState({ budget: 2, student: false, adult: true, area: "" });
       const [where, setWhere] = React.useState("");
       const [status, setStatus] = React.useState("");
+      const busy = status === "Finding you…" || status === "Looking up…";
 
       function useMyLocation() {
         if (!navigator.geolocation) return setStatus("Location isn't available here, type it instead.");
         setStatus("Finding you…");
         navigator.geolocation.getCurrentPosition(
-          pos => { setP(p => ({ ...p, lat: pos.coords.latitude, lng: pos.coords.longitude })); setStatus("📍 Using your location"); },
+          pos => {
+            setP(p => ({ ...p, lat: pos.coords.latitude, lng: pos.coords.longitude, area: "Near you" }));
+            setStatus("📍 Using your location");
+          },
           () => setStatus("Location blocked, type a postcode or area instead."),
           { timeout: 10000 },
         );
       }
 
-      async function lookUp() {
+      async function lookUp(e) {
+        e?.preventDefault();
         setStatus("Looking up…");
         const res = await fetch(`/api/geocode?${new URLSearchParams({ q: where })}`);
         if (!res.ok) return setStatus("Couldn't find that, try a postcode like SE1.");
         const { lat, lng } = await res.json();
-        setP(p => ({ ...p, lat, lng }));
-        setStatus(`📍 Using ${where}`);
+        setP(p => ({ ...p, lat, lng, area: where.trim() }));
+        setStatus(`📍 Using ${where.trim()}`);
       }
 
       React.useEffect(useMyLocation, []);
 
       return html`
-        <form class="setup" onSubmit=${e => { e.preventDefault(); onDone(p); }}>
-          <h1>Vybe</h1>
-          <button type="button" onClick=${useMyLocation}>Use my location</button>
-          <div>
-            <input placeholder="Or a postcode or area, e.g. SE1" value=${where}
-              onInput=${e => setWhere(e.target.value)} />
-            <button type="button" onClick=${lookUp} disabled=${where.trim().length < 2}>Find</button>
+        <main class="screen">
+          <${Backdrop} />
+          <h1>vybe.</h1>
+          <p>What's worth doing near you, right now.</p>
+
+          <div class="field">
+            <span class="label">WHERE</span>
+            <div class="row">
+              <input class="input" aria-label="Postcode or area" placeholder="Postcode or area, e.g. SE1"
+                value=${where} onInput=${e => setWhere(e.target.value)}
+                onKeyDown=${e => e.key === "Enter" && where.trim().length > 1 && lookUp(e)} />
+              <button class="pill" onClick=${lookUp} disabled=${where.trim().length < 2}>Find</button>
+            </div>
+            <button class="pill" onClick=${useMyLocation}>Use my location</button>
+            <div class="status" aria-live="polite">${status}</div>
           </div>
-          <div aria-live="polite">${status}</div>
-          <label>Budget
-            <select value=${p.budget} onChange=${e => setP({ ...p, budget: +e.target.value })}>
-              <option value="1">£</option><option value="2">££</option><option value="3">£££</option>
-            </select>
-          </label>
-          <label><input type="checkbox" checked=${p.student}
-            onChange=${e => setP({ ...p, student: e.target.checked })} /> Student</label>
-          <label><input type="checkbox" checked=${p.adult}
-            onChange=${e => setP({ ...p, adult: e.target.checked })} /> 18+</label>
-          <button disabled=${status === "Finding you…" || status === "Looking up…"}>Show me what's on</button>
-        </form>`;
+
+          <div class="field">
+            <span class="label">BUDGET</span>
+            <div class="seg">
+              ${[1, 2, 3].map(b => html`
+                <button key=${b} class="pill" aria-pressed=${p.budget === b}
+                  onClick=${() => setP({ ...p, budget: b })}>${"£".repeat(b)}</button>`)}
+            </div>
+          </div>
+
+          <div class="toggles">
+            <button class="pill toggle" aria-pressed=${p.student}
+              onClick=${() => setP({ ...p, student: !p.student })}>Student</button>
+            <button class="pill toggle" aria-pressed=${p.adult}
+              onClick=${() => setP({ ...p, adult: !p.adult })}>18+</button>
+          </div>
+
+          <button class="pill primary" disabled=${busy} onClick=${() => onDone(p)}>Show me what's on</button>
+        </main>`;
     }
 
-    function Card({ c, i, total, liked, onLike }) {
+    function Card({ c, i, total, liked, saved, onLike, onSave }) {
+      async function share() {
+        const data = { title: c.name, text: `${c.name}: ${c.walk_mins} min walk`, url: c.url || c.maps_url };
+        try {
+          if (navigator.share) await navigator.share(data);
+          else await navigator.clipboard.writeText(`${data.text} ${data.url || ""}`.trim());
+        } catch {}
+      }
       return html`
-        <section class="card">
-          <div>${BADGES[c.badge]}</div>
-          <h2 style=${{ margin: 0 }}>${c.name}</h2>
-          <div><strong>${c.match}% match</strong>${c.rating ? ` · ★ ${c.rating} on Google` : ""}</div>
-          <div>${c.walk_mins} min walk · ${c.price === 0 ? "Free" : c.price ? `£${c.price.toFixed(2)}` : "£".repeat(c.price_level)}</div>
-          <div class="chips">${c.reasons.map(r => html`<span key=${r}>${r}</span>`)}</div>
-          <div>Leave by <strong>${c.leave_by}</strong></div>
-          <button onClick=${onLike} aria-pressed=${liked}>${liked ? "♥ Liked" : "♡ Like"}</button>
-          ${c.maps_url && html`<a href=${c.maps_url} target="_blank" rel="noopener">Directions ↗</a>`}
-          <small>${c.source} · ${i + 1} of ${total}${i === 0 ? " · swipe up for more ↑" : ""}</small>
+        <section class="card" aria-label=${`${c.name}, ${i + 1} of ${total}`}>
+          <${Backdrop} />
+          <div class="shade" aria-hidden="true"></div>
+
+          <div class="actions">
+            <button class="round" aria-label=${liked ? "Unlike" : "Like"} aria-pressed=${liked} onClick=${onLike}>
+              ${liked ? ICONS.heartOn : ICONS.heart}</button>
+            <button class="round" aria-label=${saved ? "Unsave" : "Save"} aria-pressed=${saved} onClick=${onSave}>
+              ${saved ? ICONS.saveOn : ICONS.save}</button>
+            <button class="round" aria-label="Share" onClick=${share}>${ICONS.share}</button>
+          </div>
+
+          <div class="info">
+            <span class=${`badge ${c.badge}`}>${BADGES[c.badge]}</span>
+            <h2 class="name">${c.name}</h2>
+            <div class="meta">${c.walk_mins} min walk<span class="dot">·</span>${priceText(c)}</div>
+            <div class="scores">
+              <strong>${c.match}% match</strong>${c.rating ? html`<span class="dot">·</span>★ ${c.rating} on Google` : ""}
+            </div>
+            <div class="chips">${c.reasons.map(r => html`<span key=${r}>${r}</span>`)}</div>
+          </div>
+
+          <div class="leave">
+            <div>
+              <div class="label">LEAVE BY</div>
+              <div class="time">${clock(c.leave_by)}</div>
+            </div>
+            ${c.maps_url && html`
+              <a class="directions" href=${c.maps_url} target="_blank" rel="noopener">Directions ${ICONS.arrow}</a>`}
+          </div>
         </section>`;
     }
 
     function Feed({ prefs, onReset }) {
       const [cards, setCards] = React.useState(null);
       const [liked, setLiked] = React.useState(() => load("vybe.liked", []));
+      const [saved, setSaved] = React.useState(() => load("vybe.saved", []));
+      const [muted, setMuted] = React.useState(() => load("vybe.muted", false));
+      const [index, setIndex] = React.useState(0);
       const stack = React.useRef(null);
 
       async function fetchFeed(likedIds) {
-        const q = new URLSearchParams({ ...prefs, liked: likedIds.join(",") });
-        const res = await fetch(`/api/feed?${q}`);
+        const { area, ...q } = prefs;
+        const res = await fetch(`/api/feed?${new URLSearchParams({ ...q, liked: likedIds.join(",") })}`);
         return res.ok ? res.json() : [];
       }
 
       React.useEffect(() => { fetchFeed(liked).then(setCards); }, []);
 
+      function onScroll() {
+        const el = stack.current;
+        if (el) setIndex(Math.round(el.scrollTop / el.clientHeight));
+      }
+
       async function toggleLike(id) {
-        const next = liked.includes(id) ? liked.filter(x => x !== id) : [...liked, id];
+        const next = toggleIn(liked, id);
         setLiked(next);
         save("vybe.liked", next);
         // Keep the cards already swiped past (and the current one); re-rank only what comes next.
-        const el = stack.current;
-        const current = Math.round(el.scrollTop / el.clientHeight);
-        const seen = cards.slice(0, current + 1);
+        const seen = cards.slice(0, index + 1);
         const fresh = await fetchFeed(next);
         setCards([...seen, ...fresh.filter(c => !seen.some(s => s.id === c.id))]);
       }
 
-      if (cards === null) return html`<p>Loading…</p>`;
+      function toggleSave(id) {
+        const next = toggleIn(saved, id);
+        setSaved(next);
+        save("vybe.saved", next);
+      }
+
+      if (cards === null) return html`<main class="screen"><${Backdrop} /><p>Finding what's on…</p></main>`;
       if (!cards.length) return html`
-        <div class="setup">
-          <p>Nothing open nearby that fits right now.</p>
-          <button onClick=${onReset}>Change budget or location</button>
-        </div>`;
+        <main class="screen">
+          <${Backdrop} />
+          <h1>Quiet out.</h1>
+          <p>Nothing open nearby fits right now. Try a bigger budget or another area.</p>
+          <button class="pill primary" onClick=${onReset}>Change budget or area</button>
+        </main>`;
+
       return html`
-        <div class="stack" ref=${stack}>
+        <header class="top">
+          <span class="wordmark">vybe.</span>
+          <span class="tab">For you</span>
+          <div style=${{ justifySelf: "end", display: "flex", gap: 8 }}>
+            <button class="round" aria-label="Settings" onClick=${onReset}>${ICONS.settings}</button>
+            <button class="round" aria-label=${muted ? "Unmute voiceovers" : "Mute voiceovers"}
+              aria-pressed=${muted} onClick=${() => { setMuted(!muted); save("vybe.muted", !muted); }}>
+              ${muted ? ICONS.muted : ICONS.sound}</button>
+          </div>
+          <div class="area">${prefs.area || "Near you"}</div>
+        </header>
+        <div class="stack" ref=${stack} onScroll=${onScroll}>
           ${cards.map((c, i) => html`
             <${Card} key=${c.id} c=${c} i=${i} total=${cards.length}
-              liked=${liked.includes(c.id)} onLike=${() => toggleLike(c.id)} />`)}
+              liked=${liked.includes(c.id)} saved=${saved.includes(c.id)}
+              onLike=${() => toggleLike(c.id)} onSave=${() => toggleSave(c.id)} />`)}
         </div>
-        <button onClick=${onReset} style=${{ position: "fixed", top: 12, right: 12 }}>Settings</button>`;
+        <div class="voicebar">
+          <button class="talk" title="Voice coming soon">${ICONS.mic} Hold to talk</button>
+          <span class="hint">${index + 1}/${cards.length}${index === 0 ? " ↑ swipe" : ""}</span>
+        </div>`;
     }
 
     function App() {

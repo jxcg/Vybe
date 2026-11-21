@@ -160,3 +160,7 @@ vite.config.ts.timestamp-*
 .venv/
 __pycache__/
 .pytest_cache/
+
+# Pipeline output (runtime, per location)
+data/enriched.json
+data/voiceovers/
