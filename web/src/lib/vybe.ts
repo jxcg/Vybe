@@ -118,3 +118,20 @@ export function mergeChips(v: Vybe, chips: ChipsMsg): Vybe {
     company: chips.company ?? v.company,
   };
 }
+
+export function fromPrefs(prefs: Prefs): Vybe {
+  return {
+    into: prefs.include, notInto: prefs.exclude, budget: prefs.budget,
+    student: prefs.student, adult: prefs.adult, company: prefs.company,
+    age: prefs.age, vibe: prefs.vibe,
+  };
+}
+
+export function updatePersonal(personal: Vybe, before: Vybe, after: Vybe): Vybe {
+  const updated = { ...personal };
+  function copyChange<K extends keyof Vybe>(key: K) {
+    if (before[key] !== after[key]) updated[key] = after[key];
+  }
+  (Object.keys(after) as (keyof Vybe)[]).forEach(copyChange);
+  return updated;
+}

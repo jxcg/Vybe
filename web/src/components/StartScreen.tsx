@@ -31,7 +31,7 @@ const isTouch = window.matchMedia('(pointer: coarse)').matches;
 
 export function StartScreen() {
   const { state, dispatch, send, join } = useStore();
-  const settings = state.onboarded;
+  const settings = state.onboarded || state.shared !== null;
   const [phase, setPhase] = useState<TalkPhase>('idle');
   const [typing, setTyping] = useState(false);
   const [sheet, setSheet] = useState<RowKey | null>(null);
@@ -153,10 +153,11 @@ export function StartScreen() {
   const setVybe = (vybe: Vybe) => dispatch({ type: 'set_vybe', vybe });
 
   const go = (vybe?: Vybe) => {
+    if (state.shared && (state.conn !== 'open' || state.roomConnecting)) return;
     if (phase === 'listening') endTalk();
     // TODO(P4): unlock audio (resume AudioContext) and request geolocation, silent fallback.
     if (vybe) setVybe(vybe);
-    join();
+    join(vybe);
     // First time in: the loading screen covers the wait, and the mic glides into its orb.
     // Coming back from settings: straight back to the board.
     if (state.board) {
@@ -174,7 +175,7 @@ export function StartScreen() {
           <Wordmark size="lg" />
           <ThemeToggle />
         </div>
-        <h1 className="start-title">{settings ? 'Change your vybe' : 'Let’s build your vybe.'}</h1>
+        <h1 className="start-title">{state.shared ? 'Change your plan preferences' : settings ? 'Change your vybe' : 'Let’s build your vybe.'}</h1>
         <p className="start-sub">
           Tell us what you{'\u2019'}re in the mood for. Just talk, we{'\u2019'}ll sort out the details.
         </p>

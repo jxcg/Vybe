@@ -17,12 +17,15 @@ Put `(now)` after the milestone being worked on. Owners: (Claude), (Mistral), (T
 - [ ] Open the board on a saved interest, group additional results, and mark short lists (Team)
 - [ ] Keep runner-up and wildcard details visible on desktop cards (Team)
 
+## Shared plans (now)
+- [x] Invite friends to a live shared board (Team)
+
 ## Real places
 - [x] Google Places near the user (Claude)
 - [x] Browser location or typed postcode/area (Claude)
 - [x] OpenStreetMap and sample-data fallback (Claude)
 
-## Voice (now)
+## Voice
 - [x] `audio_to_filters`: Voxtral turns speech into filters (Mistral)
 - [x] Voice over `/ws`: speech or typing becomes session-only chips (Claude)
 - [x] Ranking applies voice filters (Claude)

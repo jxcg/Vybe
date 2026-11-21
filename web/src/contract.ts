@@ -53,6 +53,7 @@ export interface Row {
   your_price: number | null;
   /** Server extension: 1–3, shown as £ / ££ / £££ when there's no exact price */
   price_level?: number;
+  price_unknown?: boolean;
   /** Server extension: pricier than the user's budget (kept as an option, ranked lower) */
   over_budget?: boolean;
   was_price: number | null;
@@ -108,6 +109,7 @@ export interface PrefsMsg {
   exclude: string[];
   /** people including you */
   company: number;
+  liked?: string[];
   /** Server extension: age range ("under18", "18-21", "22-25", "26-35", "36+") and vibe ("chill" | "lively") */
   age?: string | null;
   vibe?: string | null;
@@ -134,7 +136,7 @@ export interface TalkTextMsg {
 export interface FeedbackMsg {
   type: 'feedback';
   item_id: string;
-  kind: 'like' | 'skip';
+  kind: 'like' | 'unlike' | 'skip';
 }
 
 export interface BoardOnMsg {
@@ -157,6 +159,31 @@ export interface RefreshNowMsg {
   type: 'refresh_now';
 }
 
+export interface RoomCredential {
+  invite: string;
+  credential: string;
+}
+
+export interface RoomResume {
+  invite: string | null;
+  credential: string;
+}
+
+export interface RoomEntry {
+  type: 'room_create' | 'room_join';
+  invite?: string;
+  name: string;
+  prefs: Prefs;
+  liked: string[];
+}
+
+type RoomCommand =
+  | (RoomEntry & { credential: string })
+  | { type: 'room_check'; invite: string }
+  | ({ type: 'room_resume' } & RoomResume)
+  | { type: 'room_prefs'; prefs: Prefs }
+  | { type: 'room_leave' };
+
 export type ClientMessage =
   | JoinMsg
   | PrefsMsg
@@ -167,7 +194,8 @@ export type ClientMessage =
   | BoardOnMsg
   | TimeTravelMsg
   | RefreshNowMsg
-  | ShowMsg;
+  | ShowMsg
+  | RoomCommand;
 
 export type Prefs = Omit<PrefsMsg, 'type'>;
 
@@ -226,6 +254,12 @@ export interface DecisionMsg extends Decision {
   type: 'decision';
 }
 
+export interface RoomJoined extends RoomCredential {
+  type: 'room_joined';
+  prefs: Prefs;
+  liked: string[];
+}
+
 export type ServerMessage =
   | JoinedMsg
   | BoardMsg
@@ -233,4 +267,8 @@ export type ServerMessage =
   | ChipsMsg
   | NoteMsg
   | AnnounceMsg
-  | DecisionMsg;
+  | DecisionMsg
+  | RoomJoined
+  | { type: 'room_ready'; area: string }
+  | { type: 'room_error'; message: string }
+  | { type: 'room_left' };

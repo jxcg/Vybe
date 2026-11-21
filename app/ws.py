@@ -1,7 +1,7 @@
 """The `/ws` WebSocket the VYBE web frontend talks to (see INTEGRATION.md and web/src/contract.ts).
 
-One socket per phone. Session state (prefs, voice chips, likes, time travel) lives only in this
-connection, so nothing the user says is ever saved. The board is built from our plain-code ranking.
+Solo state lives on each connection. Shared plans keep only their members and the preferences
+they bring in memory. Both boards use the plain-code ranking.
 """
 
 import asyncio
@@ -11,16 +11,19 @@ import uuid
 import wave
 from datetime import datetime, timedelta
 from pathlib import Path
+from secrets import token_urlsafe
+from time import monotonic
 from typing import Any
 from zoneinfo import ZoneInfo
 
 from fastapi import WebSocket, WebSocketDisconnect
 from starlette.concurrency import run_in_threadpool
 
-from app import geo, voice
+from app import geo, rooms, voice
 from app.colors import venue_colors
 from app.ranking import rank
 from app.request_parse import parse_request
+from app.rooms import BUDGETS, INTO, NOT_INTO
 
 LONDON = ZoneInfo("Europe/London")
 DEFAULT_PLACE = {"lat": 51.5136, "lng": -0.1365, "label": "Soho"}
@@ -28,8 +31,6 @@ BOARD_EVERY = 20  # seconds; keeps countdowns and statuses fresh
 ENRICHED = Path(__file__).parent.parent / "data" / "enriched.json"
 VOICEOVERS = ENRICHED.parent / "voiceovers"
 
-BUDGETS = {10: 1, 20: 2, 999: 3}
-AGES = ("under18", "18-21", "22-25", "26-35", "36+")
 # Review-based fields from Mistral's Enricher that ranking uses (Contract 1)
 PERSONAL_FIELDS = (
     "audience",
@@ -40,17 +41,6 @@ PERSONAL_FIELDS = (
 # Fallback when an item has no category (sample data): taste tag → frontend category
 CATEGORY = {"active": "games", "culture": "culture", "nightlife": "bar", "food": "food"}
 GROUP = {"food": "Food", "bar": "Drinks", "culture": "Culture", "other": "Outdoors"}
-# Frontend "into" tags → our taste tags (for ranking boosts)
-INTO = {
-    "active": "active",
-    "competitive": "games",
-    "culture": "culture",
-    "chill": "culture",
-    "food": "food",
-    "a laugh": "comedy",
-    "live music": "music",
-    "late night": "nightlife",
-}
 INTEREST_GROUP = {
     "food": "Food",
     "late night": "Drinks",
@@ -62,13 +52,6 @@ INTEREST_GROUP = {
     "chill": "Culture",
 }
 BROWSE_GROUPS = ("Food", "Drinks", "Entertainment", "Culture", "Outdoors")
-# Frontend "not into" tags → our taste tags to drop
-NOT_INTO = {
-    "clubs": "club",
-    "loud music": "music",
-    "late nights": "nightlife",
-    "outdoors": "outdoors",
-}
 ICONS = {
     "Open now": "Clock",
     "Opens": "Clock",
@@ -158,7 +141,9 @@ def to_rows(
     return rows
 
 
-def _board_rows(cards: list[dict[str, Any]], now: datetime, raining: bool) -> list[dict[str, Any]]:
+def _board_rows(
+    cards: list[dict[str, Any]], now: datetime, raining: bool, shared: bool = False
+) -> list[dict[str, Any]]:
     extras = _enriched()
     rows = []
     for c in cards:
@@ -170,7 +155,7 @@ def _board_rows(cards: list[dict[str, Any]], now: datetime, raining: bool) -> li
         if starts:
             leave_by = starts - timedelta(minutes=c["walk_mins"] + 5)
         allday = c.get("opens") == c.get("closes")
-        price = extra.get("price", c.get("price"))
+        price = c.get("price") if shared else extra.get("price", c.get("price"))
         cached_theme = extra.get("theme")
         theme = cached_theme if isinstance(cached_theme, dict) else {}
         photo_url = theme.get("image_url")
@@ -207,6 +192,7 @@ def _board_rows(cards: list[dict[str, Any]], now: datetime, raining: bool) -> li
                 # Server extension: £, ££ or £££ when there's no exact price; over_budget sinks it
                 "price_level": c.get("price_level", 2),
                 "over_budget": bool(c.get("over_budget")),
+                "price_unknown": bool(c.get("price_unknown")),
                 "was_price": None,
                 "score": round(c["match"] / 10, 1),
                 "pick": None,
@@ -287,13 +273,9 @@ class Session:
         self.ws = ws
         self.items_near = items_near
         self.room: str | None = None
-        self.prefs: dict[str, Any] = {
-            "budget": 999,
-            "student": False,
-            "adult": True,
-            "include": [],
-            "exclude": [],
-        }
+        self.prefs = rooms.preferences({})
+        self.shared: rooms.Room | None = None
+        self.credential: str | None = None
         self.place: dict[str, Any] = dict(DEFAULT_PLACE)
         self.liked: set[str] = set()
         self.skipped: set[str] = set()
@@ -309,9 +291,10 @@ class Session:
     def now(self) -> datetime:
         return datetime.now(LONDON).replace(tzinfo=None, microsecond=0) + self.offset
 
-    def build_board(self) -> dict[str, Any]:
-        now = self.now()
-        lat, lng = self.place["lat"], self.place["lng"]
+    def source(
+        self, place: dict[str, Any], now: datetime
+    ) -> tuple[list[dict[str, Any]], geo.Weather | None]:
+        lat, lng = place["lat"], place["lng"]
         items = self.items_near(lat, lng, now)
         extras = _enriched()
         items = [
@@ -325,6 +308,11 @@ class Session:
             }
             for i in items
         ]
+        return items, geo.weather(lat, lng)
+
+    def build_board(self) -> dict[str, Any]:
+        now = self.now()
+        items, weather = self.source(self.place, now)
         drop = {NOT_INTO[t] for t in self.prefs["exclude"] if t in NOT_INTO}
         words = [t for t in self.prefs["exclude"] if t not in NOT_INTO]
         items = [
@@ -334,7 +322,6 @@ class Session:
             and not drop & set(i["tags"])
             and not any(w in i["name"].lower() for w in words)
         ]
-        weather = geo.weather(lat, lng)
         cards = rank(
             items,
             now,
@@ -364,6 +351,19 @@ class Session:
         if group:
             rows = [row for row in rows if row["group"] == group]
         _assign_picks(rows, mixed=group is None)
+        return self.board_message(now, self.place, weather, rows, ["You"], counts, group)
+
+    @staticmethod
+    def board_message(
+        now: datetime,
+        place: dict[str, Any],
+        weather: geo.Weather | None,
+        rows: list[dict[str, Any]],
+        members: list[str],
+        counts: dict[str, int],
+        group: str | None,
+    ) -> dict[str, Any]:
+        raining = bool(weather and weather.raining)
         if weather is None:
             summary = ""
         else:
@@ -372,13 +372,13 @@ class Session:
         return {
             "type": "board",
             "now": now.replace(tzinfo=LONDON).isoformat(),
-            "area": self.place["label"],
+            "area": place["label"],
             "weather": {
                 "summary": summary,
                 "rain_from": now.replace(tzinfo=LONDON).isoformat() if raining else None,
             },
             "count": sum(r["status"] not in ("departed", "cancelled") for r in rows),
-            "members": ["You"],
+            "members": members,
             "rows": rows,
             "boarded": {},
             "decision": None,
@@ -387,13 +387,170 @@ class Session:
         }
 
     async def board(self) -> None:
-        if self.room:
-            await self.send(await run_in_threadpool(self.build_board))
+        if self.room and not self.shared:
+            board = await run_in_threadpool(self.build_board)
+            if not self.shared:
+                await self.send(board)
+
+    def member(self, room: rooms.Room) -> rooms.Member | None:
+        member = room.members.get(self.credential or "")
+        return member if member and member.socket is self.ws else None
+
+    async def publish(self, room: rooms.Room) -> None:
+        """Called under the room lock so every connected member sees updates in order."""
+        if not room.members:
+            return
+        now = datetime.now(LONDON).replace(tzinfo=None, microsecond=0) + room.offset
+        if room.source is None or monotonic() - room.source_at >= 60:
+            items, weather = await run_in_threadpool(self.source, room.place, now)
+            extras = _enriched()
+            for item in items:
+                enriched_price = rooms.known_price((extras.get(item["id"]) or {}).get("price"))
+                item["price"] = (
+                    enriched_price
+                    if enriched_price is not None
+                    else rooms.known_price(item.get("price"))
+                )
+            room.source = items, weather
+            room.source_at = monotonic()
+        items, weather = room.source
+        members = list(room.members.values())
+        cards = rooms.group_rank(items, now, weather, members)
+        rows = _board_rows(cards, now, bool(weather and weather.raining), shared=True)
+        rows = [row for row in rows if row["status"] not in ("departed", "cancelled")]
+        for row, pick in zip(rows, ("best", "runner_up", "wildcard"), strict=False):
+            row["pick"] = pick
+        board = self.board_message(
+            now, room.place, weather, rows, [m.name for m in members], {}, None
+        )
+        payload = json.dumps(board)
+
+        async def deliver(member: rooms.Member) -> None:
+            if member.socket is None:
+                return
+            try:
+                await asyncio.wait_for(member.socket.send_text(payload), timeout=3)
+            except (WebSocketDisconnect, RuntimeError, OSError, TimeoutError):
+                member.socket = None
+
+        await asyncio.gather(*(deliver(member) for member in members))
+        room.published_at = monotonic()
+
+    async def room_error(self, message: str) -> None:
+        await self.send({"type": "room_error", "message": message})
+
+    async def room_message(self, kind: str, msg: dict[str, Any]) -> None:
+        room: rooms.Room | None
+        supplied = msg.get("credential")
+        join_key = (
+            supplied if isinstance(supplied, str) and rooms.JOIN_KEY.fullmatch(supplied) else None
+        )
+        if kind == "room_create":
+            if self.shared:
+                return
+            room = rooms.room_for_member(join_key)
+            if room is None:
+                if len(rooms.rooms) >= rooms.MAX_ROOMS:
+                    await self.room_error("Vybe is hosting too many plans. Try again later.")
+                    return
+                room = rooms.Room(dict(self.place), self.offset)
+                rooms.rooms[room.invite] = room
+        elif kind == "room_resume" and msg.get("invite") is None:
+            room = rooms.room_for_member(supplied)
+        else:
+            room = rooms.active_room(msg.get("invite"))
+        if room is None:
+            await self.room_error("This invite is invalid or has expired.")
+            return
+        async with room.lock:
+            if rooms.active_room(room.invite) is None:
+                await self.room_error("This invite is invalid or has expired.")
+                return
+            if kind == "room_check":
+                await self.send({"type": "room_ready", "area": room.place["label"]})
+                return
+            if self.shared:
+                return
+            credential = supplied if kind == "room_resume" else join_key or token_urlsafe()
+            member = room.members.get(credential) if isinstance(credential, str) else None
+            if member is not None:
+                member.socket = self.ws
+            elif kind == "room_resume" or not isinstance(credential, str):
+                await self.room_error("Your place in this plan has expired.")
+                return
+            else:
+                if len(room.members) >= rooms.MAX_MEMBERS:
+                    await self.room_error("This plan is full.")
+                    return
+                name = str(msg.get("name") or "").strip()[:32] or "Host"
+                member = rooms.Member(
+                    name,
+                    rooms.preferences(msg.get("prefs")),
+                    set(rooms.strings(msg.get("liked"), 500, 256)),
+                    self.ws,
+                )
+                room.members[credential] = member
+            self.shared, self.credential = room, credential
+            await self.send(
+                {
+                    "type": "room_joined",
+                    "invite": room.invite,
+                    "credential": credential,
+                    "prefs": member.prefs,
+                    "liked": sorted(member.liked),
+                }
+            )
+            await self.publish(room)
+
+    async def update_room(self, kind: str, msg: dict[str, Any]) -> None:
+        room = self.shared
+        if room is None:
+            return
+        refresh_solo = False
+        async with room.lock:
+            member = self.member(room)
+            if member is None or rooms.active_room(room.invite) is None:
+                self.shared, self.credential = None, None
+                await self.room_error("Your shared plan has ended.")
+            elif kind == "room_leave":
+                if self.credential:
+                    del room.members[self.credential]
+                if not room.members:
+                    rooms.rooms.pop(room.invite, None)
+                self.shared, self.credential = None, None
+                self.room = self.room or uuid.uuid4().hex[:8]
+                await self.send({"type": "room_left"})
+                refresh_solo = True
+                await self.publish(room)
+            elif kind == "room_prefs":
+                member.prefs = rooms.preferences(msg.get("prefs"))
+                await self.publish(room)
+            elif kind == "feedback":
+                item_id = msg.get("item_id")
+                if isinstance(item_id, str) and 0 < len(item_id) <= 256:
+                    member.feedback(item_id, msg.get("kind"))
+                    await self.publish(room)
+            elif monotonic() - room.published_at >= BOARD_EVERY:
+                await self.publish(room)
+        if refresh_solo:
+            await self.board()
+
+    async def disconnect(self) -> None:
+        room = self.shared
+        if room:
+            async with room.lock:
+                member = self.member(room)
+                if member:
+                    member.socket = None
+
+    def current_prefs(self) -> dict[str, Any]:
+        member = self.member(self.shared) if self.shared else None
+        return member.prefs if member else self.prefs
 
     def resolve(self, chips: dict[str, Any]) -> dict[str, Any]:
         """Relative requests: "cheaper" steps the budget down one notch (999 → 20 → 10)."""
         if chips.pop("cheaper", False):
-            chips["budget"] = {999: 20, 20: 10, 10: 10}[self.prefs.get("budget", 999)]
+            chips["budget"] = {999: 20, 20: 10, 10: 10}[self.current_prefs()["budget"]]
         return chips
 
     async def chips(self, chips: dict[str, Any], heard: str = "") -> None:
@@ -403,27 +560,24 @@ class Session:
 
     async def handle(self, msg: dict[str, Any]) -> None:
         kind = msg.get("type")
-        if kind == "join":
-            self.room = msg.get("room") or uuid.uuid4().hex[:8]
+        if kind in ("room_create", "room_join", "room_resume", "room_check"):
+            await self.room_message(kind, msg)
+        elif self.shared and kind in ("room_leave", "room_prefs", "feedback", "refresh_now"):
+            await self.update_room(kind, msg)
+        elif kind == "join" and not self.shared:
+            self.room = uuid.uuid4().hex[:8]
+            if "liked" in msg:
+                self.liked = set(rooms.strings(msg["liked"], 500, 256))
             await self.send({"type": "joined", "room": self.room, "you": msg.get("name") or "You"})
             await self.board()
         elif kind == "prefs":
             previous_interests = self.prefs["include"]
-            self.prefs = {
-                "budget": msg.get("budget", 999) if msg.get("budget") in BUDGETS else 999,
-                "student": bool(msg.get("student")),
-                "adult": bool(msg.get("adult", True)),
-                "include": [str(t).lower() for t in msg.get("include", [])][:20],
-                "exclude": [str(t).lower() for t in msg.get("exclude", [])][:20],
-                "company": msg.get("company") if isinstance(msg.get("company"), int) else 1,
-                "age": msg.get("age") if msg.get("age") in AGES else None,
-                "vibe": msg.get("vibe") if msg.get("vibe") in ("chill", "lively") else None,
-            }
+            self.prefs = rooms.preferences(msg)
+            if "liked" in msg:
+                self.liked = set(rooms.strings(msg["liked"], 500, 256))
             if previous_interests != self.prefs["include"]:
                 self.group_chosen = False
                 self.group = None
-            if self.prefs["age"] == "under18":
-                self.prefs["adult"] = False
             await self.board()
         elif kind == "location":
             lat, lng = msg.get("lat"), msg.get("lng")
@@ -440,7 +594,12 @@ class Session:
                 }
                 await self.board()
         elif kind == "feedback" and isinstance(msg.get("item_id"), str):
-            (self.liked if msg.get("kind") == "like" else self.skipped).add(msg["item_id"])
+            if msg.get("kind") == "like":
+                self.liked.add(msg["item_id"])
+            elif msg.get("kind") == "unlike":
+                self.liked.discard(msg["item_id"])
+            elif msg.get("kind") == "skip":
+                self.skipped.add(msg["item_id"])
             await self.board()
         elif kind == "time_travel":
             try:
@@ -478,7 +637,7 @@ class Session:
                 {"include": [], "exclude": []}, "Didn't catch that. Try again, or type instead."
             )
             return
-        context = {"now": self.now().strftime("%H:%M"), "filters": self.prefs}
+        context = {"now": self.now().strftime("%H:%M"), "filters": self.current_prefs()}
         try:
             filters = await run_in_threadpool(
                 voice.audio_to_filters, pcm_to_wav(bytes(self.audio)), "audio/wav", context
@@ -515,7 +674,10 @@ async def serve(ws: WebSocket, items_near: Any) -> None:
     async def tick() -> None:
         while True:
             await asyncio.sleep(BOARD_EVERY)
-            await session.board()
+            if session.shared:
+                await session.update_room("tick", {})
+            else:
+                await session.board()
 
     ticker = asyncio.create_task(tick())
     try:
@@ -537,3 +699,4 @@ async def serve(ws: WebSocket, items_near: Any) -> None:
         pass
     finally:
         ticker.cancel()
+        await session.disconnect()
