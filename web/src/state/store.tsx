@@ -114,7 +114,7 @@ function reducer(state: State, action: Action): State {
     case 'reset_filters':
       return {
         ...state, vybe: action.vybe, soloVybe: state.shared ? state.soloVybe : action.vybe,
-        transcript: '',
+        screen: 'start', ticket: null, transcript: '',
       };
     case 'go':
       return {
