@@ -104,8 +104,10 @@ def test_voice_failure_is_friendly(monkeypatch: pytest.MonkeyPatch) -> None:
         assert "typing" in recv(sock, "note")["text"]
 
 
-def test_text_to_chips() -> None:
-    assert ws.text_to_chips("cheap, active, no clubs") == {
+def test_typed_text_uses_the_parser() -> None:
+    from app.request_parse import parse_request
+
+    assert parse_request("cheap, active, no clubs") == {
         "include": ["active"],
         "exclude": ["clubs"],
         "budget": 10,
