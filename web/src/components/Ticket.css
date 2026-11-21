@@ -129,9 +129,9 @@
   flex-shrink: 0;
 }
 
-/* On photos the text starts on the faded part of the image */
+/* Keep the ticket text below the photo. */
 .ticket--photo .ticket-body {
-  margin-top: -64px;
+  margin-top: 0;
 }
 
 .ticket-kicker {
@@ -314,9 +314,6 @@
   .ticket-body {
     padding-top: 12px;
   }
-  .ticket--photo .ticket-body {
-    margin-top: -48px;
-  }
   .ticket-name {
     font-size: 32px;
   }
@@ -340,6 +337,6 @@
 
 @media (prefers-reduced-motion: reduce) {
   .ticket-photo {
-    animation: ticket-photo-in 300ms ease both;
+    animation: none;
   }
 }

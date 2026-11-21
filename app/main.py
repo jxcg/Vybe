@@ -5,7 +5,7 @@ from typing import Annotated, Any, cast
 
 import httpx
 from fastapi import FastAPI, HTTPException, Query, WebSocket
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from app import geo, osm, places, ws
@@ -48,6 +48,19 @@ def geocode(q: Annotated[str, Query(min_length=2, max_length=100)]) -> dict[str,
     if hit is None:
         raise HTTPException(404, "Couldn't find that place")
     return {"lat": hit[0], "lng": hit[1]}
+
+
+@app.get("/api/places/{place_id}/photo")
+def place_photo(place_id: str) -> JSONResponse:
+    try:
+        photo = places.featured_photo(place_id)
+    except (httpx.HTTPError, ValueError):
+        photo = None
+    return JSONResponse(
+        content=photo,
+        status_code=200 if photo else 404,
+        headers={"Cache-Control": "no-store"},
+    )
 
 
 @app.get("/api/feed")

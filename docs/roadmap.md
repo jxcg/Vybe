@@ -35,14 +35,15 @@ Put `(now)` after the milestone being worked on. Owners: (Claude), (Mistral), (T
 - [ ] Voxtral TTS voiceovers (Mistral)
 - [ ] `/vybe` skill triggers a refresh (Mistral)
 
-## Design
+## Design (now)
+- [ ] Render cached photo and gradient themes and verify the Studio debate (Team)
 - [x] Teammate's VYBE frontend merged, with the `/ws` backend (Claude)
 - [x] Light mode as primary, venue-colour glow on cards (Claude)
 - [ ] Brand colours from each venue's website (Mistral)
 - [ ] Location from the browser sent to `/ws` (Team)
 - [ ] Voiceover playback with mute (Claude)
 
-## Demo (now)
+## Demo
 - [ ] Deploy Vybe to Railway automatically from main (Team)
 - [ ] Verify the Railway frontend connects to the same-domain WebSocket (Team)
 - [ ] Verify the Railway deployment on a phone (Team)

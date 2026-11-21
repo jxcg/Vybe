@@ -153,6 +153,17 @@ def to_rows(
             leave_by = starts - timedelta(minutes=c["walk_mins"] + 5)
         allday = c.get("opens") == c.get("closes")
         price = extra.get("price", c.get("price"))
+        cached_theme = extra.get("theme")
+        theme = cached_theme if isinstance(cached_theme, dict) else {}
+        photo_url = theme.get("image_url")
+        photo_credit = theme.get("image_credit")
+        has_photo = (
+            theme.get("mode") == "photo"
+            and isinstance(photo_url, str)
+            and photo_url.startswith("https://")
+            and isinstance(photo_credit, str)
+            and bool(photo_credit.strip())
+        )
         rows.append(
             {
                 "id": c["id"],
@@ -185,8 +196,10 @@ def to_rows(
                 "score": round(c["match"] / 10, 1),
                 "pick": None,
                 "reasons": [{"icon": _icon(r), "text": r} for r in c["reasons"]][:3],
-                "photo_url": None,
-                "colors": venue_colors(extra.get("brand_color")),
+                "photo_url": photo_url if has_photo else None,
+                "google_place_photo": c.get("source") == "Google Places",
+                "photo_credit": photo_credit if has_photo else None,
+                "colors": venue_colors(theme.get("base") or extra.get("brand_color")),
                 "pitch": extra.get("deal") or extra.get("script") or "",
                 "voiceover_url": _voiceover_url(extra.get("voiceover")),
                 # Only bookable things get a Book button; walk-ins get Directions

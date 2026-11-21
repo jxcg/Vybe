@@ -282,8 +282,6 @@ def build_theme(
 ) -> dict[str, Any]:
     """theme = {mode, image_url, crop, colors[], base, overlay_strength}."""
     chosen = next((c for c in candidates if verdict.use_image and c.url == verdict.image_url), None)
-    if verdict.use_image and chosen is None and candidates:
-        chosen = candidates[0]
     if chosen is None:
         return {
             "mode": "gradient",
@@ -318,6 +316,7 @@ def build_theme(
     return {
         "mode": "photo",
         "image_url": chosen.url,
+        "image_credit": urlparse(chosen.url).hostname,
         "crop": crop,
         "colors": pal["colors"],
         "base": pal["base"],
@@ -371,39 +370,48 @@ async def _argue(name: str, stance: str, venue: str, cand: ImageCandidate) -> Ar
     return Argument(stance=stance, points=[str(getattr(state, "text", "") or "no argument")])
 
 
-async def judge(venue: str, cand: ImageCandidate, pro: Argument, con: Argument) -> JudgeVerdict:
+async def judge(venue: str, debates: list[tuple[str, Argument, Argument]]) -> JudgeVerdict:
     agent = agents.Agent(
         model=JUDGE_MODEL,
         name="theme-judge",
         instructions=(
-            f"Judge a design debate for a Vybe card about '{venue}'. Pro and Con argued about "
-            f"using this image: {cand.url}. Decide use_image yes/no (ties go to no), which image "
-            "(the url), and a one-line reason. Answer only with the schema."
+            "Judge the visual suitability of the candidates for this Vybe card. "
+            "Choose one listed URL or reject all candidates. Ties go to rejection. "
+            "Give a one-line reason and answer only with the schema."
         ),
         output_type=JudgeVerdict,
     )
-    prompt = f"PRO ({pro.stance}): {pro.points}\nCON ({con.stance}): {con.points}"
-    state = await agent.run(prompt, timeout=60)
+    prompt = "\n\n".join(
+        f"Candidate: {url}\nPro: {pro.points}\nCon: {con.points}" for url, pro, con in debates
+    )
+    state = await agent.run(f"Venue: {venue}\n\n{prompt}", timeout=60)
     out = getattr(state, "output", None)
     if isinstance(out, JudgeVerdict):
         return out
-    return JudgeVerdict(use_image=False, reason="judge failed to parse; gradient mode")
+    return JudgeVerdict(use_image=False, reason="Judge output was invalid. Using a gradient.")
 
 
 async def pick_image(venue: str, candidates: list[ImageCandidate]) -> JudgeVerdict:
-    """Pro ∥ Con per candidate, then a judge; best candidate wins, else gradient mode."""
-    if not candidates:
-        return JudgeVerdict(use_image=False, reason="no image candidates passed the pre-filter")
-    verdicts: list[JudgeVerdict] = []
-    for cand in candidates:
-        pro, con = await asyncio.gather(
-            _argue("theme-pro", "pro", venue, cand), _argue("theme-con", "con", venue, cand)
+    """Run both sides for each candidate concurrently and ask one judge."""
+    shortlist = candidates[:MAX_CANDIDATES]
+    if not shortlist:
+        return JudgeVerdict(use_image=False, reason="No image passed the pre-filter.")
+
+    arguments = await asyncio.gather(
+        *(
+            _argue(f"theme-{stance}", stance, venue, candidate)
+            for candidate in shortlist
+            for stance in ("pro", "con")
         )
-        verdicts.append(await judge(venue, cand, pro, con))
-    best = next((v for v in verdicts if v.use_image and v.image_url), None)
-    if best:
-        return best
-    return JudgeVerdict(use_image=False, reason="judge rejected every candidate; gradient mode")
+    )
+    debates = [
+        (candidate.url, arguments[index * 2], arguments[index * 2 + 1])
+        for index, candidate in enumerate(shortlist)
+    ]
+    verdict = await judge(venue, debates)
+    if verdict.use_image and any(candidate.url == verdict.image_url for candidate in shortlist):
+        return verdict
+    return JudgeVerdict(use_image=False, reason=f"{verdict.reason} Using a gradient.".strip())
 
 
 # --- network (mocked in tests) ---------------------------------------------------------

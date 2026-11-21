@@ -62,6 +62,8 @@ export interface Row {
   /** at most 3 */
   reasons: Reason[];
   photo_url: string | null;
+  photo_credit?: string | null;
+  google_place_photo?: boolean;
   colors: VenueColors | null;
   pitch: string;
   voiceover_url: string | null;

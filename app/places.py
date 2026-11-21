@@ -177,3 +177,40 @@ def to_item(place: dict[str, Any], now: datetime) -> dict[str, Any] | None:
         "maps_url": place.get("googleMapsUri"),
         "source": "Google Places",
     }
+
+
+def featured_photo(place_id: str) -> dict[str, Any] | None:
+    """Resolve a fresh photo for a venue from the current nearby results."""
+    key = api_key()
+    if not key or not any(
+        time.time() - fetched_at < CACHE_TTL and any(place["id"] == place_id for place in results)
+        for fetched_at, results in _cache.values()
+    ):
+        return None
+    headers = {"X-Goog-Api-Key": key}
+    details = httpx.get(
+        f"{API}/{place_id}",
+        headers={**headers, "X-Goog-FieldMask": "photos,googleMapsUri"},
+        timeout=5,
+    )
+    details.raise_for_status()
+    place = details.json()
+    for photo in place.get("photos", [])[:3]:
+        name = photo.get("name", "")
+        if photo.get("widthPx", 0) < 1080 or not name.startswith(f"places/{place_id}/photos/"):
+            continue
+        media = httpx.get(
+            f"https://places.googleapis.com/v1/{name}/media",
+            headers=headers,
+            params={"maxWidthPx": 1440, "skipHttpRedirect": "true"},
+            timeout=5,
+        )
+        media.raise_for_status()
+        url = media.json().get("photoUri")
+        if isinstance(url, str) and url.startswith("https://"):
+            return {
+                "url": url,
+                "authors": photo.get("authorAttributions", []),
+                "source_url": photo.get("googleMapsUri") or place.get("googleMapsUri"),
+            }
+    return None

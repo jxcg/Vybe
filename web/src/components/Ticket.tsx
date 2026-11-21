@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Bookmark, ChevronLeft, Navigation, Pause, Ticket as TicketIcon, Volume2, X } from 'lucide-react';
+import { usePlacePhoto } from '../lib/placePhoto';
 import type { Row } from '../contract';
 import { ago, formatPrice, hostname, when } from '../lib/format';
 import { formatHM, MINUTE } from '../lib/time';
@@ -55,8 +56,10 @@ interface Props {
 export function Ticket({ row, next, nowMs, student, liked, onBack, onNext, onLike, onSkip }: Props) {
   const colors = useVenueColors(row);
   // Photo layout only once the image has actually loaded; otherwise the poster.
-  const [photo, setPhoto] = useState<'loading' | 'ok' | 'failed'>(row.photo_url ? 'loading' : 'failed');
-  const isPhoto = photo === 'ok';
+  const { url: photoUrl, google } = usePlacePhoto(row);
+  const [loadedPhoto, setLoadedPhoto] = useState<string | null>(null);
+  const [failedPhoto, setFailedPhoto] = useState<string | null>(null);
+  const isPhoto = Boolean(photoUrl && photoUrl === loadedPhoto);
 
   const minsToLeave = (Date.parse(row.leave_by) - nowMs) / MINUTE;
   const urgency = Math.min(1, Math.max(0, (DARKEN_WINDOW_MIN - minsToLeave) / DARKEN_WINDOW_MIN));
@@ -74,13 +77,13 @@ export function Ticket({ row, next, nowMs, student, liked, onBack, onNext, onLik
       data-ticket-id={row.id}
     >
       <div className="ticket-media">
-        {row.photo_url && photo !== 'failed' && (
+        {photoUrl && photoUrl !== failedPhoto && (
           <img
             className="ticket-photo"
-            src={row.photo_url}
+            src={photoUrl}
             alt=""
-            onLoad={() => setPhoto('ok')}
-            onError={() => setPhoto('failed')}
+            onLoad={() => setLoadedPhoto(photoUrl)}
+            onError={() => setFailedPhoto(photoUrl)}
           />
         )}
 
@@ -115,6 +118,18 @@ export function Ticket({ row, next, nowMs, student, liked, onBack, onNext, onLik
             </>
           )}
         </p>
+        {isPhoto && google && (
+          <p className="card-photo-credit">
+            {google.source_url ? <a href={google.source_url} target="_blank" rel="noreferrer">Google Maps</a> : 'Google Maps'}
+            {google.authors.map((author) => (
+              <span key={author.uri ?? author.displayName}>
+                {' · '}
+                {author.uri ? <a href={author.uri} target="_blank" rel="noreferrer">{author.displayName}</a> : author.displayName}
+              </span>
+            ))}
+          </p>
+        )}
+        {isPhoto && !google && row.photo_credit && <p className="card-photo-credit">Photo · {row.photo_credit}</p>}
         {row.pitch && <p className="ticket-pitch">{row.pitch}</p>}
         {row.reasons.length > 0 && (
           <ul className="ticket-chips">
