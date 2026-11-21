@@ -20,6 +20,7 @@ export interface OpenTicket {
   id: string;
   x: number;
   y: number;
+  radioAudio?: HTMLAudioElement;
 }
 
 export interface Toast {

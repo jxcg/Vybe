@@ -17,21 +17,33 @@ const DARKEN_MAX = 0.04;
 const DARKEN_WINDOW_MIN = 30;
 
 /** Plays the card's Voxtral voiceover (mp3 from the pipeline). One tap plays, another stops. */
-function VoiceoverButton({ url }: { url: string }) {
-  const audio = useRef<HTMLAudioElement | null>(null);
-  const [playing, setPlaying] = useState(false);
-  useEffect(() => () => audio.current?.pause(), []); // stop when the ticket closes
+function VoiceoverButton({ url, startedAudio }: { url: string; startedAudio?: HTMLAudioElement }) {
+  const audio = useRef<HTMLAudioElement | null>(startedAudio ?? null);
+  const [playing, setPlaying] = useState(() => Boolean(startedAudio && !startedAudio.paused));
+
+  useEffect(() => () => audio.current?.pause(), []);
+
+  const observe = (element: HTMLAudioElement) => {
+    element.onplay = () => setPlaying(true);
+    element.onpause = () => setPlaying(false);
+    element.onended = () => setPlaying(false);
+    element.onerror = () => setPlaying(false);
+  };
+
+  useEffect(() => {
+    if (startedAudio) observe(startedAudio);
+  }, [startedAudio]);
+
   const toggle = () => {
     if (!audio.current) {
       audio.current = new Audio(url);
-      audio.current.onended = () => setPlaying(false);
+      observe(audio.current);
     }
-    if (playing) {
+    if (!audio.current.paused) {
       audio.current.pause();
       audio.current.currentTime = 0;
-      setPlaying(false);
     } else {
-      void audio.current.play().then(() => setPlaying(true), () => setPlaying(false));
+      void audio.current.play().catch(() => setPlaying(false));
     }
   };
   return (
@@ -43,6 +55,7 @@ function VoiceoverButton({ url }: { url: string }) {
 
 interface Props {
   row: Row;
+  radioAudio?: HTMLAudioElement;
   next: Row | null;
   nowMs: number;
   student: boolean;
@@ -53,7 +66,7 @@ interface Props {
   onSkip: () => void;
 }
 
-export function Ticket({ row, next, nowMs, student, liked, onBack, onNext, onLike, onSkip }: Props) {
+export function Ticket({ row, radioAudio, next, nowMs, student, liked, onBack, onNext, onLike, onSkip }: Props) {
   // Photo layout only once the image has actually loaded; otherwise the poster.
   const { url: photoUrl, google } = usePlacePhoto(row);
   const [loadedPhoto, setLoadedPhoto] = useState<string | null>(null);
@@ -65,6 +78,7 @@ export function Ticket({ row, next, nowMs, student, liked, onBack, onNext, onLik
   const urgency = Math.min(1, Math.max(0, (DARKEN_WINDOW_MIN - minsToLeave) / DARKEN_WINDOW_MIN));
   const deep = isPhoto ? colors.deep : darken(colors.deep, DARKEN_MAX * urgency);
 
+  const voiceoverUrl = radioAudio?.src || row.voiceover_url;
   const rating = formatRating(row.rating);
   const price = formatPrice(row, student);
   const directions = `https://www.google.com/maps/dir/?api=1&destination=${row.lat},${row.lng}&travelmode=walking`;
@@ -95,7 +109,7 @@ export function Ticket({ row, next, nowMs, student, liked, onBack, onNext, onLik
         <button type="button" className="ticket-circle" aria-label="Back to the board" onClick={onBack}>
           <ChevronLeft size={20} strokeWidth={2} aria-hidden="true" />
         </button>
-        {row.voiceover_url && <VoiceoverButton url={row.voiceover_url} />}
+        {voiceoverUrl && <VoiceoverButton key={radioAudio ? 'radio' : voiceoverUrl} url={voiceoverUrl} startedAudio={radioAudio} />}
       </div>
 
       {/* Classic "For You" layout: badge, name, scores, chips, then a big leave-by with Directions. */}
