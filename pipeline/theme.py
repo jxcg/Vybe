@@ -12,12 +12,16 @@ import ipaddress
 import re
 import socket
 from contextlib import suppress
-from typing import Any
+from io import BytesIO
+from typing import Any, cast
 from urllib.parse import urljoin, urlparse
 
 import httpx
 from mistralai import agents
+from PIL import Image
 from pydantic import BaseModel, Field
+
+from app.colors import venue_colors
 
 VISION_MODEL = "mistral-large-4"  # pro/con look at the image
 JUDGE_MODEL = "mistral-medium-latest"  # judge reads the arguments
@@ -278,6 +282,55 @@ def palette(
     }
 
 
+def photo_readability(
+    data: bytes, website_colors: list[tuple[int, int, int]]
+) -> dict[str, Any] | None:
+    """Choose a photo-led palette and the shortest readable fade from sampled pixels."""
+    try:
+        with Image.open(BytesIO(data)) as source:
+            if source.width * source.height > 16_000_000:
+                return None
+            sample = source.convert("RGB").resize((48, 48))
+    except (OSError, ValueError, Image.DecompressionBombError):
+        return None
+    quantized = sample.quantize(colors=8).convert("RGB")
+    swatches = sorted(
+        cast(list[tuple[int, tuple[int, int, int]]], quantized.getcolors()), reverse=True
+    )
+    photo_colors = [rgb for _, rgb in swatches if max(rgb) - min(rgb) >= 24]
+    pal = palette(
+        photo_colors or website_colors, preferred=photo_colors[0] if photo_colors else None
+    )
+    colors = venue_colors(pal["colors"][0] if pal["colors"] else "#3f3a31")
+    assert colors is not None
+    base = _parse_color(colors["deep"])
+    text = _parse_color(colors["light"])
+    assert base is not None and text is not None
+
+    # Bright channels from the whole sample also cover crops that move the fade area.
+    pixels = cast(list[tuple[int, tuple[int, int, int]]], sample.getcolors(maxcolors=48 * 48))
+    brightest = tuple(max(rgb[channel] for _, rgb in pixels) for channel in range(3))
+    # Reach AA by 80% of the photo. The layout keeps copy below the completed fade.
+    for start in (60, 50, 40, 30, 20, 10, 0):
+        alpha = (80 - start) / (100 - start)
+        r, g, b = (
+            round(raw * (1 - alpha) + dark * alpha)
+            for raw, dark in zip(brightest, base, strict=True)
+        )
+        ratio = contrast(text, (r, g, b))
+        if ratio >= 4.5:
+            return {**pal, "base": colors["deep"], "fade_start": start, "contrast": round(ratio, 2)}
+    return None
+
+
+async def read_photo_theme(url: str, colors: list[tuple[int, int, int]]) -> dict[str, Any] | None:
+    with suppress(httpx.HTTPError, ValueError):
+        return await asyncio.to_thread(
+            photo_readability, await _safe_get(url, 8 * 1024 * 1024), colors
+        )
+    return None
+
+
 def build_theme(
     verdict: "JudgeVerdict", pal: dict[str, Any], candidates: list[ImageCandidate]
 ) -> dict[str, Any]:
@@ -435,7 +488,7 @@ def _host_public(host: str) -> bool:
 async def _safe_get(url: str, cap: int) -> bytes:
     """GET with manual redirects (each hop host-checked), reading at most `cap` bytes.
 
-    200 KB is plenty for HTML, 64 KB for image headers — never download whole images.
+    Callers use small limits for HTML and headers, and a bounded limit for the selected photo.
     """
     async with httpx.AsyncClient(timeout=10, follow_redirects=False) as client:
         for _ in range(4):
@@ -450,12 +503,12 @@ async def _safe_get(url: str, cap: int) -> bytes:
                     url = urljoin(url, location)
                     continue
                 r.raise_for_status()
-                data = b""
+                data = bytearray()
                 async for chunk in r.aiter_bytes(16384):
-                    data += chunk
-                    if len(data) > cap:
+                    data.extend(chunk[: cap - len(data)])
+                    if len(data) == cap:
                         break
-                return data
+                return bytes(data)
     raise ValueError("too many redirects")
 
 
@@ -528,8 +581,21 @@ async def theme_item(item: dict[str, Any]) -> dict[str, Any]:
     ]
     shortlist = prefilter(candidates) or prefilter(cands)
     verdict = await pick_image(venue, shortlist)
-    pal = palette(css_colors(*texts), preferred=declared)
+    site_colors = css_colors(*texts)
+    pal = palette(site_colors, preferred=declared)
+    reviewed = None
+    if verdict.use_image and verdict.image_url:
+        reviewed = await read_photo_theme(verdict.image_url, site_colors)
+        if reviewed is None:
+            verdict = JudgeVerdict(
+                use_image=False, reason="The photo did not pass the readability check."
+            )
+        else:
+            pal = reviewed
     theme = build_theme(verdict, pal, shortlist)
+    if reviewed is not None and theme["mode"] == "photo":
+        theme["fade_start"] = reviewed["fade_start"]
+        theme["contrast"] = reviewed["contrast"]
     for photo in google:
         if theme["image_url"] == photo["url"]:
             theme["image_url"] = None

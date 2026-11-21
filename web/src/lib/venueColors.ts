@@ -57,7 +57,9 @@ function extract(url: string): Promise<void> {
 
 /** Server colours → colours extracted from the photo → category fallback. */
 export function useVenueColors(row: Row, displayedPhoto?: string | null): VenueColors {
-  const url = displayedPhoto === undefined ? (row.colors ? null : row.photo_url) : displayedPhoto;
+  const url = displayedPhoto === undefined || row.photo_fade_start != null
+    ? (row.colors ? null : row.photo_url)
+    : displayedPhoto;
   const [, refresh] = useReducer((n: number) => n + 1, 0);
 
   useEffect(() => {
@@ -73,6 +75,11 @@ export function useVenueColors(row: Row, displayedPhoto?: string | null): VenueC
 }
 
 /** CSS custom properties that put a subtree into the venue's colour world. */
-export function venueStyle(c: VenueColors): CSSProperties {
-  return { '--deep': c.deep, '--soft': c.soft, '--light': c.light } as CSSProperties;
+export function venueStyle(c: VenueColors, photoFadeStart?: number | null): CSSProperties {
+  return {
+    '--deep': c.deep,
+    '--soft': c.soft,
+    '--light': c.light,
+    '--photo-fade-start': photoFadeStart == null ? undefined : `${photoFadeStart}%`,
+  } as CSSProperties;
 }

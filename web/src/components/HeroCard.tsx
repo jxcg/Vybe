@@ -55,7 +55,7 @@ export function HeroCard({ row, nowMs, student, onOpen }: Props) {
     <button
       className={`hero-card${isPhoto ? ' hero-card--photo' : ''}${row.score >= TOP_SCORE ? ' is-top' : ''}`}
       type="button"
-      style={venueStyle(colors)}
+      style={venueStyle(colors, row.photo_fade_start)}
       data-row-id={row.id}
       onClick={(e) => onOpen(row, e)}
     >
