@@ -18,6 +18,7 @@ Put `(now)` after the milestone being worked on. Owners: (Claude), (Mistral), (T
 - [ ] Return to Vybe setup with Reset & redo (Team)
 - [x] Apply explicit activity requests, exclusions, and budgets reliably (Team)
 - [ ] Search for pizza and comedy directly when requested (Team)
+- [ ] Search each board category and supported activity directly when selected (Team)
 - [x] Match specific typed and spoken requests to venue evidence (Team)
 - [ ] Show current conditions and temperature beside the board location (Team)
 - [ ] Open the board on a saved interest, group additional results, and mark short lists (Team)

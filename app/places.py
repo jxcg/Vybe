@@ -7,7 +7,7 @@ from typing import Any
 
 import httpx
 
-from app.categories import google_kind, tags_for
+from app.categories import GOOGLE, google_kind, tags_for
 
 API = "https://places.googleapis.com/v1/places"
 FIELDS = ",".join(
@@ -43,9 +43,28 @@ SEARCHES = {
     "food_deal": ["restaurant", "cafe", "dessert_shop"],
 }
 REQUEST_SEARCHES = {
-    "pizza": ("pizza_restaurant", "food_deal"),
-    "comedy": ("comedy_club", "activity"),
+    "pizza": (["pizza_restaurant"], "food_deal"),
+    "sushi": (["sushi_restaurant"], "food_deal"),
+    "ramen": (["ramen_restaurant"], "food_deal"),
+    "ice cream": (["ice_cream_shop"], "food_deal"),
+    "comedy": (["comedy_club"], "activity"),
+    "dancing": (["night_club"], "activity"),
+    "film": (["movie_theater"], "activity"),
+    "karaoke": (["karaoke"], "activity"),
+    "music": (["live_music_venue", "concert_hall"], "activity"),
+    "bowling": (["bowling_alley"], "activity"),
 }
+GROUP_SEARCHES = {
+    group: ([t for t, kind in GOOGLE.items() if kind.group == group], vtype)
+    for group, vtype in (
+        ("Food", "food_deal"),
+        ("Drinks", "activity"),
+        ("Entertainment", "activity"),
+        ("Culture", "activity"),
+        ("Outdoors", "activity"),
+    )
+}
+FOCUSED_SEARCHES = {**REQUEST_SEARCHES, **GROUP_SEARCHES}
 PRICE_LEVELS = {
     "PRICE_LEVEL_FREE": 1,
     "PRICE_LEVEL_INEXPENSIVE": 1,
@@ -95,7 +114,9 @@ def _post(endpoint: str, body: dict[str, Any], fields: str) -> list[dict[str, An
     return places
 
 
-def _search(lat: float, lng: float, types: list[str], kind: str) -> list[dict[str, Any]]:
+def _search(
+    lat: float, lng: float, types: list[str], kind: str, *, closest: bool = False
+) -> list[dict[str, Any]]:
     body = {
         "includedTypes": types,
         "maxResultCount": 20,
@@ -103,6 +124,8 @@ def _search(lat: float, lng: float, types: list[str], kind: str) -> list[dict[st
             "circle": {"center": {"latitude": lat, "longitude": lng}, "radius": 1500.0}
         },
     }
+    if closest:
+        body["rankPreference"] = "DISTANCE"
     return [{**place, "_kind": kind} for place in _post("searchNearby", body, FIELDS)]
 
 
@@ -125,15 +148,16 @@ def nearby(lat: float, lng: float) -> list[dict[str, Any]]:
 def requested_nearby(lat: float, lng: float, terms: set[str]) -> list[dict[str, Any]]:
     """Give each supported request its own result limit, including mixed requests."""
     results = []
-    for term in sorted(terms & REQUEST_SEARCHES.keys()):
+    scopes = {"Food" if term == "food" else term for term in terms}
+    for term in sorted(scopes & FOCUSED_SEARCHES.keys()):
         key = (round(lat, 2), round(lng, 2), term)
         hit = _request_cache.get(key)
         if hit and time.time() - hit[0] < CACHE_TTL:
             results.extend(hit[1])
             continue
-        place_type, kind = REQUEST_SEARCHES[term]
+        types, kind = FOCUSED_SEARCHES[term]
         try:
-            found = _search(lat, lng, [place_type], kind)
+            found = _search(lat, lng, types, kind, closest=term in GROUP_SEARCHES)
         except httpx.HTTPError:
             continue  # the ordinary feed and other requested activities are still usable
         _request_cache[key] = (time.time(), found)
