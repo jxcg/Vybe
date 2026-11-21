@@ -205,6 +205,9 @@ export function TicketStack({ open }: { open: OpenTicket }) {
   };
 
   return (
+    <>
+    {/* Desktop: clicking the dimmed board around the panel closes it, instead of reaching the cards below */}
+    <div className="ticket-backdrop" aria-hidden="true" onClick={back} />
     <div
       ref={stackRef}
       className="ticket-stack"
@@ -230,5 +233,6 @@ export function TicketStack({ open }: { open: OpenTicket }) {
         />
       ))}
     </div>
+    </>
   );
 }
