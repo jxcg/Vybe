@@ -179,12 +179,12 @@ def test_run_orchestrator_returns_empty_on_bad_answer(monkeypatch: pytest.Monkey
     assert asyncio.run(agents.run_orchestrator(51.5, -0.1, [], "now")) == {}
 
 
-def test_refresh_starts_theme_workflow_after_writing_enrichment(
+def test_refresh_starts_child_workflows_after_writing_enrichment(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from pipeline import theme_wf
+    from pipeline import theme_wf, voiceover_wf
 
-    saved: list[bool] = []
+    calls: list[str] = []
 
     async def fetch(lat: float, lng: float) -> list[dict[str, Any]]:
         return [{"id": "venue"}]
@@ -193,14 +193,19 @@ def test_refresh_starts_theme_workflow_after_writing_enrichment(
         return {}
 
     async def write(items: list[dict[str, Any]], claims: dict[str, Any]) -> dict[str, Any]:
-        saved.append(True)
+        calls.append("enrichment")
         return {"venues": 1}
 
-    async def start(child: Any, *, params: Any) -> dict[str, Any]:
-        assert saved == [True]
-        assert child is theme_wf.VybeTheme
+    async def start(child: Any, *, params: Any, wait: bool = True) -> dict[str, Any]:
         assert (params.lat, params.lng) == (51.5, -0.1)
-        return {"themed": 1}
+        if child is theme_wf.VybeTheme:
+            assert wait
+            calls.append("themes")
+            return {"themed": 1}
+        assert child is voiceover_wf.VybeVoiceover
+        assert not wait
+        calls.append("voiceovers")
+        return {}
 
     monkeypatch.setattr(refresh, "fetch_venues", fetch)
     monkeypatch.setattr(refresh, "orchestrate", enrich)
@@ -209,3 +214,4 @@ def test_refresh_starts_theme_workflow_after_writing_enrichment(
     assert asyncio.run(refresh.VybeRefresh().run({"lat": 51.5, "lng": -0.1})) == {
         "result": {"venues": 1, "themed": 1},
     }
+    assert calls == ["enrichment", "themes", "voiceovers"]

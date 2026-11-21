@@ -44,7 +44,7 @@ def fallback_script(item: dict[str, Any], extra: dict[str, Any]) -> str:
     walk = item.get("walk_mins")
     if deal:
         return f"{deal}! {name}" + (f", {walk} minutes away." if walk else ".")
-    return f"{name} is open now" + (f" — {walk} minutes away." if walk else ".")
+    return f"Tonight's pick is {name}."
 
 
 def _voiceovers_dir() -> Path:

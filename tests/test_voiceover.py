@@ -8,13 +8,13 @@ import pytest
 from pipeline import voiceover
 
 
-def test_fallback_script_under_15_words_and_says_why_now() -> None:
+def test_fallback_script_names_the_venue_without_assuming_it_is_open() -> None:
     item = {"id": "x", "name": "Noodle Bar", "walk_mins": 6}
     assert voiceover.fallback_script(item, {"deal": "2-for-1 bowls until 9pm"}) == (
         "2-for-1 bowls until 9pm! Noodle Bar, 6 minutes away."
     )
     s = voiceover.fallback_script(item, {})
-    assert s == "Noodle Bar is open now — 6 minutes away."
+    assert s == "Tonight's pick is Noodle Bar."
     assert (
         len(
             voiceover.fallback_script(
@@ -62,7 +62,7 @@ def test_make_voiceovers_writes_mp3_and_mapping(
     mapping = asyncio.run(voiceover.make_voiceovers(items, enriched, tmp_path))
     assert mapping == {"a": "data/voiceovers/a.mp3", "b": "data/voiceovers/b.mp3"}
     assert (tmp_path / "a.mp3").read_bytes().startswith(b"ID3Two-for-one")
-    assert (tmp_path / "b.mp3").read_bytes().startswith(b"ID3B is open")
+    assert (tmp_path / "b.mp3").read_bytes().startswith(b"ID3Tonight")
 
 
 def test_make_voiceovers_survives_one_tts_failure(

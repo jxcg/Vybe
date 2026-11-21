@@ -41,6 +41,7 @@ Put `(now)` after the milestone being worked on. Owners: (Claude), (Mistral), (T
 - [ ] Open the board when Enter submits a typed prompt (Team)
 - [ ] Open board settings from one full-width Change your vibe button (Team)
 - [x] Reveal a pick from the board with the Voxtral radio host (Team)
+- [ ] Match fallback intros to activity categories and generate venue clips on refresh (Team)
 - [ ] `text_to_filters` and transcripts from Voxtral (Mistral)
 
 ## Background refresh

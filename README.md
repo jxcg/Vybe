@@ -18,9 +18,11 @@ Venue cards use colours sourced from each venue's website where available.
 
 ## Powered by Mistral
 
-A Mistral Workflow refreshes venues, events and deals a few times a day. Inside it, a Scout agent looks for tonight's events and deals. An Enricher turns each venue into a card with a short voiceover script and its brand colour. A Verifier drops fake discounts and wrong prices before anyone sees them.
+- **Area refresh (`vybe-refresh`)** fetches venues, runs Scout, Enricher and Verifier, and saves verified event and deal details.
+- **Venue themes (`vybe-theme` and `vybe-theme-item`)** choose photos and colours in the background. The area refresh starts this workflow.
+- **Voxtral voiceovers (`vybe-voiceover`)** generate short venue clips after the theme workflow. Surprise me and the ticket's play button share the cached clips. Surprise me rotates through short Oliver lines for the activity’s category when a venue clip is unavailable or was just played.
 
-Voxtral handles voice. It turns what you say into filters for the board, and it reads out the voiceovers.
+The board ranks and selects activities in code. Voxtral also turns spoken requests into filters.
 
 Built with the Mistral Vibe CLI for the Mistral Vibe Hackathon 2026, London.
 
