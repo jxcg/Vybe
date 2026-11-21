@@ -30,6 +30,7 @@ def rank(
     student: bool = False,
     adult: bool = True,
     liked: frozenset[str] = frozenset(),
+    raining: bool = False,
 ) -> list[dict[str, Any]]:
     liked_tags = {t for i in items if i["id"] in liked for t in i["tags"]}
     cards = []
@@ -47,16 +48,19 @@ def rank(
 
         overlap = len(liked_tags & set(item["tags"])) / max(len(item["tags"]), 1)
         student_deal = student and item["student_price"]
+        outdoors = "outdoors" in item["tags"]
         score = (
             item["rating"] / 5 * 3
             + (budget - item["price_level"] + 1) / budget * 2
             + (0.5 if student_deal else 0)
             + max(0.0, 1 - item["walk_mins"] / 30) * 2
             + overlap * 2.5
+            + (-1.5 if raining and outdoors else 0)
         )
 
         reasons = [
             "Open now" if opens <= now else f"Opens {opens:%H:%M}",
+            "Indoors, it's raining" if raining and not outdoors else None,
             "Student price" if student_deal else "Within budget",
             "Matches your likes" if overlap else None,
             "Short walk" if item["walk_mins"] <= 10 else None,

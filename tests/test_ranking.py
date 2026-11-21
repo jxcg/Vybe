@@ -1,8 +1,16 @@
+import json
 from datetime import datetime
+from pathlib import Path
 from typing import Any
 
-from app.main import load_items
 from app.ranking import rank
+
+
+def load_items() -> list[dict[str, Any]]:
+    data: list[dict[str, Any]] = json.loads(
+        (Path(__file__).parent / "items_fixture.json").read_text()
+    )
+    return data
 
 
 def at(hour: int, minute: int = 0, day: int = 21) -> datetime:
@@ -44,3 +52,10 @@ def test_like_boosts_similar() -> None:
     liked = by_id(rank(load_items(), at(18), liked=frozenset({"bowl-1"})))
     assert liked["climb-1"]["score"] > base["climb-1"]["score"]  # shares "active"
     assert "Matches your likes" in liked["climb-1"]["reasons"]
+
+
+def test_rain_sinks_outdoor_places() -> None:
+    dry = by_id(rank(load_items(), at(12)))
+    wet = by_id(rank(load_items(), at(12), raining=True))
+    assert wet["park-1"]["score"] < dry["park-1"]["score"]
+    assert "Indoors, it's raining" in wet["bowl-1"]["reasons"]

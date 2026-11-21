@@ -118,7 +118,8 @@ Do not add any attribution footer (e.g. "Generated with ...") to the PR body.
 ## Run locally
 
 ```sh
-uv run uvicorn app.main:app --reload   # http://localhost:8000
+cp .env.example .env   # once, then add keys (optional: no key = sample data)
+uv run --env-file .env uvicorn app.main:app --reload   # http://localhost:8000
 uv run pytest
 uv run ruff format . && uv run ruff check . && uv run mypy app tests   # run before every commit
 ```

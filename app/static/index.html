@@ -34,9 +34,40 @@
 
     function Setup({ onDone }) {
       const [p, setP] = React.useState({ budget: 2, student: false, adult: true });
+      const [where, setWhere] = React.useState("");
+      const [status, setStatus] = React.useState("");
+
+      function useMyLocation() {
+        if (!navigator.geolocation) return setStatus("Location isn't available here, type it instead.");
+        setStatus("Finding you…");
+        navigator.geolocation.getCurrentPosition(
+          pos => { setP(p => ({ ...p, lat: pos.coords.latitude, lng: pos.coords.longitude })); setStatus("📍 Using your location"); },
+          () => setStatus("Location blocked, type a postcode or area instead."),
+          { timeout: 10000 },
+        );
+      }
+
+      async function lookUp() {
+        setStatus("Looking up…");
+        const res = await fetch(`/api/geocode?${new URLSearchParams({ q: where })}`);
+        if (!res.ok) return setStatus("Couldn't find that, try a postcode like SE1.");
+        const { lat, lng } = await res.json();
+        setP(p => ({ ...p, lat, lng }));
+        setStatus(`📍 Using ${where}`);
+      }
+
+      React.useEffect(useMyLocation, []);
+
       return html`
         <form class="setup" onSubmit=${e => { e.preventDefault(); onDone(p); }}>
           <h1>Vybe</h1>
+          <button type="button" onClick=${useMyLocation}>Use my location</button>
+          <div>
+            <input placeholder="Or a postcode or area, e.g. SE1" value=${where}
+              onInput=${e => setWhere(e.target.value)} />
+            <button type="button" onClick=${lookUp} disabled=${where.trim().length < 2}>Find</button>
+          </div>
+          <div aria-live="polite">${status}</div>
           <label>Budget
             <select value=${p.budget} onChange=${e => setP({ ...p, budget: +e.target.value })}>
               <option value="1">£</option><option value="2">££</option><option value="3">£££</option>
@@ -55,10 +86,12 @@
         <section class="card">
           <div>${BADGES[c.badge]}</div>
           <h2 style=${{ margin: 0 }}>${c.name}</h2>
-          <div>${c.score}/10 · ${c.walk_mins} min walk · ${c.price ? `£${c.price.toFixed(2)}` : "Free"}</div>
+          <div>${c.score}/10 · ${c.walk_mins} min walk · ${c.price === 0 ? "Free" : c.price ? `£${c.price.toFixed(2)}` : "£".repeat(c.price_level)}</div>
           <div class="chips">${c.reasons.map(r => html`<span key=${r}>${r}</span>`)}</div>
           <div>Leave by <strong>${c.leave_by}</strong></div>
           <button onClick=${onLike} aria-pressed=${liked}>${liked ? "♥ Liked" : "♡ Like"}</button>
+          ${c.maps_url && html`<a href=${c.maps_url} target="_blank" rel="noopener">Directions ↗</a>`}
+          <small>${c.source}</small>
         </section>`;
     }
 
