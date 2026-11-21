@@ -1,15 +1,15 @@
 import { useState } from 'react';
 import { Bookmark, ChevronLeft, Navigation, Ticket as TicketIcon, X } from 'lucide-react';
 import type { Row } from '../contract';
-import { ago, CATEGORY_LABEL, formatPrice, hostname } from '../lib/format';
+import { ago, formatPrice, hostname } from '../lib/format';
 import { formatHM, MINUTE } from '../lib/time';
 import { darken, useVenueColors, venueStyle } from '../lib/venueColors';
 import { Grain } from './Grain';
 import { NextStrip } from './NextStrip';
 import { ReasonIcon } from './ReasonIcon';
-import { ScoreRing } from './ScoreRing';
 import { StatusText } from './StatusText';
 import './Ticket.css';
+import './TicketClassic.css';
 
 /** Poster tickets darken by up to this much OKLCH lightness over the last half hour before leave time. */
 const DARKEN_MAX = 0.04;
@@ -58,12 +58,7 @@ export function Ticket({ row, next, nowMs, student, liked, onBack, onNext, onLik
             onError={() => setPhoto('failed')}
           />
         )}
-        {!isPhoto && (
-          <div className="ticket-poster ticket-fade">
-            <span className="ticket-poster-label">{row.departure_label}</span>
-            <span className="ticket-poster-time tnum">{formatHM(row.departure_time)}</span>
-          </div>
-        )}
+
       </div>
       <Grain />
 
@@ -74,66 +69,40 @@ export function Ticket({ row, next, nowMs, student, liked, onBack, onNext, onLik
         {/* TODO(P4): Volume2 circle that plays voiceover_url through the PCM player. */}
       </div>
 
+      {/* Classic "For You" layout: badge, name, scores, chips, then a big leave-by with Directions. */}
       <div className="ticket-body ticket-fade">
-        <p className="ticket-kicker">
-          {CATEGORY_LABEL[row.category]}, {row.walk_min} min walk
-        </p>
+        <span className={`ticket-badge ticket-badge--${row.status}`}>
+          <StatusText status={row.status} />
+        </span>
         <h2 className="ticket-name">{row.name}</h2>
-        <p className="ticket-status">
-          <StatusText status={row.status} className="ticket-status-word" />
-          {isPhoto && (
-            <span>
-              {row.departure_label} {formatHM(row.departure_time)}
-            </span>
+        <p className="ticket-meta">
+          {row.walk_min} min walk
+          {price && <span className="ticket-dot">·</span>}
+          {price}
+          <span className="ticket-dot">·</span>
+          {row.departure_label} {formatHM(row.departure_time)}
+        </p>
+        <p className="ticket-scores">
+          <strong>{Math.round(row.score * 10)}% match</strong>
+          {row.rating !== null && (
+            <>
+              <span className="ticket-dot">·</span>★ {row.rating} on Google
+            </>
           )}
-          {price && <span>{price}</span>}
         </p>
         {row.pitch && <p className="ticket-pitch">{row.pitch}</p>}
-
-        <div className="ticket-leave">
-          <div className="ticket-leave-by">
-            <span className="ticket-leave-label">Leave by</span>
-            <span className="ticket-leave-time tnum">{formatHM(row.leave_by)}</span>
-          </div>
-          <ScoreRing score={row.score} />
-        </div>
-
         {row.reasons.length > 0 && (
-          <ul className="ticket-reasons">
+          <ul className="ticket-chips">
             {row.reasons.slice(0, 3).map((r) => (
               <li key={r.text}>
-                <span className="ticket-reason-icon">
-                  <ReasonIcon name={r.icon} />
-                </span>
+                <ReasonIcon name={r.icon} />
                 <span>{r.text}</span>
               </li>
             ))}
           </ul>
         )}
 
-        <div className="ticket-actions">
-          {row.booking_url ? (
-            <a className="ticket-primary" href={row.booking_url} target="_blank" rel="noreferrer">
-              <TicketIcon size={18} strokeWidth={2} aria-hidden="true" />
-              Book
-            </a>
-          ) : (
-            <a className="ticket-primary" href={directions} target="_blank" rel="noreferrer">
-              <Navigation size={18} strokeWidth={2} aria-hidden="true" />
-              Directions
-            </a>
-          )}
-          {row.booking_url && (
-            <a
-              className="ticket-circle ticket-circle--lg"
-              href={directions}
-              target="_blank"
-              rel="noreferrer"
-              aria-label="Directions"
-            >
-              <Navigation size={20} strokeWidth={2} aria-hidden="true" />
-            </a>
-          )}
+        <div className="ticket-side" role="group" aria-label="Actions">
           <button
             type="button"
             className={`ticket-circle ticket-circle--lg${liked ? ' is-on' : ''}`}
@@ -143,9 +112,25 @@ export function Ticket({ row, next, nowMs, student, liked, onBack, onNext, onLik
           >
             <Bookmark size={20} strokeWidth={2} fill={liked ? 'currentColor' : 'none'} aria-hidden="true" />
           </button>
+          {row.booking_url && (
+            <a className="ticket-circle ticket-circle--lg" href={row.booking_url} target="_blank" rel="noreferrer" aria-label="Book">
+              <TicketIcon size={20} strokeWidth={2} aria-hidden="true" />
+            </a>
+          )}
           <button type="button" className="ticket-circle ticket-circle--lg" aria-label="Not for me" onClick={onSkip}>
             <X size={20} strokeWidth={2} aria-hidden="true" />
           </button>
+        </div>
+
+        <div className="ticket-leave">
+          <div className="ticket-leave-by">
+            <span className="ticket-leave-label">LEAVE BY</span>
+            <span className="ticket-leave-time tnum">{formatHM(row.leave_by)}</span>
+          </div>
+          <a className="ticket-directions" href={directions} target="_blank" rel="noreferrer">
+            Directions
+            <Navigation size={16} strokeWidth={2} aria-hidden="true" />
+          </a>
         </div>
 
         <p className="ticket-checked">

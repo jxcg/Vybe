@@ -1,0 +1,165 @@
+/* Classic "For You" ticket: the original Vybe card look inside the VYBE ticket.
+   Venue-colour glow up top (see .ticket::before in global.css), content stacked at the bottom. */
+
+.ticket--poster .ticket-media {
+  flex: 1 1 auto;
+  min-height: 120px;
+  height: auto;
+}
+.ticket::after {
+  /* Fade the glow into the deep colour behind the text */
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: linear-gradient(180deg, transparent 30%, color-mix(in oklch, var(--deep) 80%, transparent) 58%, var(--deep) 82%);
+}
+
+.ticket .ticket-body {
+  flex: none;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  column-gap: 16px;
+  align-items: end;
+  padding: 0 calc(20px + var(--safe-right)) calc(16px + var(--safe-bottom)) calc(24px + var(--safe-left));
+  overflow: visible;
+}
+.ticket-body > :not(.ticket-side) {
+  grid-column: 1;
+}
+
+.ticket-badge {
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-radius: var(--r-pill);
+  background: var(--light);
+  color: var(--deep);
+  font-size: 13px;
+  font-weight: 600;
+}
+.ticket-badge::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.ticket-badge .status {
+  color: inherit;
+}
+.ticket-badge--last_call,
+.ticket-badge--departed { background: #f0b4aa; color: #3a1712; }
+.ticket-badge--boarding { background: #e8cf8a; color: #3a2a08; }
+
+.ticket .ticket-name {
+  margin: 14px 0 8px;
+  font-family: var(--font-head);
+  font-size: clamp(28px, 7.5vw, 38px);
+  font-weight: 700;
+  line-height: 1.08;
+  letter-spacing: -0.01em;
+}
+.ticket-meta {
+  font-size: 16px;
+}
+.ticket-dot {
+  margin: 0 7px;
+  opacity: 0.55;
+}
+.ticket-scores {
+  margin-top: 6px;
+  font-size: 14px;
+  color: var(--text-2);
+}
+.ticket-scores strong {
+  color: var(--light);
+  font-weight: 600;
+}
+.ticket .ticket-pitch {
+  margin-top: 10px;
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--text-2);
+}
+
+.ticket-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 14px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.ticket-chips li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: var(--r-pill);
+  border: 1px solid color-mix(in oklch, var(--light) 22%, transparent);
+  background: color-mix(in oklch, var(--light) 10%, transparent);
+  font-size: 13px;
+}
+.ticket-chips svg {
+  width: 14px;
+  height: 14px;
+  opacity: 0.8;
+}
+
+.ticket-side {
+  grid-column: 2;
+  grid-row: 1 / span 6;
+  align-self: end;
+  display: grid;
+  gap: 12px;
+  margin-bottom: 4px;
+}
+
+.ticket .ticket-leave {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid color-mix(in oklch, var(--light) 18%, transparent);
+}
+.ticket .ticket-leave-by {
+  display: flex;
+  flex-direction: column;
+}
+.ticket .ticket-leave-label {
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  opacity: 0.7;
+}
+.ticket .ticket-leave-time {
+  font-family: var(--font-head);
+  font-size: 40px;
+  font-weight: 700;
+  line-height: 1.05;
+}
+.ticket-directions {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  padding: 13px 20px;
+  border-radius: var(--r-pill);
+  background: var(--light);
+  color: var(--deep);
+  font-weight: 600;
+  font-size: 15px;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.ticket .ticket-checked {
+  grid-column: 1 / -1;
+  margin-top: 10px;
+  font-size: 12px;
+  opacity: 0.6;
+}
