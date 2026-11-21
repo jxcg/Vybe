@@ -35,6 +35,9 @@ function GroupFilter({ groups, active, onPick }: {
 export function Board() {
   const { state, dispatch, send } = useStore();
   const { board, vybe } = state;
+  const rows = board?.count === 4
+    ? board.rows.map((row) => row.pick && row.pick !== 'best' ? { ...row, pick: null } : row)
+    : board?.rows ?? [];
   const { nowMs, wallMs } = useClock(board, state.boardAt);
   useWakeLock();
 
@@ -66,9 +69,9 @@ export function Board() {
                 onPick={(group) => send({ type: 'show', group })}
               />
             )}
-            <HeroCarousel rows={board.rows} nowMs={nowMs} student={vybe.student} onOpen={openTicket} />
+            <HeroCarousel rows={rows} nowMs={nowMs} student={vybe.student} onOpen={openTicket} />
             <DepartureList
-              rows={board.rows}
+              rows={rows}
               byCategory={!board.group}
               nowMs={nowMs}
               wallMs={wallMs}

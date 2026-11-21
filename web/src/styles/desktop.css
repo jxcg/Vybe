@@ -79,6 +79,9 @@
   .hero-card:first-child {
     grid-row: 1 / span 2;
   }
+  .hero-card:only-child {
+    grid-column: 1 / -1;
+  }
   .hero-card:not(:first-child) {
     padding: 16px;
   }
