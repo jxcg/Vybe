@@ -44,7 +44,7 @@ function extract(url: string): Promise<void> {
   let p = pending.get(url);
   if (!p) {
     p = fac
-      .getColorAsync(url, { crossOrigin: 'anonymous' })
+      .getColorAsync(url, { crossOrigin: 'anonymous', algorithm: 'dominant' })
       .then((result) => worldFromColor(result.hex))
       .catch(() => null) // CORS or a broken image: fall back to the category colours
       .then((colors) => {
@@ -56,8 +56,8 @@ function extract(url: string): Promise<void> {
 }
 
 /** Server colours → colours extracted from the photo → category fallback. */
-export function useVenueColors(row: Row): VenueColors {
-  const url = row.colors ? null : row.photo_url;
+export function useVenueColors(row: Row, displayedPhoto?: string | null): VenueColors {
+  const url = displayedPhoto === undefined ? (row.colors ? null : row.photo_url) : displayedPhoto;
   const [, refresh] = useReducer((n: number) => n + 1, 0);
 
   useEffect(() => {
@@ -69,7 +69,7 @@ export function useVenueColors(row: Row): VenueColors {
     };
   }, [url]);
 
-  return row.colors ?? (url ? extracted.get(url) : null) ?? CATEGORY_COLORS[row.category];
+  return (url ? extracted.get(url) : null) ?? row.colors ?? CATEGORY_COLORS[row.category];
 }
 
 /** CSS custom properties that put a subtree into the venue's colour world. */

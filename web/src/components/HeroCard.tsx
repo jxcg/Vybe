@@ -48,8 +48,8 @@ export function HeroCard({ row, nowMs, student, onOpen }: Props) {
   const [loadedPhoto, setLoadedPhoto] = useState<string | null>(null);
   const [failedPhoto, setFailedPhoto] = useState<string | null>(null);
   const isPhoto = Boolean(photoUrl && photoUrl === loadedPhoto);
+  const colors = useVenueColors(row, isPhoto ? photoUrl : null);
   const reason = row.reasons[0]?.text;
-  const colors = useVenueColors(row);
 
   return (
     <button

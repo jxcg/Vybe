@@ -11,6 +11,7 @@ import asyncio
 import ipaddress
 import re
 import socket
+from contextlib import suppress
 from typing import Any
 from urllib.parse import urljoin, urlparse
 
@@ -376,7 +377,8 @@ async def judge(venue: str, debates: list[tuple[str, Argument, Argument]]) -> Ju
         name="theme-judge",
         instructions=(
             "Judge the visual suitability of the candidates for this Vybe card. "
-            "Choose one listed URL or reject all candidates. Ties go to rejection. "
+            "Choose one listed URL or reject all candidates. Prefer clear, inviting images "
+            "with a strong subject that still works in a wide crop. Ties go to rejection. "
             "Give a one-line reason and answer only with the schema."
         ),
         output_type=JudgeVerdict,
@@ -514,10 +516,27 @@ async def theme_item(item: dict[str, Any]) -> dict[str, Any]:
         except Exception:
             html = ""
     cands = list(await asyncio.gather(*[fetch_size(c) for c in cands])) if cands else []
-    shortlist = prefilter(cands)
+    google: list[dict[str, Any]] = []
+    if item.get("source") == "Google Places":
+        from app.places import photo_candidates
+
+        with suppress(httpx.HTTPError, ValueError):
+            google = await asyncio.to_thread(photo_candidates, item["id"])
+    candidates = [
+        ImageCandidate(url=p["url"], source="places", width=p["width"], height=p["height"])
+        for p in google
+    ]
+    shortlist = prefilter(candidates) or prefilter(cands)
     verdict = await pick_image(venue, shortlist)
     pal = palette(css_colors(*texts), preferred=declared)
-    return {"id": item["id"], "theme": build_theme(verdict, pal, shortlist)}
+    theme = build_theme(verdict, pal, shortlist)
+    for photo in google:
+        if theme["image_url"] == photo["url"]:
+            theme["image_url"] = None
+            theme.pop("image_credit", None)
+            theme["google_photo"] = {key: photo[key] for key in ("index", "width", "height")}
+            break
+    return {"id": item["id"], "theme": theme}
 
 
 def merge_themes(existing: dict[str, Any], results: list[dict[str, Any]]) -> dict[str, Any]:

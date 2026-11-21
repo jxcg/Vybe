@@ -53,7 +53,9 @@ def geocode(q: Annotated[str, Query(min_length=2, max_length=100)]) -> dict[str,
 @app.get("/api/places/{place_id}/photo")
 def place_photo(place_id: str) -> JSONResponse:
     try:
-        photo = places.featured_photo(place_id)
+        theme = ws._enriched().get(place_id, {}).get("theme")
+        selection = theme.get("google_photo") if isinstance(theme, dict) else None
+        photo = places.featured_photo(place_id, selection) if not theme or selection else None
     except (httpx.HTTPError, ValueError):
         photo = None
     return JSONResponse(

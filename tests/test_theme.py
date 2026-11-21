@@ -195,3 +195,27 @@ def test_theme_workflows_registered() -> None:
 
     assert get_workflow_definition(theme_wf.VybeTheme).name == "vybe-theme"
     assert get_workflow_definition(theme_wf.VybeThemeItem).name == "vybe-theme-item"
+
+
+def test_workflow_selects_google_photo_without_storing_its_url(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app import places
+
+    photos: list[dict[str, Any]] = [
+        {"url": "https://example.com/front", "index": 0, "width": 1600, "height": 1000},
+        {"url": "https://example.com/interior", "index": 1, "width": 1440, "height": 1080},
+    ]
+    monkeypatch.setattr(places, "photo_candidates", lambda _: photos)
+
+    async def choose(_: str, candidates: list[theme.ImageCandidate]) -> theme.JudgeVerdict:
+        assert [candidate.url for candidate in candidates] == [photo["url"] for photo in photos]
+        return theme.JudgeVerdict(
+            use_image=True, image_url=photos[1]["url"], reason="Inviting interior"
+        )
+
+    monkeypatch.setattr(theme, "pick_image", choose)
+    result = asyncio.run(theme.theme_item({"id": "venue", "source": "Google Places"}))
+    assert result["theme"]["mode"] == "photo"
+    assert result["theme"]["google_photo"] == {"index": 1, "width": 1440, "height": 1080}
+    assert result["theme"]["image_url"] is None
