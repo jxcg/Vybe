@@ -47,7 +47,7 @@
   border-radius: 50%;
   background: var(--accent-fade);
   background-size: 220% 220%;
-  color: var(--bg);
+  color: var(--on-accent);
   animation:
     orb-breathe 2.6s ease-in-out infinite alternate,
     orb-drift 5s ease-in-out infinite alternate;

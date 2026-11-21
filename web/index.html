@@ -3,7 +3,15 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <meta name="theme-color" content="#212126" />
+    <meta name="theme-color" content="#f6f4f1" />
+    <script>
+      // Light is the primary theme; ?theme=dark (remembered) switches to the dark station world.
+      try {
+        const q = new URLSearchParams(location.search).get("theme");
+        if (q) localStorage.setItem("vybe.theme", q);
+        if ((q || localStorage.getItem("vybe.theme")) === "dark") document.documentElement.dataset.theme = "dark";
+      } catch {}
+    </script>
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <title>VYBE</title>

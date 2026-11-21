@@ -45,7 +45,7 @@
 }
 
 .chip-x:active {
-  background: rgb(255 255 255 / 0.08);
+  background: var(--tint);
 }
 
 @keyframes chip-in {

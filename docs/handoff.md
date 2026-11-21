@@ -35,6 +35,13 @@ Review pass 2 (commit 0cb0343; voice fixes confirmed, live call 0.93 s, 26 tests
 - [ ] Map MIME types to Voxtral's format names: `audio/mpeg` → `mp3`, `audio/x-wav` → `wav`, and Safari's `audio/mp4`. So far only webm and wav are checked.
 - [ ] Split the activity into "fetch venues" and "write enriched.json" so the Studio timeline reads clearly once the agents sit between them.
 
+Requests from the new web frontend (2026-11-21; the teammate's VYBE UI is now on `main`, see `INTEGRATION.md`)
+- [ ] **`brand_color` per venue (user priority):** the card gradient should come from the venue's own website, not be random. The Enricher fetches the venue site and writes `brand_color: "#rrggbb"` into `enriched.json`, from `<meta name="theme-color">`, manifest `theme_color`, logo, or main CSS colour. Leave it out if unsure. Contract 1 is updated. Claude already turns it into card colours (`app/colors.py`).
+- [ ] Return a `transcript` (what the user said) from `audio_to_filters`. The UI shows "You said …" and the guide wants a final transcript after `talk_end`.
+- [ ] Add `text_to_filters(text, context)` in `app/voice.py` with the same output as `audio_to_filters`, for the typed box (`talk_text`). Claude uses a keyword fallback until then.
+- [ ] Follow the speech-to-tag rules in `INTEGRATION.md` §5. Claude maps your filters onto the UI's tags (`a laugh`, `chill`, `live music`, `late night`, `competitive`, …), so it helps if `include_text` carries those words, plus `company` (people, including the user) and "cheaper" as a step down.
+- [ ] Announcement audio for boarding / last call: PCM16, mono, 24 kHz, no header, calm British station voice, 6 s or less (INTEGRATION.md §6). Same format for card voiceovers.
+
 ## Blocked
 - (none)
 

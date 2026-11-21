@@ -52,7 +52,8 @@ The app already gets live venues from Google Places. Your pipeline **adds to** t
     "verified": true,
     "verify_note": "Deal confirmed on the venue's own site",
     "checked_at": "2026-11-21T18:05:00Z",
-    "source_url": "https://..."
+    "source_url": "https://...",
+    "brand_color": "#e4002b"
   },
   "event-<slug>": {
     "new_item": {
@@ -73,6 +74,9 @@ Rules:
 - **Tags** use only: `active`, `culture`, `nightlife`, `food`, `indoors`, `outdoors`.
 - `opens` and `closes` are `HH:MM`. A close earlier than the open means after midnight.
 - Write atomically: write a temp file, then rename it, so the app never reads half a file.
+- `brand_color` is the venue's main brand colour as `#rrggbb`, taken from its own website, for example
+  its `<meta name="theme-color">`, web manifest `theme_color`, logo, or dominant CSS colour. Leave it out
+  if you can't find a real one, and never guess. The app turns it into the card gradient.
 
 Claude will merge this onto live items by ID. Until then, the file just needs to be valid.
 

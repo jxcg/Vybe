@@ -110,3 +110,14 @@ def test_text_to_chips() -> None:
         "exclude": ["clubs"],
         "budget": 10,
     }
+
+
+def test_brand_colour_becomes_readable_venue_colours() -> None:
+    from app.colors import venue_colors
+
+    red = venue_colors("#e4002b")
+    assert red and set(red) == {"deep", "soft", "light"}
+    assert red["deep"].startswith("#") and int(red["deep"][1:3], 16) > int(
+        red["deep"][3:5], 16
+    )  # still red
+    assert venue_colors("not a colour") is None and venue_colors(None) is None

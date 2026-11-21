@@ -19,7 +19,7 @@
   height: var(--icon-btn-lg);
   border-radius: var(--r-pill);
   background: var(--accent-fade);
-  color: var(--bg);
+  color: var(--on-accent);
   font-size: 14px;
   font-weight: 600;
   line-height: 1;

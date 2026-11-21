@@ -18,6 +18,7 @@ from fastapi import WebSocket, WebSocketDisconnect
 from starlette.concurrency import run_in_threadpool
 
 from app import geo, voice
+from app.colors import venue_colors
 from app.ranking import rank
 
 LONDON = ZoneInfo("Europe/London")
@@ -113,7 +114,7 @@ def to_rows(cards: list[dict[str, Any]], now: datetime, raining: bool) -> list[d
                 "pick": None,
                 "reasons": [{"icon": _icon(r), "text": r} for r in c["reasons"]][:3],
                 "photo_url": None,
-                "colors": None,
+                "colors": venue_colors(extra.get("brand_color")),
                 "pitch": extra.get("deal") or extra.get("script") or "",
                 "voiceover_url": extra.get("voiceover"),
                 "booking_url": c.get("url"),

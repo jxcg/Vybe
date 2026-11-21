@@ -35,7 +35,7 @@
   height: var(--mic);
   border-radius: 50%;
   background: var(--accent);
-  color: var(--bg);
+  color: var(--on-solid);
   transition: transform var(--dur-fast) ease;
 }
 

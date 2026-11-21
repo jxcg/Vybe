@@ -1,5 +1,72 @@
 :root {
-  /* Station world */
+  /* Station world, light (primary). Dark lives under [data-theme="dark"] below. */
+  color-scheme: light;
+  --bg: #f6f4f1;
+  --header: #fbfaf8;
+  --card: #ffffff;
+  --elevated: #efecf4;
+  --hover: #e7e4ee;
+  --border: #dedae5;
+  --text: #1f1e24;
+  --text-2: #46444e;
+  --muted: #6b6876;
+  --accent: #6a5bb3;
+  --accent-light: #8a7fc8;
+  --cream: #f8f7f6;
+  --tint: rgb(31 30 36 / 0.05);
+  --on-accent: #212126; /* text on the lavender fade, in both themes */
+  --on-solid: #ffffff; /* text on solid --accent fills */
+
+  /* Status (text colour only) */
+  --st-boarding: #1d8150;
+  --st-last-call: #6a5bb3;
+  --st-on-time: #6b6876;
+  --st-delayed: #c03c4c;
+
+  /* Weather mark */
+  --rain: #4c7194;
+
+  /* Start screen */
+  --accent-fade: linear-gradient(to top right, #b7aedd 0%, #c9b3da 50%, #e6aab8 100%);
+  --hint-border: #c9c5d3;
+  --into-fg: #1c7a4b;
+  --into-bg: #dcf2e5;
+  --notinto-fg: #b23646;
+  --notinto-bg: #f8e0e3;
+  --neutral-fg: #3a3842;
+  --neutral-bg: #ebe8f0;
+
+  /* Type */
+  --font-body: 'Satoshi', system-ui, sans-serif;
+  --font-head: 'Cabinet Grotesk', 'Satoshi', sans-serif;
+  --font-mark: 'Panchang', 'Cabinet Grotesk', sans-serif;
+
+  /* Shape and rhythm */
+  --r-card: 24px;
+  --r-pill: 999px;
+  --gutter: 24px;
+  --hairline: 1px solid var(--border);
+  --icon-btn: 44px;
+  --icon-btn-lg: 52px;
+
+  /* Motion */
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --dur-fast: 180ms;
+  --dur: 300ms;
+
+  /* Safe areas */
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+}
+
+/* Dark station world: opt in with ?theme=dark. Venue cards and tickets always use it,
+   because their backgrounds are the venue's deep colour. */
+[data-theme="dark"],
+.hero-card,
+.ticket {
+  color-scheme: dark;
   --bg: #212126;
   --header: #292930;
   --card: #303038;
@@ -32,27 +99,6 @@
   --neutral-fg: #e1dee7;
   --neutral-bg: #414049;
 
-  /* Type */
-  --font-body: 'Satoshi', system-ui, sans-serif;
-  --font-head: 'Cabinet Grotesk', 'Satoshi', sans-serif;
-  --font-mark: 'Panchang', 'Cabinet Grotesk', sans-serif;
-
-  /* Shape and rhythm */
-  --r-card: 24px;
-  --r-pill: 999px;
-  --gutter: 24px;
-  --hairline: 1px solid var(--border);
-  --icon-btn: 44px;
-  --icon-btn-lg: 52px;
-
-  /* Motion */
-  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
-  --dur-fast: 180ms;
-  --dur: 300ms;
-
-  /* Safe areas */
-  --safe-top: env(safe-area-inset-top, 0px);
-  --safe-bottom: env(safe-area-inset-bottom, 0px);
-  --safe-left: env(safe-area-inset-left, 0px);
-  --safe-right: env(safe-area-inset-right, 0px);
+  --tint: rgb(255 255 255 / 0.06);
+  --on-solid: #212126;
 }
