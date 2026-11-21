@@ -25,6 +25,7 @@ Put `(now)` after the milestone being worked on. Owners: (Claude), (Mistral), (T
 - [x] Voice over `/ws`: speech or typing becomes session-only chips (Claude)
 - [x] Ranking applies voice filters (Claude)
 - [ ] Mic capture in the web frontend, sending PCM to `/ws` (Team)
+- [ ] Simplify mobile onboarding and enlarge voice and typing controls (Team)
 - [ ] `text_to_filters` and transcripts from Voxtral (Mistral)
 
 ## Background refresh
