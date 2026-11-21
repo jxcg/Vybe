@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef } from 'react';
+import { useLayoutEffect, useRef, type ReactNode } from 'react';
 import { UserPlus } from 'lucide-react';
 import type { BoardMsg } from '../contract';
 import { dayWord, formatHM } from '../lib/time';
@@ -13,6 +13,7 @@ import './BoardHeader.css';
 interface Props {
   board: BoardMsg | null;
   nowMs: number;
+  children?: ReactNode;
   onInvite?: () => void;
   inviteOpen: boolean;
 }
@@ -25,9 +26,13 @@ function rainText(rainFrom: string | null, nowMs: number): string | null {
 /** Size of the lavender dot the loading orb shrinks to before it becomes the count. */
 const DOT_PX = 10;
 
-export function BoardHeader({ board, nowMs, onInvite, inviteOpen }: Props) {
+export function BoardHeader({ board, nowMs, children, onInvite, inviteOpen }: Props) {
   const rain = board ? rainText(board.weather.rain_from, nowMs) : null;
   const countRef = useRef<HTMLSpanElement>(null);
+  const rainFrom = board?.weather.rain_from;
+  const conditions = board?.weather.summary.trim();
+  const futureRain = rainFrom && Date.parse(rainFrom) > nowMs;
+  const weather = conditions && futureRain ? `${conditions} · ${rain}` : conditions || rain;
 
   // Arriving from the loading screen: its orb folds down into the headline count.
   useLayoutEffect(() => {
@@ -77,11 +82,12 @@ export function BoardHeader({ board, nowMs, onInvite, inviteOpen }: Props) {
             {rain && <RainMark />}
             <span>
               {board.area}
-              {rain && `, ${rain}`}
+              {weather && ` · ${weather}`}
             </span>
           </p>
         </>
       )}
+      {children}
     </header>
   );
 }

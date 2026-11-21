@@ -15,8 +15,8 @@ from typing import Any
 
 from mistralai.client import Mistral
 
-TTS_MODEL = "voxtral-mini-tts-3"  # voxtral-mini-tts-latest / -2603 also exist
-VOICE = "en_paul_happy"  # one consistent, upbeat voice (preset slug)
+TTS_MODEL = "voxtral-mini-tts-3-0"
+VOICE = "gb_oliver_excited"
 MAX_VOICEOVERS = 20  # per run, keeps cost down
 
 _client: Mistral | None = None

@@ -14,14 +14,17 @@ Put `(now)` after the milestone being worked on. Owners: (Claude), (Mistral), (T
 - [x] Ranking: open soon, budget, 18+, badges, leave-by (Claude)
 - [x] Google rating and personal match % shown separately (Claude)
 - [x] Weather (rain and cold) in the match (Claude)
+- [ ] Show current conditions and temperature beside the board location (Team)
 - [ ] Open the board on a saved interest, group additional results, and mark short lists (Team)
 - [ ] Keep runner-up and wildcard details visible on desktop cards (Team)
 - [ ] Show compact venue ratings out of ten on board picks and activity rows (Team)
 - [ ] Show only the best pick above the list when four activities are available (Team)
 - [ ] Hide the sidebar panel when there are no additional activities (Team)
+- [ ] Keep the desktop board aligned when category changes hide the sidebar (Team)
 
 ## Shared plans (now)
 - [x] Invite friends to a live shared board (Team)
+- [ ] Show the participant count in the shared plan header (Team)
 
 ## Real places
 - [x] Google Places near the user (Claude)
@@ -36,6 +39,7 @@ Put `(now)` after the milestone being worked on. Owners: (Claude), (Mistral), (T
 - [ ] Simplify mobile onboarding and enlarge voice and typing controls (Team)
 - [ ] Open the board when Enter submits a typed prompt (Team)
 - [ ] Open board settings from one full-width Change your vibe button (Team)
+- [x] Reveal a pick from the board with the Voxtral radio host (Team)
 - [ ] `text_to_filters` and transcripts from Voxtral (Mistral)
 
 ## Background refresh
@@ -46,7 +50,7 @@ Put `(now)` after the milestone being worked on. Owners: (Claude), (Mistral), (T
 - [ ] Voxtral TTS voiceovers (Mistral)
 - [ ] `/vybe` skill triggers a refresh (Mistral)
 
-## Design (now)
+## Design
 - [ ] Render cached photo and gradient themes and verify the Studio debate (Team)
 - [ ] Keep compact card text legible beneath bright venue photos (Team)
 - [ ] Lead featured cards with venue names and give photos dedicated space (Team)

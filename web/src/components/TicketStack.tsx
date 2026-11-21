@@ -220,6 +220,7 @@ export function TicketStack({ open }: { open: OpenTicket }) {
         <Ticket
           key={row.id}
           row={row}
+          radioAudio={row.id === open.id ? open.radioAudio : undefined}
           next={rows[i + 1] ?? null}
           nowMs={nowMs}
           student={state.vybe.student}

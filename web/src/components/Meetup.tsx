@@ -57,6 +57,7 @@ export function Meetup({ showInvite }: { showInvite: boolean }) {
   const [shareStatus, setShareStatus] = useState('');
   const { shared, board, conn } = state;
   if (!shared) return state.roomError && <p className="meetup" role="alert">{state.roomError}</p>;
+  const participantCount = board?.members.length;
 
   const url = new URL('/', location.origin);
   url.hash = new URLSearchParams({ invite: shared.invite }).toString();
@@ -82,7 +83,11 @@ export function Meetup({ showInvite }: { showInvite: boolean }) {
   return (
     <section className="meetup" aria-label="Shared plan">
       <div className="meetup-summary">
-        <p role="status">{board ? `In this plan · ${board.members.join(', ')}` : 'Opening your shared plan…'}</p>
+        <p role="status">
+          {participantCount === undefined
+            ? 'Opening your shared plan…'
+            : `${participantCount} ${participantCount === 1 ? 'person' : 'people'} in this plan`}
+        </p>
         <button className="meetup-secondary" type="button" disabled={conn !== 'open' || state.roomConnecting} onClick={() => send({ type: 'room_leave' })}>
           Leave plan
         </button>
