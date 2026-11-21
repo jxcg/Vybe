@@ -14,7 +14,7 @@ It respects your budget and student prices, and hides anything 18+ if you're und
 
 There's no sign-up. Your settings and saved places stay in your browser. Save something and similar places move up; mark "Not for me" and it drops off the board.
 
-Each venue's card takes its colours from the venue's own website, so a place with a red brand gets a red glow.
+Venue cards use colours sourced from each venue's website where available.
 
 ## Powered by Mistral
 
@@ -27,3 +27,14 @@ Built with the Mistral Vibe CLI for the Mistral Vibe Hackathon 2026, London.
 ## Tech
 
 FastAPI · WebSocket · React · TypeScript · Vite · Google Places · Mistral Workflows, Agents SDK, Voxtral
+
+## Deploy staging with Railway and Vercel
+
+1. In Railway, deploy this repository as a service from the repository root. The start command in
+   `railway.toml` runs FastAPI on Railway's port. Generate a public domain under Networking.
+2. Set `MISTRAL_API_KEY` and optionally `GOOGLE_PLACES_API_KEY` in Railway's service variables.
+3. In Vercel, import the repository with `web` as the root directory and use the Vite preset.
+   Set `VITE_VYBE_WS_URL` in the Preview environment to the full socket URL, for example
+   `wss://your-service.up.railway.app/ws`. Deploy or redeploy the preview to bake in the URL.
+4. Open the preview with `/?reset`, join the board, change a filter, and verify the browser
+   connects to the Railway socket and receives board updates.

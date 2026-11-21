@@ -15,12 +15,13 @@ VYBE_SERVER=http://localhost:8000 npm run dev   # proxies /ws to your server (de
 
 - Open `http://localhost:5173/?reset` (the `reset` clears saved state so you start from the start screen).
 - `?mock` swaps the socket for an in-browser fake server, which is handy for comparing behaviour.
-- Production: serve `web/dist` (from `npm run build`) on the same origin as the socket, or put both behind
-  one reverse proxy. The client always connects to `ws(s)://<same host>/ws`.
+- Split deployment: set the frontend build variable `VITE_VYBE_WS_URL` to the full public
+  backend URL, for example `wss://your-service.up.railway.app/ws`. See [staging setup](README.md#deploy-staging-with-railway-and-vercel).
+- Same-origin deployments use `ws(s)://<same host>/ws` by default.
 
 ## Transport
 
-- Path: **`/ws`**, same origin as the page.
+- Path: **`/ws`**, on the configured backend or the page origin by default.
 - **Text frames = JSON**, one message per frame, each with a `type` field.
 - **Binary frames = mic audio** (coming in P4): mono **PCM16 little-endian at 16 000 Hz**, ~100 ms per
   frame, sent only between `talk_start` and `talk_end`.

@@ -18,7 +18,7 @@
   gap: 10px;
   height: var(--icon-btn-lg);
   border-radius: var(--r-pill);
-  background: var(--accent-fade);
+  background: var(--accent-fill);
   color: var(--on-accent);
   font-size: 14px;
   font-weight: 600;

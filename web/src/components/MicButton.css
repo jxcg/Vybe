@@ -49,7 +49,7 @@
 }
 
 .mic--listening .mic-btn {
-  background: var(--accent-fade);
+  background: var(--accent-fill);
   background-size: 200% 200%;
   animation: mic-drift 4s ease-in-out infinite alternate;
 }

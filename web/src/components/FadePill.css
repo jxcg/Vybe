@@ -6,7 +6,7 @@
   width: 100%;
   height: 56px;
   border-radius: var(--r-pill);
-  background: var(--accent-fade);
+  background: var(--accent-fill);
   color: var(--on-accent);
   font-size: 14px;
   font-weight: 600;

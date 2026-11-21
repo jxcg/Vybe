@@ -1,21 +1,8 @@
-/* Classic "For You" ticket: the original Vybe card look inside the VYBE ticket.
-   Venue-colour glow up top (see .ticket::before in global.css), content stacked at the bottom. */
-
 .ticket--poster .ticket-media {
   flex: 1 1 auto;
   min-height: 120px;
   height: auto;
 }
-.ticket::after {
-  /* Fade the glow into the deep colour behind the text */
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  pointer-events: none;
-  background: linear-gradient(180deg, transparent 30%, color-mix(in oklch, var(--deep) 80%, transparent) 58%, var(--deep) 82%);
-}
-
 .ticket .ticket-body {
   flex: none;
   display: grid;

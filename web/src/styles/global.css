@@ -201,31 +201,3 @@ button {
   border-radius: var(--r-pill);
   pointer-events: none;
 }
-
-/* Venue glow: the venue's own colours (from its website, via the Mistral pipeline) drift slowly
-   across hero cards and tickets. Falls back to category colours when the venue has none. */
-.hero-card,
-.ticket {
-  isolation: isolate;
-}
-.hero-card::before,
-.ticket::before {
-  content: "";
-  position: absolute;
-  inset: -35%;
-  z-index: -1;
-  pointer-events: none;
-  background:
-    radial-gradient(38% 32% at 55% 40%, color-mix(in oklch, var(--light) 45%, transparent), transparent 70%),
-    radial-gradient(55% 45% at 28% 22%, color-mix(in oklch, var(--soft) 95%, transparent), transparent 75%);
-  animation: venue-drift 12s ease-in-out infinite alternate;
-}
-.hero-card:nth-child(2n)::before { animation-delay: -6s; }
-@keyframes venue-drift {
-  from { transform: translate(-8%, -6%); }
-  to { transform: translate(8%, 10%); }
-}
-@media (prefers-reduced-motion: reduce) {
-  .hero-card::before,
-  .ticket::before { animation: none; }
-}

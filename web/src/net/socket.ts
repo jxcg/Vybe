@@ -18,5 +18,6 @@ export const isMock =
 
 export function createSocket(): VybeSocket {
   if (isMock) return createMockSocket();
-  return createRealSocket(`${location.origin.replace(/^http/, 'ws')}/ws`);
+  const url = import.meta.env.VITE_VYBE_WS_URL?.trim() || `${location.origin.replace(/^http/, 'ws')}/ws`;
+  return createRealSocket(url);
 }

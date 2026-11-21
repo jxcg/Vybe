@@ -14,7 +14,7 @@
   --accent-light: #8a7fc8;
   --cream: #f8f7f6;
   --tint: rgb(31 30 36 / 0.05);
-  --on-accent: #212126; /* text on the lavender fade, in both themes */
+  --on-accent: #212126; /* text on the lavender fill, in both themes */
   --on-solid: #ffffff; /* text on solid --accent fills */
 
   /* Status (text colour only) */
@@ -27,7 +27,7 @@
   --rain: #4c7194;
 
   /* Start screen */
-  --accent-fade: linear-gradient(to top right, #b7aedd 0%, #c9b3da 50%, #e6aab8 100%);
+  --accent-fill: #c4b9e2;
   --hint-border: #c9c5d3;
   --into-fg: #1c7a4b;
   --into-bg: #dcf2e5;
@@ -90,7 +90,7 @@
   --rain: #9db4cc;
 
   /* Start screen */
-  --accent-fade: linear-gradient(to top right, #b7aedd 0%, #c9b3da 50%, #e6aab8 100%);
+  --accent-fill: #c4b9e2;
   --hint-border: #5a5864;
   --into-fg: #86dfac;
   --into-bg: #214137;
