@@ -20,6 +20,7 @@ from starlette.concurrency import run_in_threadpool
 from app import geo, voice
 from app.colors import venue_colors
 from app.ranking import rank
+from app.request_parse import parse_request
 
 LONDON = ZoneInfo("Europe/London")
 DEFAULT_PLACE = {"lat": 51.5136, "lng": -0.1365, "label": "Soho"}
@@ -217,24 +218,6 @@ def to_rows(
     return rows
 
 
-def text_to_chips(text: str) -> dict[str, Any]:
-    """Fallback for typed requests: pick out known tags and budget words.
-
-    shortcut: keyword matching only; swap for a Mistral text→filters call once voice.py has one.
-    """
-    t = text.lower()
-    chips: dict[str, Any] = {"include": [], "exclude": []}
-    for tag in INTO:
-        if tag in t and not any(f"{neg} {tag}" in t for neg in ("no", "not", "nothing")):
-            chips["include"].append(tag)
-    for tag in NOT_INTO:
-        if any(f"{neg} {tag}" in t for neg in ("no", "not", "nothing", "avoid")):
-            chips["exclude"].append(tag)
-    if any(w in t for w in ("cheap", "free", "skint", "broke")):
-        chips["budget"] = 10
-    return chips
-
-
 def filters_to_chips(f: dict[str, Any]) -> dict[str, Any]:
     """Voxtral filters (Contract 2) → the frontend's chip vocabulary."""
     back = {"active": "active", "culture": "culture", "food": "food", "nightlife": "late night"}
@@ -367,6 +350,12 @@ class Session:
         if self.room:
             await self.send(await run_in_threadpool(self.build_board))
 
+    def resolve(self, chips: dict[str, Any]) -> dict[str, Any]:
+        """Relative requests: "cheaper" steps the budget down one notch (999 → 20 → 10)."""
+        if chips.pop("cheaper", False):
+            chips["budget"] = {999: 20, 20: 10, 10: 10}[self.prefs.get("budget", 999)]
+        return chips
+
     async def chips(self, chips: dict[str, Any], heard: str = "") -> None:
         await self.send({"type": "chips", **chips})
         if heard:
@@ -436,7 +425,7 @@ class Session:
         elif kind == "talk_text" and isinstance(msg.get("text"), str):
             text = msg["text"][:300]
             await self.send({"type": "transcript", "text": text, "final": True})
-            await self.chips(text_to_chips(text))
+            await self.chips(self.resolve(parse_request(text)))
 
     async def voice(self) -> None:
         if not self.audio or _peak(bytes(self.audio)) < SILENCE_PEAK:
@@ -458,7 +447,22 @@ class Session:
             return
         finally:
             self.audio.clear()
-        await self.chips(filters_to_chips(filters), filters.get("reply", ""))
+        transcript = filters.get("transcript", "")
+        if transcript:
+            await self.send({"type": "transcript", "text": transcript, "final": True})
+            # Exact amounts, group size and student come from the words said, not a vague level.
+            chips = parse_request(transcript)
+            # Keep specific things Voxtral picked out that were really said (e.g. "bowling")
+            said = transcript.lower()
+            extra = [
+                w
+                for w in filters.get("include_text", [])
+                if w in said and w not in chips["include"]
+            ]
+            chips["include"] += extra
+        else:
+            chips = filters_to_chips(filters)
+        await self.chips(self.resolve(chips), filters.get("reply", ""))
 
 
 async def serve(ws: WebSocket, items_near: Any) -> None:
