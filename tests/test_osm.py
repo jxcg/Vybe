@@ -11,7 +11,7 @@ def test_hours_on_common_forms() -> None:
     assert hours_on(spec, MON) == [("09:00", "17:00")]
     assert hours_on(spec, SAT) == [("10:00", "16:00")]
     assert hours_on(spec, SUN) == []
-    assert hours_on("24/7", SUN) == [("00:00", "23:59")]
+    assert hours_on("24/7", SUN) == [("00:00", "00:00")]
     assert hours_on("12:00-15:00,18:00-24:00", SUN) == [("12:00", "15:00"), ("18:00", "23:59")]
     assert hours_on("Fr-Mo 18:00-02:00", SUN) == [("18:00", "02:00")]  # wraps the week
     assert hours_on("Mo-Fr 09:00-17:00; PH off", MON) is None  # holidays: unsupported, skip

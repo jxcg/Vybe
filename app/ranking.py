@@ -14,6 +14,8 @@ MIN_STAY = timedelta(minutes=60)
 
 def _window(item: dict[str, Any], now: datetime) -> tuple[datetime, datetime]:
     """Today's opening window; a close at or before opening means it closes after midnight."""
+    if item["opens"] == item["closes"]:  # open 24 hours
+        return now - timedelta(hours=1), now + timedelta(days=1)
     day = now.replace(hour=0, minute=0, second=0, microsecond=0)
     oh, om = map(int, item["opens"].split(":"))
     ch, cm = map(int, item["closes"].split(":"))
@@ -37,7 +39,9 @@ def rank(
     liked: frozenset[str] = frozenset(),
     weather: Weather | None = None,
 ) -> list[dict[str, Any]]:
-    liked_tags = {t for i in items if i["id"] in liked for t in i["tags"]}
+    # indoors/outdoors describe nearly everything, so they don't count as taste
+    setting = {"indoors", "outdoors"}
+    liked_tags = {t for i in items if i["id"] in liked for t in i["tags"]} - setting
     cards = []
     for item in items:
         if item["price_level"] > budget or (item["adult_only"] and not adult):
@@ -50,7 +54,8 @@ def rank(
 
         left = (leave_by - now).total_seconds() / 60
         badge = "plenty" if left > 60 else "soon" if left > 15 else "last"
-        overlap = len(liked_tags & set(item["tags"])) / max(len(item["tags"]), 1)
+        taste = set(item["tags"]) - setting
+        overlap = len(liked_tags & taste) / max(len(taste), 1)
         student_deal = student and item["student_price"]
         outdoors = "outdoors" in item["tags"]
 
@@ -77,19 +82,19 @@ def rank(
             + timing * 10
         )
 
-        weather_reason = None
-        if weather and weather.bad and not outdoors:
-            weather_reason = "Indoors, it's raining" if weather.raining else "Indoors, it's cold"
-        elif weather and not weather.bad and outdoors:
-            weather_reason = "Nice out"
+        # Most specific first; generic ones only fill gaps. Cold weather is already in the
+        # match %, and "indoors" would be on nearly every card, so it isn't a reason.
         reasons = [
             "Open now" if opens <= now else f"Opens {opens:%H:%M}",
-            weather_reason,
             "Matches your likes" if overlap else None,
             "Student price" if student_deal else None,
+            "Free entry" if item.get("price") == 0 else None,
+            "Nice out" if weather and not weather.bad and outdoors else None,
+            "Indoors, it's raining" if weather and weather.raining and not outdoors else None,
+            f"Top rated ★{item['rating']}" if (item["rating"] or 0) >= 4.5 else None,
             "Short walk" if item["walk_mins"] <= 10 else None,
-            "Within budget",
             item["tags"][0].capitalize(),
+            "Within budget",
         ]
         cards.append(
             {

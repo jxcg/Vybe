@@ -23,7 +23,8 @@ def main(path: str) -> None:
         if line.startswith("## "):
             title = line[3:].strip()
             now = "(now)" in title
-            milestones.append({"title": title.replace("(now)", "").strip(), "now": now, "tasks": []})
+            title = title.replace("(now)", "").strip()
+            milestones.append({"title": title, "now": now, "tasks": []})
         elif (m := re.match(r"\s*- \[( |x|X)\] (.+)", line)) and milestones:
             tasks = milestones[-1]["tasks"]
             assert isinstance(tasks, list)

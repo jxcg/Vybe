@@ -24,6 +24,8 @@ def walk_mins(lat1: float, lng1: float, lat2: float, lng2: float) -> int:
 def geocode_postcode(q: str) -> tuple[float, float] | None:
     """UK full postcode ("SE1 7PB") or outcode ("SE1") via postcodes.io."""
     q = q.strip().replace(" ", "")
+    if not q.isalnum():  # it goes into a URL path
+        return None
     for path in (f"postcodes/{q}", f"outcodes/{q}"):
         r = httpx.get(f"https://api.postcodes.io/{path}", timeout=5)
         if r.status_code == 200:

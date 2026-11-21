@@ -28,6 +28,8 @@ def test_feed_uses_samples_without_key() -> None:
 def test_feed_validation() -> None:
     assert client.get("/api/feed", params={"budget": 9}).status_code == 422
     assert client.get("/api/feed", params={"now": "6pm"}).status_code == 422
+    assert client.get("/api/feed", params={"now": "25:00"}).status_code == 422
+    assert client.get("/api/feed", params={"now": "12:60"}).status_code == 422
     assert client.get("/api/feed", params={"lat": 200}).status_code == 422
 
 

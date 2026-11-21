@@ -91,7 +91,7 @@ def hours_on(spec: str, weekday: int) -> list[tuple[str, str]] | None:
     """
     spec = spec.strip()
     if spec == "24/7":
-        return [("00:00", "23:59")]
+        return [("00:00", "00:00")]  # equal times mean open 24 hours
     result: list[tuple[str, str]] | None = None
     try:
         for rule in filter(None, (r.strip() for r in spec.split(";"))):

@@ -63,6 +63,13 @@ def test_rain_sinks_outdoor_places() -> None:
     assert wet["park-1"]["match"] < dry["park-1"]["match"] < nice["park-1"]["match"]
     assert wet["bowl-1"]["match"] > nice["bowl-1"]["match"]
     assert "Indoors, it's raining" in wet["bowl-1"]["reasons"]
-    assert "Indoors, it's cold" in cold["bowl-1"]["reasons"]
+    assert cold["bowl-1"]["match"] > nice["bowl-1"]["match"]  # cold favours indoors too
     assert "Nice out" in nice["park-1"]["reasons"]
     assert nice["park-1"]["rating"] == 4.2  # Google rating passes through untouched
+
+
+def test_likes_ignore_indoors_and_24h_stays_open() -> None:
+    liked = by_id(rank(load_items(), at(18), liked=frozenset({"museum-1"})))  # culture, indoors
+    assert "Matches your likes" not in liked["bowl-1"]["reasons"]  # active: only shares indoors
+    allday = {**load_items()[0], "id": "x", "opens": "00:00", "closes": "00:00"}
+    assert by_id(rank([allday], at(23, 50)))["x"]["badge"] == "plenty"

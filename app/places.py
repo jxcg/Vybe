@@ -19,6 +19,7 @@ FIELDS = ",".join(
         "priceRange",
         "regularOpeningHours",
         "types",
+        "primaryType",
         "websiteUri",
         "googleMapsUri",
     ]
@@ -55,6 +56,23 @@ TAGS = {
     "cafe": "food",
 }
 ADULT = {"night_club", "bar"}
+# shops, chains and stations match our searches but aren't a plan for tonight
+SKIP_PRIMARY = {
+    "department_store",
+    "supermarket",
+    "grocery_store",
+    "convenience_store",
+    "fast_food_restaurant",
+    "book_store",
+    "clothing_store",
+    "shopping_mall",
+    "store",
+    "transit_station",
+    "subway_station",
+    "train_station",
+    "lodging",
+    "hotel",
+}
 CACHE_TTL = 6 * 3600
 _cache: dict[tuple[float, float], tuple[float, list[dict[str, Any]]]] = {}
 
@@ -107,7 +125,7 @@ def _hours_today(hours: dict[str, Any], now: datetime) -> tuple[str, str] | None
     for p in hours.get("periods", []):
         o, c = p["open"], p.get("close")
         if c is None:  # open 24 hours
-            return "00:00", "23:59"
+            return "00:00", "00:00"  # equal times mean open 24 hours
         opens, closes = f"{o['hour']:02}:{o['minute']:02}", f"{c['hour']:02}:{c['minute']:02}"
         if o["day"] == yesterday and c["day"] == today:
             end = now.replace(hour=c["hour"], minute=c["minute"])
@@ -124,8 +142,9 @@ def _hours_today(hours: dict[str, Any], now: datetime) -> tuple[str, str] | None
 
 
 def to_item(place: dict[str, Any], now: datetime) -> dict[str, Any] | None:
-    if "lodging" in place.get("types", []):
-        return None  # hotels match "bar" but aren't a night out
+    primary = place.get("primaryType", "")
+    if primary in SKIP_PRIMARY or primary.endswith("_store") or "lodging" in place.get("types", []):
+        return None
     hours = _hours_today(place.get("regularOpeningHours", {}), now)
     if not hours:
         return None  # closed today or no hours: can't promise it's open
@@ -145,7 +164,7 @@ def to_item(place: dict[str, Any], now: datetime) -> dict[str, Any] | None:
         # shortcut: Google has no student data, the Scout agent adds deals later
         "student_price": False,
         "adult_only": bool(ADULT & set(types)),
-        "rating": float(place.get("rating", 3.5)),
+        "rating": float(place["rating"]) if "rating" in place else None,
         "opens": hours[0],
         "closes": hours[1],
         "lat": place["location"]["latitude"],

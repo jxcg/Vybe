@@ -77,26 +77,26 @@
             onChange=${e => setP({ ...p, student: e.target.checked })} /> Student</label>
           <label><input type="checkbox" checked=${p.adult}
             onChange=${e => setP({ ...p, adult: e.target.checked })} /> 18+</label>
-          <button>Show me what's on</button>
+          <button disabled=${status === "Finding you…" || status === "Looking up…"}>Show me what's on</button>
         </form>`;
     }
 
-    function Card({ c, liked, onLike }) {
+    function Card({ c, i, total, liked, onLike }) {
       return html`
         <section class="card">
           <div>${BADGES[c.badge]}</div>
           <h2 style=${{ margin: 0 }}>${c.name}</h2>
           <div><strong>${c.match}% match</strong>${c.rating ? ` · ★ ${c.rating} on Google` : ""}</div>
-          <div>${c.walk_mins} min walk ·${c.price === 0 ? "Free" : c.price ? `£${c.price.toFixed(2)}` : "£".repeat(c.price_level)}</div>
+          <div>${c.walk_mins} min walk · ${c.price === 0 ? "Free" : c.price ? `£${c.price.toFixed(2)}` : "£".repeat(c.price_level)}</div>
           <div class="chips">${c.reasons.map(r => html`<span key=${r}>${r}</span>`)}</div>
           <div>Leave by <strong>${c.leave_by}</strong></div>
           <button onClick=${onLike} aria-pressed=${liked}>${liked ? "♥ Liked" : "♡ Like"}</button>
           ${c.maps_url && html`<a href=${c.maps_url} target="_blank" rel="noopener">Directions ↗</a>`}
-          <small>${c.source}</small>
+          <small>${c.source} · ${i + 1} of ${total}${i === 0 ? " · swipe up for more ↑" : ""}</small>
         </section>`;
     }
 
-    function Feed({ prefs }) {
+    function Feed({ prefs, onReset }) {
       const [cards, setCards] = React.useState(null);
       const [liked, setLiked] = React.useState(() => load("vybe.liked", []));
       const stack = React.useRef(null);
@@ -122,18 +122,24 @@
       }
 
       if (cards === null) return html`<p>Loading…</p>`;
-      if (!cards.length) return html`<p style=${{ padding: 24 }}>Nothing open nearby right now.</p>`;
+      if (!cards.length) return html`
+        <div class="setup">
+          <p>Nothing open nearby that fits right now.</p>
+          <button onClick=${onReset}>Change budget or location</button>
+        </div>`;
       return html`
         <div class="stack" ref=${stack}>
-          ${cards.map(c => html`
-            <${Card} key=${c.id} c=${c} liked=${liked.includes(c.id)} onLike=${() => toggleLike(c.id)} />`)}
-        </div>`;
+          ${cards.map((c, i) => html`
+            <${Card} key=${c.id} c=${c} i=${i} total=${cards.length}
+              liked=${liked.includes(c.id)} onLike=${() => toggleLike(c.id)} />`)}
+        </div>
+        <button onClick=${onReset} style=${{ position: "fixed", top: 12, right: 12 }}>Settings</button>`;
     }
 
     function App() {
       const [prefs, setPrefs] = React.useState(() => load("vybe.prefs", null));
       if (!prefs) return html`<${Setup} onDone=${p => { save("vybe.prefs", p); setPrefs(p); }} />`;
-      return html`<${Feed} prefs=${prefs} />`;
+      return html`<${Feed} prefs=${prefs} onReset=${() => { save("vybe.prefs", null); setPrefs(null); }} />`;
     }
 
     ReactDOM.createRoot(document.getElementById("root")).render(html`<${App} />`);

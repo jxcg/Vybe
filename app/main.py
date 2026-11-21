@@ -28,10 +28,13 @@ def items_near(lat: float, lng: float, now: datetime) -> list[dict[str, Any]]:
             found = [i for p in places.nearby(lat, lng) if (i := places.to_item(p, now))]
         else:
             found = [i for e in osm.nearby(lat, lng) if (i := osm.to_item(e, now))]
-    except httpx.HTTPError:
+    except (httpx.HTTPError, KeyError, ValueError, TypeError):
         found = None  # fall back to samples so the demo never shows an empty screen
     items = found or load_samples()
-    return [{**i, "walk_mins": geo.walk_mins(lat, lng, i["lat"], i["lng"])} for i in items]
+    unique = {i["id"]: i for i in items}  # a place can match more than one search
+    return [
+        {**i, "walk_mins": geo.walk_mins(lat, lng, i["lat"], i["lng"])} for i in unique.values()
+    ]
 
 
 @app.get("/api/geocode")
@@ -54,7 +57,7 @@ def feed(
     student: bool = False,
     adult: bool = True,
     liked: str = "",
-    now: Annotated[str | None, Query(pattern=r"^\d{2}:\d{2}$")] = None,
+    now: Annotated[str | None, Query(pattern=r"^([01]\d|2[0-3]):[0-5]\d$")] = None,
 ) -> list[dict[str, Any]]:
     """`liked` is comma-separated item ids from the browser; `now` (HH:MM) is for time travel."""
     at = datetime.now()
