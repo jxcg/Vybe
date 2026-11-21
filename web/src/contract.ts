@@ -33,6 +33,8 @@ export interface Row {
   name: string;
   venue: string;
   category: Category;
+  /** What people browse by: Food, Drinks, Entertainment, Culture, Outdoors (server extension) */
+  group?: string;
   departure_time: string;
   departure_label: DepartureLabel;
   status: Status;

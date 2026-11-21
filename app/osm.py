@@ -7,31 +7,17 @@ from typing import Any
 
 import httpx
 
+from app.categories import OSM as KINDS
+from app.categories import tags_for
+
 OVERPASS = "https://overpass-api.de/api/interpreter"
 NOMINATIM = "https://nominatim.openstreetmap.org/search"
 HEADERS = {"User-Agent": "vybe-hackathon-app/0.1"}  # both services ask for an identifying UA
 CACHE_TTL = 6 * 3600
 _cache: dict[tuple[float, float], tuple[float, list[dict[str, Any]]]] = {}
 
-# (osm key, value) → (Vybe type, tag, adult only, price level)
-KINDS: dict[tuple[str, str], tuple[str, str, bool, int]] = {
-    ("amenity", "restaurant"): ("food_deal", "food", False, 2),
-    ("amenity", "cafe"): ("food_deal", "food", False, 1),
-    ("amenity", "fast_food"): ("food_deal", "food", False, 1),
-    ("amenity", "bar"): ("activity", "nightlife", True, 2),
-    ("amenity", "pub"): ("activity", "nightlife", True, 2),
-    ("amenity", "nightclub"): ("activity", "nightlife", True, 2),
-    ("amenity", "cinema"): ("activity", "culture", False, 2),
-    ("amenity", "theatre"): ("activity", "culture", False, 3),
-    ("amenity", "arts_centre"): ("activity", "culture", False, 1),
-    ("tourism", "museum"): ("activity", "culture", False, 1),
-    ("tourism", "gallery"): ("activity", "culture", False, 1),
-    ("leisure", "bowling_alley"): ("activity", "active", False, 2),
-    ("leisure", "amusement_arcade"): ("activity", "active", False, 1),
-    ("leisure", "escape_game"): ("activity", "active", False, 3),
-    ("leisure", "sports_centre"): ("activity", "active", False, 2),
-    ("leisure", "park"): ("activity", "active", False, 1),
-}
+
+PRICE = {"food": 1, "culture": 1, "games": 2, "music": 2, "bar": 2, "comedy": 2, "other": 1}
 DAYS = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"]
 
 
@@ -131,21 +117,23 @@ def to_item(el: dict[str, Any], now: datetime) -> dict[str, Any] | None:
     lng = el.get("lon") or el.get("center", {}).get("lon")
     if lat is None or lng is None:
         return None
-    vtype, tag, adult, level = kind
+    vtype = "food_deal" if kind.group == "Food" else "activity"
     return {
         "id": f"osm-{el['type']}-{el['id']}",
         "name": tags["name"],
         "type": vtype,
         "price": None,
-        "price_level": level,
+        "price_level": PRICE.get(kind.category, 2),
         "student_price": False,
-        "adult_only": adult,
+        "adult_only": kind.adult,
         "rating": None,
         "opens": window[0],
         "closes": window[1],
         "lat": float(lat),
         "lng": float(lng),
-        "tags": [tag, "outdoors" if tags.get("leisure") == "park" else "indoors"],
+        "tags": tags_for(kind, outdoors=tags.get("leisure") == "park"),
+        "category": kind.category,
+        "group": kind.group,
         "url": tags.get("website") or tags.get("contact:website"),
         "maps_url": f"https://www.google.com/maps/dir/?api=1&destination={lat},{lng}",
         "source": "OpenStreetMap",

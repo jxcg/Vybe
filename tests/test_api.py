@@ -66,7 +66,8 @@ def test_places_mapping() -> None:
     }
     item = places.to_item(place, sat_8pm)
     assert item and (item["opens"], item["closes"]) == ("18:00", "01:00")
-    assert item["tags"] == ["active", "indoors"] and item["price_level"] == 2
+    assert item["tags"] == ["games", "active", "indoors"] and item["price_level"] == 2
+    assert (item["category"], item["group"]) == ("games", "Entertainment")
     sun_0030 = datetime(2026, 11, 22, 0, 30)  # still inside Saturday's late window
     assert (places.to_item(place, sun_0030) or {}).get("closes") == "01:00"
     assert places.to_item({**place, "regularOpeningHours": {}}, sat_8pm) is None

@@ -7,6 +7,8 @@ from typing import Any
 
 import httpx
 
+from app.categories import google_kind, tags_for
+
 API = "https://places.googleapis.com/v1/places"
 FIELDS = ",".join(
     f"places.{f}"
@@ -24,17 +26,21 @@ FIELDS = ",".join(
         "googleMapsUri",
     ]
 )
+# One call per group so bars and restaurants don't crowd out everything else (20 results each)
 SEARCHES = {
     "activity": [
-        "bowling_alley",
+        "comedy_club",
+        "live_music_venue",
+        "performing_arts_theater",
         "movie_theater",
-        "museum",
-        "art_gallery",
+        "bowling_alley",
+        "video_arcade",
+        "karaoke",
         "amusement_center",
-        "park",
     ],
-    "nightlife": ["night_club", "bar"],
-    "food_deal": ["restaurant", "cafe"],
+    "culture": ["museum", "art_gallery", "concert_hall", "park"],
+    "nightlife": ["bar", "pub", "cocktail_bar", "wine_bar", "night_club"],
+    "food_deal": ["restaurant", "cafe", "dessert_shop"],
 }
 PRICE_LEVELS = {
     "PRICE_LEVEL_FREE": 1,
@@ -43,19 +49,6 @@ PRICE_LEVELS = {
     "PRICE_LEVEL_EXPENSIVE": 3,
     "PRICE_LEVEL_VERY_EXPENSIVE": 3,
 }
-TAGS = {
-    "bowling_alley": "active",
-    "amusement_center": "active",
-    "park": "active",
-    "museum": "culture",
-    "art_gallery": "culture",
-    "movie_theater": "culture",
-    "night_club": "nightlife",
-    "bar": "nightlife",
-    "restaurant": "food",
-    "cafe": "food",
-}
-ADULT = {"night_club", "bar"}
 # shops, chains and stations match our searches but aren't a plan for tonight
 SKIP_PRIMARY = {
     "department_store",
@@ -96,7 +89,7 @@ def _post(endpoint: str, body: dict[str, Any], fields: str) -> list[dict[str, An
 
 
 def nearby(lat: float, lng: float) -> list[dict[str, Any]]:
-    """Raw places around a point: 3 calls (activities, nightlife, food) per cell every 6 hours."""
+    """Raw places around a point: one call per search group, per cell, every 6 hours."""
     cell = (round(lat, 2), round(lng, 2))
     hit = _cache.get(cell)
     if hit and time.time() - hit[0] < CACHE_TTL:
@@ -111,7 +104,7 @@ def nearby(lat: float, lng: float) -> list[dict[str, Any]]:
             },
         }
         # nightlife is its own search so bars don't crowd out other activities
-        vtype = "activity" if kind == "nightlife" else kind
+        vtype = "food_deal" if kind == "food_deal" else "activity"
         places += [{**p, "_kind": vtype} for p in _post("searchNearby", body, FIELDS)]
     _cache[cell] = (time.time(), places)
     return places
@@ -149,10 +142,9 @@ def to_item(place: dict[str, Any], now: datetime) -> dict[str, Any] | None:
     if not hours:
         return None  # closed today or no hours: can't promise it's open
     types = place.get("types", [])
-    tags = [TAGS[t] for t in types if t in TAGS][:1] or [
-        "food" if place["_kind"] != "activity" else "active"
-    ]
-    tags.append("outdoors" if "park" in types else "indoors")
+    kind = google_kind(types, primary)
+    if kind is None:
+        return None
     start = place.get("priceRange", {}).get("startPrice", {}).get("units")
     return {
         "id": place["id"],
@@ -163,13 +155,15 @@ def to_item(place: dict[str, Any], now: datetime) -> dict[str, Any] | None:
         "price_level": PRICE_LEVELS.get(place.get("priceLevel", ""), 1),
         # shortcut: Google has no student data, the Scout agent adds deals later
         "student_price": False,
-        "adult_only": bool(ADULT & set(types)),
+        "adult_only": kind.adult,
         "rating": float(place["rating"]) if "rating" in place else None,
         "opens": hours[0],
         "closes": hours[1],
         "lat": place["location"]["latitude"],
         "lng": place["location"]["longitude"],
-        "tags": tags,
+        "tags": tags_for(kind, outdoors="park" in types),
+        "category": kind.category,
+        "group": kind.group,
         "url": place.get("websiteUri") or place.get("googleMapsUri"),
         "maps_url": place.get("googleMapsUri"),
         "source": "Google Places",

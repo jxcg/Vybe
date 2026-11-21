@@ -121,3 +121,56 @@ def test_brand_colour_becomes_readable_venue_colours() -> None:
         red["deep"][3:5], 16
     )  # still red
     assert venue_colors("not a colour") is None and venue_colors(None) is None
+
+
+def test_categories_from_google_types() -> None:
+    from app.categories import google_kind, tags_for
+
+    comedy = google_kind(["comedy_club", "bar"], "comedy_club")
+    assert comedy and (comedy.category, comedy.group, comedy.adult) == (
+        "comedy",
+        "Entertainment",
+        True,
+    )
+    pub = google_kind(["pub", "restaurant"])
+    assert pub and pub.group == "Drinks"
+    park = google_kind(["park"])
+    assert park and tags_for(park, outdoors=True) == ["outdoors"]
+    assert google_kind(["shoe_store"]) is None
+
+
+def test_picks_come_from_different_groups() -> None:
+    from datetime import datetime
+
+    now = datetime(2026, 11, 21, 18, 0)
+
+    def card(i: str, group: str, match: int, rating: float) -> dict[str, Any]:
+        return {
+            "id": i,
+            "name": i,
+            "type": "activity",
+            "tags": ["culture", "indoors"],
+            "group": group,
+            "category": "culture",
+            "closes_at": "2026-11-21T23:00:00",
+            "leave_by_at": "2026-11-21T21:50:00",
+            "walk_mins": 5,
+            "match": match,
+            "reasons": [],
+            "rating": rating,
+            "lat": 0,
+            "lng": 0,
+        }
+
+    rows = ws.to_rows(
+        [
+            card("t1", "Entertainment", 90, 4.0),
+            card("t2", "Entertainment", 88, 4.9),
+            card("f1", "Food", 70, 4.2),
+            card("d1", "Drinks", 60, 4.6),
+        ],
+        now,
+        raining=False,
+    )
+    picks = {r["pick"]: r["id"] for r in rows if r["pick"]}
+    assert picks == {"best": "t1", "runner_up": "f1", "wildcard": "d1"}

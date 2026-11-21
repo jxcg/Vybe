@@ -27,22 +27,24 @@ BOARD_EVERY = 20  # seconds; keeps countdowns and statuses fresh
 ENRICHED = Path(__file__).parent.parent / "data" / "enriched.json"
 
 BUDGETS = {10: 1, 20: 2, 999: 3}  # frontend budget (£ cap) → our price level
+# Fallback when an item has no category (sample data): taste tag → frontend category
 CATEGORY = {"active": "games", "culture": "culture", "nightlife": "bar", "food": "food"}
-# Frontend "into" tags → our tags (for ranking boosts)
+GROUP = {"food": "Food", "bar": "Drinks", "culture": "Culture", "other": "Outdoors"}
+# Frontend "into" tags → our taste tags (for ranking boosts)
 INTO = {
     "active": "active",
-    "competitive": "active",
+    "competitive": "games",
     "culture": "culture",
     "chill": "culture",
     "food": "food",
-    "a laugh": "nightlife",
-    "live music": "nightlife",
+    "a laugh": "comedy",
+    "live music": "music",
     "late night": "nightlife",
 }
-# Frontend "not into" tags → our tags to drop
+# Frontend "not into" tags → our taste tags to drop
 NOT_INTO = {
-    "clubs": "nightlife",
-    "loud music": "nightlife",
+    "clubs": "club",
+    "loud music": "music",
     "late nights": "nightlife",
     "outdoors": "outdoors",
 }
@@ -61,6 +63,13 @@ ICONS = {
     "Culture": "Palette",
     "Nightlife": "Beer",
     "Food": "Utensils",
+    "Comedy": "Laugh",
+    "Music": "Music",
+    "Games": "Dices",
+    "Film": "Film",
+    "Theatre": "Ticket",
+    "Club": "Moon",
+    "Outdoors": "MapPin",
 }
 
 
@@ -102,7 +111,12 @@ def to_rows(cards: list[dict[str, Any]], now: datetime, raining: bool) -> list[d
                 "id": c["id"],
                 "name": c["name"],
                 "venue": c["name"],
-                "category": CATEGORY.get(c["tags"][0], "other"),
+                "category": c.get("category") or CATEGORY.get(c["tags"][0], "other"),
+                # Beyond the contract: what people browse by (Food, Drinks, Entertainment, …)
+                "group": c.get("group")
+                or GROUP.get(
+                    c.get("category") or CATEGORY.get(c["tags"][0], "other"), "Entertainment"
+                ),
                 "departure_time": _iso(c["closes_at"]),
                 "departure_label": "Kitchen closes" if c["type"] == "food_deal" else "Last entry",
                 "status": _status(leave_by, now, "outdoors" in c["tags"], raining),
@@ -126,17 +140,16 @@ def to_rows(cards: list[dict[str, Any]], now: datetime, raining: bool) -> list[d
             }
         )
     live = [r for r in rows if r["status"] not in ("departed", "cancelled")]
-    if live:
-        live[0]["pick"] = "best"
-    if len(live) > 1:
-        live[1]["pick"] = "runner_up"
-    # Wildcard: the best-rated place from a category the top two don't cover
-    taken = {r["category"] for r in live[:2]}
-    wild = sorted(
-        (r for r in live[2:] if r["category"] not in taken), key=lambda r: -(r["rating"] or 0)
-    )
-    if wild:
-        wild[0]["pick"] = "wildcard"
+    # Picks: the best match, then the best from a different group, then a wildcard from a third
+    # group (highest rated), so the three hero cards aren't three theatres.
+    used: set[str] = set()
+    for pick, key in (("best", None), ("runner_up", None), ("wildcard", "rating")):
+        pool = [r for r in live if r["pick"] is None and r["group"] not in used]
+        if key:
+            pool.sort(key=lambda r: -(r["rating"] or 0))
+        if pool:
+            pool[0]["pick"] = pick
+            used.add(pool[0]["group"])
     return rows
 
 

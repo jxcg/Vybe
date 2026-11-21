@@ -33,7 +33,8 @@ def test_to_item() -> None:
         and item["id"] == "osm-node-42"
         and (item["opens"], item["closes"]) == ("12:00", "02:00")
     )
-    assert item["tags"] == ["active", "indoors"] and item["rating"] is None
+    assert item["tags"] == ["games", "active", "indoors"] and item["rating"] is None
+    assert (item["category"], item["group"]) == ("games", "Entertainment")
     assert to_item(el, datetime(2026, 11, 22, 1, 0))  # 1am: still in Saturday's late window
     shut = {**el, "tags": {**el["tags"], "opening_hours": "Mo-Su 09:00-17:00"}}
     assert to_item(shut, sat_8pm) is None  # already closed today

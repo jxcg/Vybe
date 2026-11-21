@@ -46,3 +46,37 @@
   min-height: 0;
   overflow: hidden;
 }
+
+/* Browse by kind: All · Food · Drinks · Entertainment · Culture · Outdoors */
+.dlist-filter {
+  display: flex;
+  gap: 8px;
+  margin-top: 24px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.dlist-filter::-webkit-scrollbar {
+  display: none;
+}
+.dlist-chip {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: var(--r-pill);
+  border: var(--hairline);
+  background: transparent;
+  color: var(--text-2);
+  font-size: 14px;
+  font-weight: 500;
+}
+.dlist-chip[aria-pressed='true'] {
+  background: var(--text);
+  border-color: var(--text);
+  color: var(--bg);
+}
+.dlist-chip-count {
+  font-size: 12px;
+  opacity: 0.6;
+}
