@@ -26,6 +26,22 @@ Every change starts with a GitHub issue. Before writing any code:
 
 Do not start work on a change that has no issue.
 
+#### What deserves its own issue
+
+Issues should be meaningful units of work: worth tracking, explainable, and robust.
+
+- **Worth it:** a new issue covers a feature, a real bug, or a change someone would want to find later. Don't open issues for trivial tweaks.
+- **Explainable:** a reader with no context can see what the problem is, why it matters, and when it counts as done. Write the body as problem, context and acceptance criteria.
+- **Not brittle:** describe the goal and the behaviour, not exact line numbers, file paths or a fix that will be stale after the next change. The issue should still make sense if the code around it moves.
+
+**Small changes go into an existing open issue.** For things like renaming a button, fixing a typo, tweaking copy or nudging a style, don't create a new issue:
+
+1. Find the most closely related open issue: `gh issue list --state open`
+2. Do the change on that issue's `feature/Issue-<N>` branch (or a PR already open against it).
+3. Mention the extra change in the PR bullets or as a comment on the issue: `gh issue comment <N> --body "..."`
+
+Only when no related issue is open should you create a new one, and even then keep it broad enough to cover the area (e.g. "Polish onboarding screen copy" rather than "Rename Submit button to Continue").
+
 ### 2. Branching
 
 - Never commit directly to `main`.
