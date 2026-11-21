@@ -85,6 +85,13 @@
   .hero-card:not(:first-child) .hero-card-when {
     padding-top: 12px;
   }
+  /* End the photo fade before the compact card's opening-hours label. */
+  .hero-card--photo:not(:first-child) {
+    --photo-h: 84px;
+  }
+  .hero-card--photo:not(:first-child) .hero-card-when {
+    padding-top: calc(var(--photo-h) - 34px);
+  }
   .hero-card:not(:first-child) .hero-card-time {
     font-size: clamp(32px, 3.5vw, 48px);
   }
