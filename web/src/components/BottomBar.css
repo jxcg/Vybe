@@ -31,3 +31,22 @@
 .bottombar-talk:active {
   transform: scale(0.98);
 }
+
+/* Listening: a soft pulse so it's clear the mic is on */
+.bottombar-talk.is-listening {
+  animation: talk-pulse 1.4s ease-in-out infinite;
+}
+@keyframes talk-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgb(106 91 179 / 0.35); }
+  50% { box-shadow: 0 0 0 10px rgb(106 91 179 / 0); }
+}
+.bottombar-talk .spin {
+  animation: talk-spin 0.9s linear infinite;
+}
+@keyframes talk-spin {
+  to { transform: rotate(360deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .bottombar-talk.is-listening,
+  .bottombar-talk .spin { animation: none; }
+}

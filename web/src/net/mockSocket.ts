@@ -145,6 +145,9 @@ export function createMockSocket(): VybeSocket {
   }
 
   return {
+    sendAudio() {
+      // the mock has no speech recognition; typed text works instead
+    },
     send(msg: ClientMessage) {
       switch (msg.type) {
         case 'join':

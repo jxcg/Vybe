@@ -201,3 +201,37 @@ button {
   border-radius: var(--r-pill);
   pointer-events: none;
 }
+
+/* Top recommendations (8/10 and up): a faint glow plus a slow, soft sheen. Meant to be noticed
+   only on a second look. */
+.hero-card.is-top,
+.drow.is-top {
+  position: relative;
+  overflow: hidden;
+}
+.hero-card.is-top {
+  box-shadow: 0 0 0 1px color-mix(in oklch, var(--light) 18%, transparent),
+    0 10px 30px -14px color-mix(in oklch, var(--light) 45%, transparent);
+}
+.hero-card.is-top::after,
+.drow.is-top::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(115deg, transparent 40%, rgb(255 255 255 / 0.07) 50%, transparent 60%);
+  background-size: 250% 100%;
+  animation: top-sheen 7s ease-in-out infinite;
+}
+.drow.is-top::after {
+  background: linear-gradient(115deg, transparent 40%, color-mix(in oklch, var(--accent) 9%, transparent) 50%, transparent 60%);
+  background-size: 250% 100%;
+}
+@keyframes top-sheen {
+  0%, 70% { background-position: 120% 0; }
+  100% { background-position: -20% 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hero-card.is-top::after,
+  .drow.is-top::after { animation: none; opacity: 0; }
+}
