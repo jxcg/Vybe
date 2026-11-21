@@ -1,0 +1,48 @@
+/* Theme switch: the new theme is revealed by a circle (animated in ThemeToggle.tsx); the browser's
+   default cross-fade is turned off so the circle edge stays crisp under the grain. */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+/* Animatable ring radius for the grain mask */
+@property --r {
+  syntax: '<length>';
+  inherits: false;
+  initial-value: 0px;
+}
+
+.theme-grain {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483647;
+  pointer-events: none;
+  /* Coarse film grain, jittered so it shimmers as the edge moves */
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 220px 220px;
+  /* Only a band just inside the expanding edge is grainy; the middle settles to the clean theme */
+  --band: 120px;
+  -webkit-mask-image: radial-gradient(
+    circle at var(--x) var(--y),
+    transparent calc(var(--r) - var(--band) * 2),
+    #000 calc(var(--r) - var(--band) * 0.6),
+    #000 calc(var(--r) - 4px),
+    transparent var(--r)
+  );
+  mask-image: radial-gradient(
+    circle at var(--x) var(--y),
+    transparent calc(var(--r) - var(--band) * 2),
+    #000 calc(var(--r) - var(--band) * 0.6),
+    #000 calc(var(--r) - 4px),
+    transparent var(--r)
+  );
+  animation: theme-grain-jitter 120ms steps(1) infinite;
+}
+
+@keyframes theme-grain-jitter {
+  0% { background-position: 0 0; }
+  25% { background-position: -37px 21px; }
+  50% { background-position: 53px -44px; }
+  75% { background-position: -18px -63px; }
+}

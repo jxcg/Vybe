@@ -63,6 +63,13 @@ Review pass 4 (commit 0f4caaa, vybe-theme; checked on a clean checkout of `main`
 Personalisation (user priority, 2026-11-21)
 - [ ] **Read Google reviews into audience fit:** onboarding now asks age range and vibe. In the Enricher, fetch each venue's `reviews`, `reviewSummary`, `generativeSummary`, `goodForGroups` and `liveMusic` (background only, cached; this is a pricier Google tier) and use a Mistral model to write `audience`, `liveliness`, `good_for_groups` and `audience_note` into `enriched.json`. The field shapes are in Contract 1. Ranking already uses them (`app/ranking.py::_fits_you`) and shows "Popular with 18–21s" or "Good for groups" when they're present.
 
+Review pass 5 (commits db2bfa5 and a2b12ec; a clean `main` passes ruff, mypy, pytest (51) and the web build)
+- [ ] Pass 4 is still open: `theme_item` writes `theme: {…}`, never `brand_color`. `palette()` still falls back to `DEFAULT_PALETTE`, there's still no `theme-color` or manifest read, and refreshes still wipe themes.
+- [ ] Linked-CSS fetching: stream with a byte cap (`r.text[:limit]` reads the whole body first), check the host is not private or loopback after every redirect, and limit stylesheets per venue.
+- [ ] Resolve stylesheet URLs with `urllib.parse.urljoin(url, href)`. String joining breaks `//cdn…`, deep relative paths and `../`, and the regex misses `href` before `rel`.
+- [ ] "restore WebSockets" (a2b12ec) also deleted the venue-colour glow and `.ticket::after`, and swapped `--accent-fade` for a flat `--accent-fill` across 4 components. None of that relates to WebSockets. Please don't change Claude's UI files without a "Requests for Claude" note; the user is deciding whether the glow comes back.
+- Good: the `pyproject.toml` revert and untracking `tests/test_polling.py` fixed the two pass 4 items.
+
 ## Blocked
 - Hosted `web_search` tool (Conversations API) is rate-limited on our key right now (429, ~86 s/call) — slows the Scout/Enricher/Verifier debate in `vybe-refresh`. Pipeline degrades gracefully to empty claims. Retry later or raise the workspace quota.
 - Orchestrator agent (`pipeline/agents.py`) spawns subagents but the parent hits `iteration_limit` before returning the `OrchestratorOutput` schema — enrichment claims come back `{}`. Theme debate (direct `agent.run` per role) works fine; the subagent-spawning orchestration needs one more pass.
