@@ -164,3 +164,8 @@ __pycache__/
 # Pipeline output (runtime, per location)
 data/enriched.json
 data/voiceovers/
+
+# Local database and deployment state
+vybe.db
+.vercel/
+.railway/
