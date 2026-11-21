@@ -13,6 +13,7 @@ import { RowSheet } from './RowSheet';
 import { SentenceSlot } from './SentenceSlot';
 import { TypeField } from './TypeField';
 import { VybeCard, type RowKey } from './VybeCard';
+import { VybeTags } from './VybeTags';
 import { ThemeToggle } from './ThemeToggle';
 import { Wordmark } from './Wordmark';
 import './StartScreen.css';
@@ -203,6 +204,7 @@ export function StartScreen() {
               <MicButton phase={phase} onPress={onMic} buttonRef={micRef} />
               <p className="start-phase">{PHASE_LABEL[phase]}</p>
               <SentenceSlot text={state.transcript} />
+              <VybeTags vybe={state.vybe} onChange={setVybe} />
               <button type="button" className="start-type-btn" onClick={() => switchMode(true)}>
                 <Keyboard size={16} strokeWidth={2} aria-hidden="true" />
                 Type instead

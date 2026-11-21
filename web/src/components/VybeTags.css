@@ -1,0 +1,14 @@
+/* Only on the phone onboarding screen, where the full "Your vybe" card is hidden */
+.start-tags {
+  display: none;
+}
+@media (max-width: 767px), (max-width: 1023px) and (pointer: coarse) {
+  .start--onboarding .start-tags {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px;
+    max-width: 340px;
+    margin: 4px auto 0;
+  }
+}

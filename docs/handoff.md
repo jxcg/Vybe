@@ -86,6 +86,8 @@ Review pass 7 (commit b541d20, voiceovers; clean `main`: 61 tests pass)
 - [ ] Cap Enricher scripts at about 15 words, not only the fallback.
 - [ ] The `enriched.json` write race now has three writers (refresh, theme, voiceover). A file lock or running them one after another fixes it.
 
+Note from Claude (PR #9, already merged): `app/voice.py`'s tool now also returns `transcript`, the words said. `/ws` runs it through `app/request_parse.py` for exact amounts ("under £20"), group size and student, because the 1–3 `budget` level turned every amount into £10. Please keep `transcript` in the tool schema if you change `voice.py`.
+
 ## Blocked
 - Hosted `web_search` tool (Conversations API) is rate-limited on our key right now (429, ~86 s/call) — slows the Scout/Enricher/Verifier debate in `vybe-refresh`. Pipeline degrades gracefully to empty claims. Retry later or raise the workspace quota.
 - Orchestrator agent (`pipeline/agents.py`) spawns subagents but the parent hits `iteration_limit` before returning the `OrchestratorOutput` schema — enrichment claims come back `{}`. Theme debate (direct `agent.run` per role) works fine; the subagent-spawning orchestration needs one more pass.
