@@ -78,15 +78,6 @@ def _post(endpoint: str, body: dict[str, Any], fields: str) -> list[dict[str, An
     return places
 
 
-def geocode(q: str) -> tuple[float, float] | None:
-    """Free-text place ("Soho", "Borough Market") via Places Text Search."""
-    places = _post("searchText", {"textQuery": q, "pageSize": 1}, "places.location")
-    if not places:
-        return None
-    loc = places[0]["location"]
-    return float(loc["latitude"]), float(loc["longitude"])
-
-
 def nearby(lat: float, lng: float) -> list[dict[str, Any]]:
     """Raw places around a point: 2 calls (activities, food) per cell every 6 hours."""
     cell = (round(lat, 2), round(lng, 2))

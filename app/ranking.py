@@ -5,6 +5,7 @@ from typing import Any
 
 LOOKAHEAD = timedelta(hours=3)
 MIN_STAY = timedelta(minutes=60)
+UNRATED = 3.8  # OpenStreetMap has no ratings: score unrated places as slightly below average
 
 
 def _window(item: dict[str, Any], now: datetime) -> tuple[datetime, datetime]:
@@ -50,7 +51,7 @@ def rank(
         student_deal = student and item["student_price"]
         outdoors = "outdoors" in item["tags"]
         score = (
-            item["rating"] / 5 * 3
+            (item["rating"] or UNRATED) / 5 * 3
             + (budget - item["price_level"] + 1) / budget * 2
             + (0.5 if student_deal else 0)
             + max(0.0, 1 - item["walk_mins"] / 30) * 2
@@ -64,7 +65,7 @@ def rank(
             "Student price" if student_deal else "Within budget",
             "Matches your likes" if overlap else None,
             "Short walk" if item["walk_mins"] <= 10 else None,
-            f"Rated {item['rating']}",
+            f"Rated {item['rating']}" if item["rating"] else None,
             item["tags"][0].capitalize(),
         ]
         cards.append(

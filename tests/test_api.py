@@ -1,7 +1,7 @@
 import pytest
 from fastapi.testclient import TestClient
 
-from app import geo, places
+from app import geo, osm, places
 from app.main import app
 
 client = TestClient(app)
@@ -11,6 +11,8 @@ client = TestClient(app)
 def offline(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("GOOGLE_PLACES_API_KEY", raising=False)
     monkeypatch.setattr(geo, "is_raining", lambda lat, lng: False)
+    monkeypatch.setattr(osm, "nearby", lambda lat, lng: [])
+    monkeypatch.setattr(osm, "geocode", lambda q: None)
 
 
 def test_index() -> None:

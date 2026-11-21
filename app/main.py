@@ -7,7 +7,7 @@ import httpx
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import FileResponse
 
-from app import geo, places
+from app import geo, osm, places
 from app.ranking import rank
 
 HERE = Path(__file__).parent
@@ -21,24 +21,24 @@ def load_samples() -> list[dict[str, Any]]:
 
 
 def items_near(lat: float, lng: float, now: datetime) -> list[dict[str, Any]]:
-    """Google Places when a key is set (sample data if not, or if Google fails), with walk times."""
+    """Google Places if a key is set, else OpenStreetMap (free); samples if both fail."""
     found = None
-    if places.api_key():
-        try:
+    try:
+        if places.api_key():
             found = [i for p in places.nearby(lat, lng) if (i := places.to_item(p, now))]
-        except httpx.HTTPError:
-            found = None  # fall back to samples so the demo never shows an empty screen
+        else:
+            found = [i for e in osm.nearby(lat, lng) if (i := osm.to_item(e, now))]
+    except httpx.HTTPError:
+        found = None  # fall back to samples so the demo never shows an empty screen
     items = found or load_samples()
     return [{**i, "walk_mins": geo.walk_mins(lat, lng, i["lat"], i["lng"])} for i in items]
 
 
 @app.get("/api/geocode")
 def geocode(q: Annotated[str, Query(min_length=2, max_length=100)]) -> dict[str, float]:
-    """Postcode or outcode ("SE1") first, which is free, then any place name via Google."""
+    """Postcode or outcode ("SE1") via postcodes.io, then any place name via OpenStreetMap."""
     try:
-        hit = geo.geocode_postcode(q)
-        if hit is None and places.api_key():
-            hit = places.geocode(q)
+        hit = geo.geocode_postcode(q) or osm.geocode(q)
     except httpx.HTTPError as e:
         raise HTTPException(502, "Location lookup failed") from e
     if hit is None:
