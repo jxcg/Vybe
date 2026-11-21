@@ -21,6 +21,9 @@ Put `(now)` after the milestone being worked on. Owners: (Claude), (Mistral), (T
 - [ ] Show only the best pick above the list when four activities are available (Team)
 - [ ] Hide the sidebar panel when there are no additional activities (Team)
 
+## Shared plans (now)
+- [x] Invite friends to a live shared board (Team)
+
 ## Real places
 - [x] Google Places near the user (Claude)
 - [x] Browser location or typed postcode/area (Claude)
@@ -44,7 +47,7 @@ Put `(now)` after the milestone being worked on. Owners: (Claude), (Mistral), (T
 - [ ] Voxtral TTS voiceovers (Mistral)
 - [ ] `/vybe` skill triggers a refresh (Mistral)
 
-## Design (now)
+## Design
 - [ ] Render cached photo and gradient themes and verify the Studio debate (Team)
 - [ ] Keep compact card text legible beneath bright venue photos (Team)
 - [ ] Lead featured cards with venue names and give photos dedicated space (Team)
