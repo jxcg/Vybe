@@ -106,10 +106,32 @@
   white-space: nowrap;
 }
 
-/* Walk-in places show a word ("Open", "Book") instead of a start time */
+/* Walk-in places can show "Open" instead of a start time. */
 .drow-time--word {
   font-size: 0.8em;
   color: var(--st-boarding);
+}
+
+.drow-time--book {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: fit-content;
+  min-height: 27px;
+  padding: 0 8px;
+  border: 1px solid color-mix(in srgb, var(--st-boarding) 26%, transparent);
+  border-radius: var(--r-pill);
+  background: color-mix(in srgb, var(--st-boarding) 9%, transparent);
+  color: var(--st-boarding);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 650;
+  letter-spacing: normal;
+}
+
+.drow:hover .drow-time--book,
+.drow:focus-visible .drow-time--book {
+  background: color-mix(in srgb, var(--st-boarding) 17%, transparent);
 }
 
 /* Over budget: still listed, price flagged */

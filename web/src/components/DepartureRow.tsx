@@ -16,6 +16,8 @@ interface Props {
 export function DepartureRow({ row, nowMs, onOpen }: Props) {
   // The list keeps prices bare; the hero card carries the "student" qualifier.
   const price = formatPrice(row, false);
+  const time = when(row).value;
+  const timeStyle = time === 'Book' ? ' drow-time--book' : row.timed === false ? ' drow-time--word' : '';
   const colors = useVenueColors(row);
 
   return (
@@ -26,7 +28,7 @@ export function DepartureRow({ row, nowMs, onOpen }: Props) {
       data-row-id={row.id}
       onClick={(e) => onOpen(row, e)}
     >
-      <span className={`drow-time tnum${row.timed === false ? ' drow-time--word' : ''}`}>{when(row).value}</span>
+      <span className={`drow-time tnum${timeStyle}`}>{time}</span>
       <span className="drow-body">
         <span className="drow-line">
           <span className="drow-name">
