@@ -11,6 +11,13 @@ The product is called **Vybe**, a play on Mistral Vibe. It is being built for th
 - Remote: `https://github.com/jxcg/le-chonk`
 - Default branch: `main`
 
+## Build notes
+
+- **Functionality first.** Build features with plain UI; layout (list vs. swipe as default) is still open.
+- **No login.** The browser keeps a random device ID; setup and likes are saved in SQLite under it.
+- **Voice is session only.** Voxtral returns filters that live in the WebSocket session and are never saved.
+- **No AI in the live path.** Ranking is plain code. Agents run only in the background refresh (Mistral Workflow → orchestrator agent → Scout, Enricher and Verifier subagents → Voxtral TTS voiceovers).
+
 ## Workflow rules (mandatory)
 
 ### 1. Issue first
