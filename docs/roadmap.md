@@ -15,6 +15,7 @@ Put `(now)` after the milestone being worked on. Owners: (Claude), (Mistral), (T
 - [x] Google rating and personal match % shown separately (Claude)
 - [x] Weather (rain and cold) in the match (Claude)
 - [ ] Open the board on a saved interest, group additional results, and mark short lists (Team)
+- [ ] Keep runner-up and wildcard details visible on desktop cards (Team)
 
 ## Real places
 - [x] Google Places near the user (Claude)
