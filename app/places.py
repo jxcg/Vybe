@@ -179,35 +179,63 @@ def to_item(place: dict[str, Any], now: datetime) -> dict[str, Any] | None:
     }
 
 
-def featured_photo(place_id: str) -> dict[str, Any] | None:
-    """Resolve a fresh photo for a venue from the current nearby results."""
+def _place_photos(place_id: str, key: str) -> dict[str, Any]:
+    details = httpx.get(
+        f"{API}/{place_id}",
+        headers={"X-Goog-Api-Key": key, "X-Goog-FieldMask": "photos,googleMapsUri"},
+        timeout=5,
+    )
+    details.raise_for_status()
+    return dict(details.json())
+
+
+def _resolve_photo(place_id: str, key: str, photo: dict[str, Any]) -> str | None:
+    name = photo.get("name", "")
+    if photo.get("widthPx", 0) < 1080 or not name.startswith(f"places/{place_id}/photos/"):
+        return None
+    media = httpx.get(
+        f"https://places.googleapis.com/v1/{name}/media",
+        headers={"X-Goog-Api-Key": key},
+        params={"maxWidthPx": 1440, "skipHttpRedirect": "true"},
+        timeout=5,
+    )
+    media.raise_for_status()
+    url = media.json().get("photoUri")
+    return url if isinstance(url, str) and url.startswith("https://") else None
+
+
+def photo_candidates(place_id: str) -> list[dict[str, Any]]:
+    """Resolve up to three fresh Google photos for the background theme activity."""
+    key = api_key()
+    if not key:
+        return []
+    place = _place_photos(place_id, key)
+    candidates = []
+    for index, photo in enumerate(place.get("photos", [])[:3]):
+        if photo.get("heightPx", 0) > 0 and (url := _resolve_photo(place_id, key, photo)):
+            candidates.append(
+                {"url": url, "index": index, "width": photo["widthPx"], "height": photo["heightPx"]}
+            )
+    return candidates
+
+
+def featured_photo(place_id: str, selection: dict[str, Any] | None = None) -> dict[str, Any] | None:
+    """Resolve the reviewed photo from current Places metadata."""
     key = api_key()
     if not key or not any(
         time.time() - fetched_at < CACHE_TTL and any(place["id"] == place_id for place in results)
         for fetched_at, results in _cache.values()
     ):
         return None
-    headers = {"X-Goog-Api-Key": key}
-    details = httpx.get(
-        f"{API}/{place_id}",
-        headers={**headers, "X-Goog-FieldMask": "photos,googleMapsUri"},
-        timeout=5,
-    )
-    details.raise_for_status()
-    place = details.json()
-    for photo in place.get("photos", [])[:3]:
-        name = photo.get("name", "")
-        if photo.get("widthPx", 0) < 1080 or not name.startswith(f"places/{place_id}/photos/"):
+    place = _place_photos(place_id, key)
+    for index, photo in enumerate(place.get("photos", [])[:3]):
+        if selection is not None and selection != {
+            "index": index,
+            "width": photo.get("widthPx"),
+            "height": photo.get("heightPx"),
+        }:
             continue
-        media = httpx.get(
-            f"https://places.googleapis.com/v1/{name}/media",
-            headers=headers,
-            params={"maxWidthPx": 1440, "skipHttpRedirect": "true"},
-            timeout=5,
-        )
-        media.raise_for_status()
-        url = media.json().get("photoUri")
-        if isinstance(url, str) and url.startswith("https://"):
+        if url := _resolve_photo(place_id, key, photo):
             return {
                 "url": url,
                 "authors": photo.get("authorAttributions", []),

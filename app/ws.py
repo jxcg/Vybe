@@ -212,7 +212,8 @@ def _board_rows(cards: list[dict[str, Any]], now: datetime, raining: bool) -> li
                 "pick": None,
                 "reasons": [{"icon": _icon(r), "text": r} for r in c["reasons"]][:3],
                 "photo_url": photo_url if has_photo else None,
-                "google_place_photo": c.get("source") == "Google Places",
+                "google_place_photo": c.get("source") == "Google Places"
+                and (not theme or isinstance(theme.get("google_photo"), dict)),
                 "photo_credit": photo_credit if has_photo else None,
                 "colors": venue_colors(theme.get("base") or extra.get("brand_color")),
                 "pitch": extra.get("deal") or extra.get("script") or "",

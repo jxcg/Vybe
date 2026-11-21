@@ -54,12 +54,12 @@ interface Props {
 }
 
 export function Ticket({ row, next, nowMs, student, liked, onBack, onNext, onLike, onSkip }: Props) {
-  const colors = useVenueColors(row);
   // Photo layout only once the image has actually loaded; otherwise the poster.
   const { url: photoUrl, google } = usePlacePhoto(row);
   const [loadedPhoto, setLoadedPhoto] = useState<string | null>(null);
   const [failedPhoto, setFailedPhoto] = useState<string | null>(null);
   const isPhoto = Boolean(photoUrl && photoUrl === loadedPhoto);
+  const colors = useVenueColors(row, isPhoto ? photoUrl : null);
 
   const minsToLeave = (Date.parse(row.leave_by) - nowMs) / MINUTE;
   const urgency = Math.min(1, Math.max(0, (DARKEN_WINDOW_MIN - minsToLeave) / DARKEN_WINDOW_MIN));

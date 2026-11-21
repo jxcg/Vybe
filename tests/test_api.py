@@ -100,6 +100,7 @@ def test_place_photo_is_fresh_and_keeps_key_server_side(monkeypatch: pytest.Monk
                     {
                         "name": f"places/{place_id}/photos/large",
                         "widthPx": 1600,
+                        "heightPx": 900,
                         "authorAttributions": [{"displayName": "Photo author"}],
                         "googleMapsUri": "https://maps.google.com/photo",
                     },
@@ -121,3 +122,8 @@ def test_place_photo_is_fresh_and_keeps_key_server_side(monkeypatch: pytest.Monk
         f"{places.API}/{place_id}",
         f"{places.API}/{place_id}/photos/large/media",
     ]
+    assert places.featured_photo(place_id, {"index": 0, "width": 1600, "height": 900}) is None
+    assert (
+        places.featured_photo(place_id, {"index": 1, "width": 1600, "height": 900})
+        == response.json()
+    )
