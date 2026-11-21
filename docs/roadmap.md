@@ -43,9 +43,9 @@ Put `(now)` after the milestone being worked on. Owners: (Claude), (Mistral), (T
 - [ ] Voiceover playback with mute (Claude)
 
 ## Demo (now)
-- [ ] Deploy Railway and Vercel automatically from main (Team)
-- [ ] Connect the Vercel frontend to the Railway WebSocket backend (Team)
-- [ ] Verify the Vercel Preview on a phone (Team)
+- [ ] Deploy Vybe to Railway automatically from main (Team)
+- [ ] Verify the Railway frontend connects to the same-domain WebSocket (Team)
+- [ ] Verify the Railway deployment on a phone (Team)
 - [ ] Time travel control (Claude)
 - [ ] "Run refresh now" button, new card arrives live (Claude)
 - [ ] HTTPS via cloudflared for phones (Claude)

@@ -15,9 +15,7 @@ VYBE_SERVER=http://localhost:8000 npm run dev   # proxies /ws to your server (de
 
 - Open `http://localhost:5173/?reset` (the `reset` clears saved state so you start from the start screen).
 - `?mock` swaps the socket for an in-browser fake server, which is handy for comparing behaviour.
-- Split deployment: set the frontend build variable `VITE_VYBE_WS_URL` to the full public
-  backend URL, for example `wss://your-service.up.railway.app/ws`. See [staging setup](README.md#deploy-staging-with-railway-and-vercel).
-- Same-origin deployments use `ws(s)://<same host>/ws` by default.
+- Railway serves the frontend and `/ws` on the same domain. See [Railway setup](README.md#deploy-to-railway).
 
 ## Transport
 
