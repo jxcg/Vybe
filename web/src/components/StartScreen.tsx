@@ -137,7 +137,7 @@ export function StartScreen() {
           ghost(dotStart, dotEnd, { icon }),
         ];
 
-    if (cardRef.current) slideFrom(cardRef.current, cardTop);
+    if (cardRef.current?.getClientRects().length) slideFrom(cardRef.current, cardTop);
     if (!toTyping) {
       // "Tap to talk", the sentence and "Type instead" settle in behind the mic.
       fadeIn(incoming.querySelectorAll(':scope > :not(.mic)'), MORPH_MS * 0.35);
@@ -168,7 +168,7 @@ export function StartScreen() {
   };
 
   return (
-    <div className="start">
+    <div className={settings ? 'start' : 'start start--onboarding'}>
       <div className="start-body">
         <div className="start-top">
           <Wordmark size="lg" />

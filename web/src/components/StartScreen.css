@@ -163,6 +163,36 @@
   }
 }
 
+@media (max-width: 767px), (max-width: 1023px) and (pointer: coarse) {
+  .start--onboarding .start-card {
+    display: none;
+  }
+
+  .start--onboarding .start-voice {
+    gap: 12px;
+    padding-block: 16px;
+  }
+
+  .start--onboarding .start-voice .mic {
+    --mic: clamp(108px, 18dvh, 152px);
+  }
+
+  .start--onboarding .start-phase {
+    font-size: 20px;
+  }
+
+  .start--onboarding .start-type-btn {
+    min-height: 48px;
+    padding-inline: 18px;
+    font-size: 17px;
+  }
+
+  .start--onboarding .start-type-btn svg {
+    width: 20px;
+    height: 20px;
+  }
+}
+
 /* Narrow phones: keep the title on one line */
 @media (max-width: 374px) {
   .start-title {
