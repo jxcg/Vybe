@@ -88,6 +88,10 @@ def classic() -> FileResponse:
     return FileResponse(HERE / "static" / "index.html")
 
 
+VOICEOVERS = HERE.parent / "data" / "voiceovers"  # Voxtral TTS clips from the pipeline
+VOICEOVERS.mkdir(parents=True, exist_ok=True)
+app.mount("/voiceovers", StaticFiles(directory=VOICEOVERS), name="voiceovers")
+
 WEB = HERE.parent / "web" / "dist"
 if WEB.is_dir():  # built with `cd web && npm run build`
     app.mount("/", StaticFiles(directory=WEB, html=True), name="web")

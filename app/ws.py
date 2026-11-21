@@ -25,6 +25,7 @@ LONDON = ZoneInfo("Europe/London")
 DEFAULT_PLACE = {"lat": 51.5136, "lng": -0.1365, "label": "Soho"}
 BOARD_EVERY = 20  # seconds; keeps countdowns and statuses fresh
 ENRICHED = Path(__file__).parent.parent / "data" / "enriched.json"
+VOICEOVERS = ENRICHED.parent / "voiceovers"
 
 BUDGETS = {10: 1, 20: 2, 999: 3}
 AGES = ("under18", "18-21", "22-25", "26-35", "36+")
@@ -114,6 +115,14 @@ def _parse_local(value: object) -> datetime | None:
     return t.astimezone(LONDON).replace(tzinfo=None) if t.tzinfo else t
 
 
+def _voiceover_url(path: object) -> str | None:
+    """`data/voiceovers/x.mp3` (from the pipeline) → `/voiceovers/x.mp3`, served by main.py."""
+    if not isinstance(path, str) or not path:
+        return None
+    name = Path(path).name
+    return f"/voiceovers/{name}" if (VOICEOVERS / name).is_file() else None
+
+
 def _enriched() -> dict[str, Any]:
     """Mistral's pipeline output (Contract 1). Missing or broken file means no extras."""
     try:
@@ -179,7 +188,7 @@ def to_rows(
                 "photo_url": None,
                 "colors": venue_colors(extra.get("brand_color")),
                 "pitch": extra.get("deal") or extra.get("script") or "",
-                "voiceover_url": extra.get("voiceover"),
+                "voiceover_url": _voiceover_url(extra.get("voiceover")),
                 # Only bookable things get a Book button; walk-ins get Directions
                 "booking_url": (extra.get("booking_url") or c.get("url"))
                 if c.get("needs_booking")

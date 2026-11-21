@@ -240,3 +240,13 @@ def test_walk_in_places_have_no_time_and_bookable_ones_get_book() -> None:
     assert (
         show["needs_booking"] and show["booking_url"] == "https://example.com" and not show["timed"]
     )
+
+
+def test_voiceover_paths_become_served_urls(tmp_path: Any, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(ws, "VOICEOVERS", tmp_path)
+    (tmp_path / "abc.mp3").write_bytes(b"ID3")
+    assert ws._voiceover_url("data/voiceovers/abc.mp3") == "/voiceovers/abc.mp3"
+    assert (
+        ws._voiceover_url("data/voiceovers/missing.mp3") is None
+    )  # never link a file that isn't there
+    assert ws._voiceover_url(None) is None

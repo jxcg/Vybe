@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Bookmark, ChevronLeft, Navigation, Ticket as TicketIcon, X } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { Bookmark, ChevronLeft, Navigation, Pause, Ticket as TicketIcon, Volume2, X } from 'lucide-react';
 import type { Row } from '../contract';
 import { ago, formatPrice, hostname, when } from '../lib/format';
 import { formatHM, MINUTE } from '../lib/time';
@@ -14,6 +14,31 @@ import './TicketClassic.css';
 /** Poster tickets darken by up to this much OKLCH lightness over the last half hour before leave time. */
 const DARKEN_MAX = 0.04;
 const DARKEN_WINDOW_MIN = 30;
+
+/** Plays the card's Voxtral voiceover (mp3 from the pipeline). One tap plays, another stops. */
+function VoiceoverButton({ url }: { url: string }) {
+  const audio = useRef<HTMLAudioElement | null>(null);
+  const [playing, setPlaying] = useState(false);
+  useEffect(() => () => audio.current?.pause(), []); // stop when the ticket closes
+  const toggle = () => {
+    if (!audio.current) {
+      audio.current = new Audio(url);
+      audio.current.onended = () => setPlaying(false);
+    }
+    if (playing) {
+      audio.current.pause();
+      audio.current.currentTime = 0;
+      setPlaying(false);
+    } else {
+      void audio.current.play().then(() => setPlaying(true), () => setPlaying(false));
+    }
+  };
+  return (
+    <button type="button" className="ticket-circle" aria-label={playing ? 'Stop voiceover' : 'Play voiceover'} onClick={toggle}>
+      {playing ? <Pause size={20} strokeWidth={2} aria-hidden="true" /> : <Volume2 size={20} strokeWidth={2} aria-hidden="true" />}
+    </button>
+  );
+}
 
 interface Props {
   row: Row;
@@ -66,7 +91,7 @@ export function Ticket({ row, next, nowMs, student, liked, onBack, onNext, onLik
         <button type="button" className="ticket-circle" aria-label="Back to the board" onClick={onBack}>
           <ChevronLeft size={20} strokeWidth={2} aria-hidden="true" />
         </button>
-        {/* TODO(P4): Volume2 circle that plays voiceover_url through the PCM player. */}
+        {row.voiceover_url && <VoiceoverButton url={row.voiceover_url} />}
       </div>
 
       {/* Classic "For You" layout: badge, name, scores, chips, then a big leave-by with Directions. */}

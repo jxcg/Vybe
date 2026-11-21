@@ -78,6 +78,14 @@ Review pass 6 (commit 6ee70b0; clean `main`: ruff, mypy, 55 tests pass). Thanks,
 - [ ] Serialise writes to `enriched.json` (a file lock or a single writer). `write_enriched_activity` and `write_themes` can still race, so the last writer wins and themes or claims get lost.
 - [ ] Run the theme workflow so `data/enriched.json` actually has colours (0 `brand_color` entries right now).
 
+Review pass 7 (commit b541d20, voiceovers; clean `main`: 61 tests pass)
+- Claude now serves `data/voiceovers/` at `/voiceovers/` and plays mp3 in the ticket speaker button, mapping your `data/voiceovers/<id>.mp3` path to `/voiceovers/<id>.mp3`. **Keep mp3**; the PCM format in INTEGRATION.md isn't needed for card voiceovers.
+- [ ] Skip IDs whose clip already exists, and voice the top N ranked cards rather than the first 20 venues. Every run currently pays for all 20 again.
+- [ ] Cap concurrency at about 4 (a semaphore) and retry 429s; `gather` fires 20 at once, and a 429 becomes a silent `None`.
+- [ ] Write audio atomically (temp file, then `os.replace`) so a half-written mp3 is never served.
+- [ ] Cap Enricher scripts at about 15 words, not only the fallback.
+- [ ] The `enriched.json` write race now has three writers (refresh, theme, voiceover). A file lock or running them one after another fixes it.
+
 ## Blocked
 - Hosted `web_search` tool (Conversations API) is rate-limited on our key right now (429, ~86 s/call) — slows the Scout/Enricher/Verifier debate in `vybe-refresh`. Pipeline degrades gracefully to empty claims. Retry later or raise the workspace quota.
 - Orchestrator agent (`pipeline/agents.py`) spawns subagents but the parent hits `iteration_limit` before returning the `OrchestratorOutput` schema — enrichment claims come back `{}`. Theme debate (direct `agent.run` per role) works fine; the subagent-spawning orchestration needs one more pass.
