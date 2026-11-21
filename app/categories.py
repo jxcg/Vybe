@@ -36,7 +36,7 @@ GOOGLE: dict[str, Kind] = {
     "park": Kind("other", "Outdoors", "outdoors"),
     "city_park": Kind("other", "Outdoors", "outdoors"),
     "opera_house": Kind("music", "Entertainment", "music", booking=True),
-    "event_venue": Kind("music", "Entertainment", "music", booking=True),
+    "event_venue": Kind("other", "Entertainment", "events", booking=True),
     "miniature_golf_course": Kind("games", "Entertainment", "games"),
     "casino": Kind("games", "Entertainment", "games", adult=True),
     "cultural_center": Kind("culture", "Culture", "culture"),
@@ -45,6 +45,7 @@ GOOGLE: dict[str, Kind] = {
     "wine_bar": Kind("bar", "Drinks", "nightlife", adult=True),
     "pub": Kind("bar", "Drinks", "nightlife", adult=True),
     "bar": Kind("bar", "Drinks", "nightlife", adult=True),
+    "ice_cream_shop": Kind("food", "Food", "food"),
     "dessert_shop": Kind("food", "Food", "food"),
     "cafe": Kind("food", "Food", "food"),
     "restaurant": Kind("food", "Food", "food"),
@@ -52,6 +53,7 @@ GOOGLE: dict[str, Kind] = {
 
 # OpenStreetMap (key, value) → kind
 OSM: dict[tuple[str, str], Kind] = {
+    ("amenity", "ice_cream"): Kind("food", "Food", "food"),
     ("amenity", "restaurant"): Kind("food", "Food", "food"),
     ("amenity", "cafe"): Kind("food", "Food", "food"),
     ("amenity", "fast_food"): Kind("food", "Food", "food"),

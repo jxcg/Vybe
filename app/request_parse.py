@@ -36,6 +36,18 @@ INTO_WORDS: dict[str, tuple[str, ...]] = {
     "late night": ("late night", "late one", "out late", "dance", "dancing", "club", "clubbing",
                    "rave", "party", "night out"),
 }  # fmt: skip
+CLAUSES = re.compile(r"[,;.!?]+|\b(?:and|or|but|then|followed by)\b")
+LEAD_IN = re.compile(
+    r"^(?:i (?:really )?(?:would (?:like|love)|want|fancy|feel like|am looking for)|"
+    r"i'd (?:like|love)|can we|let's|looking for|want|fancy|find|"
+    r"to|go(?: get| for| to)?|get|eat(?:ing)?|have|see|hear|"
+    r"some|a|an|the|something like|something|maybe|please)\b\s*"
+)
+CONTEXT = re.compile(
+    r"\b(?:under|within|less than|nothing over|max(?:imum)?|up to|"
+    r"near(?:by| me)?|tonight|today|afterwards|please|with|for)\b"
+)
+
 NOT_INTO_WORDS: dict[str, tuple[str, ...]] = {
     "clubs": ("club", "clubs", "clubbing", "nightclub"),
     "loud music": ("loud", "loud music", "noisy"),
@@ -158,6 +170,21 @@ def parse_request(text: str) -> dict[str, Any]:
         # "no clubs" shouldn't count as wanting a late night
         if hits and tag not in include:
             include.append(tag)
+    named, negative = named_requests(t)
+    if named:
+        inferred = set(include)
+        # Keep independent broad requests, but drop categories inferred from a concrete phrase.
+        include = [
+            tag for tag in include if _has(t, tag) or (tag == "a laugh" and _has(t, "funny"))
+        ]
+        if "late night" in inferred and "late night" not in include:
+            include.append("late night")
+        if "live music" in inferred and "live music" not in include:
+            include.append("live music")
+        if "active" in inferred and "active" not in include:
+            include.append("active")
+    include = list(dict.fromkeys([*include, *named]))
+    exclude.extend(negative)
     if "competitive" in include and "active" not in include:
         include.append("active")
     include = [
@@ -176,3 +203,98 @@ def parse_request(text: str) -> dict[str, Any]:
     if re.search(r"\bcheaper\b", t) and budget is None:
         chips["cheaper"] = True  # command: one step down; the session applies it
     return chips
+
+
+def normalise_interest(value: str) -> str:
+    term = " ".join(re.findall(r"[^\W_]+", value.casefold()))
+    if term in ("live music", "gig", "gigs"):
+        return "music"
+    return term
+
+
+def _strip_lead_in(clause: str) -> str:
+    while (clean := LEAD_IN.sub("", clause)) != clause:
+        clause = clean
+    return clause
+
+
+def named_requests(text: str) -> tuple[list[str], list[str]]:
+    """Keep a concrete noun phrase from each request clause, even if it is new to Vybe."""
+    include: list[str] = []
+    exclude: list[str] = []
+    mood_words = {
+        word for tag in ("chill", "competitive", "late night") for word in INTO_WORDS[tag]
+    }
+    broad_words = {
+        *mood_words,
+        *INTO_WORDS,
+        *CHEAP,
+        *MONEY_SLANG,
+        "eat",
+        "eating",
+        "hungry",
+        "hungry af",
+        "starving",
+        "dinner",
+        "lunch",
+        "brunch",
+        "bite",
+        "funny",
+        "show",
+        "stuff",
+        "stuff only",
+        "somewhere",
+        "anything",
+        "whatever",
+        "cheaper",
+        "just me",
+        "date night",
+        "me",
+        "me too",
+    }
+    context_words = ("student", "tonight", "raining", "want", "mates", "loud", "object", "skint")
+    for clause in CLAUSES.split(text):
+        clause = _strip_lead_in(clause.strip())
+        negation = re.match(rf"^(?:i )?{NEG}\b\s*", clause)
+        if negation:
+            clause = _strip_lead_in(clause[negation.end() :])
+        clause = CONTEXT.split(clause, maxsplit=1)[0].strip()
+        for qualifier in CHEAP:
+            if clause.startswith(qualifier + " "):
+                clause = _strip_lead_in(clause[len(qualifier) :].strip())
+                break
+        if _company(clause) is not None or _budget(clause) is not None:
+            continue
+        clause = re.sub(r"\s+(?:show|maybe|only)$", "", clause)
+        if (
+            not clause
+            or not re.fullmatch(r"[a-z][a-z &'\-]*(?:[a-z])?", clause)
+            or len(clause.split()) > 5
+            or (clause in broad_words and clause != "live music")
+            or any(_has(clause, word) for word in context_words)
+            or any(clause in words for words in NOT_INTO_WORDS.values())
+        ):
+            continue
+        term = normalise_interest(clause)
+        (exclude if negation else include).append(term)
+    return include, exclude
+
+
+def specific_interests(terms: list[str]) -> set[str]:
+    return {normalise_interest(term) for term in terms if term not in INTO_WORDS}
+
+
+def matches_interest(item: dict[str, Any], term: str) -> bool:
+    """Match a phrase against venue names and specific source metadata."""
+    evidence = [item["name"], *item["tags"], *item.get("interest_terms", [])]
+    if item.get("category") not in (None, "music", "games", "food", "other"):
+        evidence.append(item["category"])
+    for value in evidence:
+        normalised = normalise_interest(value)
+        if _has(normalised, term) or re.search(rf"\b{re.escape(term)}(?:s|es)\b", normalised):
+            return True
+    return False
+
+
+def matches_specific_interests(item: dict[str, Any], terms: set[str]) -> bool:
+    return not terms or any(matches_interest(item, term) for term in terms)

@@ -22,8 +22,8 @@ from starlette.concurrency import run_in_threadpool
 from app import geo, rooms, voice
 from app.colors import venue_colors
 from app.ranking import rank
-from app.request_parse import parse_request
-from app.rooms import BUDGETS, INTO, NOT_INTO
+from app.request_parse import matches_specific_interests, parse_request, specific_interests
+from app.rooms import BUDGETS, INTO
 
 LONDON = ZoneInfo("Europe/London")
 DEFAULT_PLACE = {"lat": 51.5136, "lng": -0.1365, "label": "Soho"}
@@ -319,14 +319,13 @@ class Session:
     def build_board(self) -> dict[str, Any]:
         now = self.now()
         items, weather = self.source(self.place, now)
-        drop = {NOT_INTO[t] for t in self.prefs["exclude"] if t in NOT_INTO}
-        words = [t for t in self.prefs["exclude"] if t not in NOT_INTO]
+        specific = specific_interests(self.prefs["requested"])
         items = [
-            i
-            for i in items
-            if i["id"] not in self.skipped
-            and not drop & set(i["tags"])
-            and not any(w in i["name"].lower() for w in words)
+            item
+            for item in items
+            if item["id"] not in self.skipped
+            and not rooms.excludes(item, self.prefs["exclude"])
+            and matches_specific_interests(item, specific)
         ]
         cards = rank(
             items,
@@ -349,7 +348,7 @@ class Session:
                 g = row["group"]
                 counts[g] = counts.get(g, 0) + 1
         group = self.group
-        if not self.group_chosen:
+        if not self.group_chosen and not specific:
             group = next(
                 (g for tag in self.prefs["include"] if (g := INTEREST_GROUP.get(tag)) in counts),
                 None,
@@ -577,11 +576,11 @@ class Session:
             await self.send({"type": "joined", "room": self.room, "you": msg.get("name") or "You"})
             await self.board()
         elif kind == "prefs":
-            previous_interests = self.prefs["include"]
+            previous_interests = (self.prefs["include"], self.prefs["requested"])
             self.prefs = rooms.preferences(msg)
             if "liked" in msg:
                 self.liked = set(rooms.strings(msg["liked"], 500, 256))
-            if previous_interests != self.prefs["include"]:
+            if previous_interests != (self.prefs["include"], self.prefs["requested"]):
                 self.group_chosen = False
                 self.group = None
             await self.board()
@@ -660,14 +659,6 @@ class Session:
             await self.send({"type": "transcript", "text": transcript, "final": True})
             # Exact amounts, group size and student come from the words said, not a vague level.
             chips = parse_request(transcript)
-            # Keep specific things Voxtral picked out that were really said (e.g. "bowling")
-            said = transcript.lower()
-            extra = [
-                w
-                for w in filters.get("include_text", [])
-                if w in said and w not in chips["include"]
-            ]
-            chips["include"] += extra
         else:
             chips = filters_to_chips(filters)
         await self.chips(self.resolve(chips), filters.get("reply", ""))

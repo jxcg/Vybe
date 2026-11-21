@@ -108,6 +108,8 @@ export interface PrefsMsg {
   adult: boolean;
   include: string[];
   exclude: string[];
+  /** Concrete, session-only searches in the current feed. */
+  requested?: string[];
   /** people including you */
   company: number;
   liked?: string[];

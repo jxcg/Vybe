@@ -170,6 +170,7 @@ def to_item(place: dict[str, Any], now: datetime) -> dict[str, Any] | None:
         "lat": place["location"]["latitude"],
         "lng": place["location"]["longitude"],
         "tags": tags_for(kind, outdoors="park" in types),
+        "interest_terms": list(dict.fromkeys([primary, *types])),
         "category": kind.category,
         "group": kind.group,
         "needs_booking": kind.booking,

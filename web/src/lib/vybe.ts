@@ -93,7 +93,8 @@ export function toPrefs(v: Vybe): Prefs {
     budget: v.budget ?? 999,
     student: v.student,
     adult: v.adult,
-    include: v.into,
+    include: v.into.filter((tag) => !isSpecificInterest(tag)),
+    requested: v.into.filter(isSpecificInterest),
     exclude: v.notInto,
     company: v.company ?? 1,
     age: v.age ?? null,
@@ -102,12 +103,17 @@ export function toPrefs(v: Vybe): Prefs {
 }
 
 const norm = (tags: string[]) => tags.map((t) => t.trim().toLowerCase()).filter(Boolean);
+export const isSpecificInterest = (tag: string) =>
+  !INTO_SUGGESTIONS.includes(tag) && !NOT_INTO_SUGGESTIONS.includes(tag);
 
 /** Fold a server `chips` message into the current vybe. A tag can't be both into and not-into. */
 export function mergeChips(v: Vybe, chips: ChipsMsg): Vybe {
   const include = norm(chips.include);
   const exclude = norm(chips.exclude);
-  const into = [...v.into.filter((t) => !exclude.includes(t)), ...include];
+  const into = [
+    ...v.into.filter((t) => !exclude.includes(t) && (!include.length || !isSpecificInterest(t))),
+    ...include,
+  ];
   const notInto = [...v.notInto.filter((t) => !include.includes(t)), ...exclude];
   return {
     ...v,
@@ -121,7 +127,7 @@ export function mergeChips(v: Vybe, chips: ChipsMsg): Vybe {
 
 export function fromPrefs(prefs: Prefs): Vybe {
   return {
-    into: prefs.include, notInto: prefs.exclude, budget: prefs.budget,
+    into: [...prefs.include, ...(prefs.requested ?? [])], notInto: prefs.exclude, budget: prefs.budget,
     student: prefs.student, adult: prefs.adult, company: prefs.company,
     age: prefs.age, vibe: prefs.vibe,
   };

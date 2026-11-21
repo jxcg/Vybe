@@ -22,6 +22,73 @@ def recv(sock: Any, kind: str) -> dict[str, Any]:
             return msg
 
 
+@pytest.mark.parametrize(
+    ("utterance", "matches"),
+    [
+        ("pizza and a comedy show", {"pizza", "comedy"}),
+        ("pizza and music", {"pizza", "gig"}),
+        ("I fancy ice cream", {"dessert"}),
+        ("sushi and karaoke", {"sushi", "karaoke"}),
+        ("pottery class", {"pottery"}),
+    ],
+)
+def test_specific_requests_match_venue_evidence(
+    monkeypatch: pytest.MonkeyPatch, utterance: str, matches: set[str]
+) -> None:
+    from datetime import datetime
+
+    from app.main import items_near
+
+    now = datetime(2026, 11, 21, 18)
+    sample = items_near(51.51, -0.13, now)[0]
+    items = [
+        dict(
+            sample,
+            id=i,
+            name=name,
+            group=group,
+            tags=tags,
+            interest_terms=terms,
+            opens="10:00",
+            closes="23:00",
+        )
+        for i, name, group, tags, terms in (
+            ("pizza", "A pizzeria", "Food", ["food"], ["pizza_restaurant"]),
+            ("restaurant", "Dishoom", "Food", ["food"], ["indian_restaurant"]),
+            ("dessert", "A dessert shop", "Food", ["food"], ["ice_cream_shop"]),
+            ("sushi", "Sakana", "Food", ["food"], ["sushi_restaurant"]),
+            ("comedy", "A stand-up show", "Entertainment", ["comedy"], []),
+            ("gig", "A concert venue", "Entertainment", ["music"], ["concert_hall"]),
+            ("karaoke", "Lucky Voice", "Entertainment", ["games"], ["karaoke"]),
+            ("pottery", "Soho Pottery Classes", "Culture", ["culture"], []),
+            ("cinema", "Picturehouse", "Entertainment", ["film", "culture"], []),
+        )
+    ]
+    monkeypatch.setattr("app.main.items_near", lambda *args: items)
+    monkeypatch.setattr(ws.Session, "now", lambda _: now)
+    for spoken in (False, True):
+        monkeypatch.setattr(voice, "audio_to_filters", lambda *_: {"transcript": utterance})
+        with TestClient(app).websocket_connect("/ws") as sock:
+            sock.send_json({"type": "join"})
+            recv(sock, "board")
+            if spoken:
+                sock.send_json({"type": "talk_start"})
+                sock.send_bytes(b"\x00\x30" * 160)
+                sock.send_json({"type": "talk_end"})
+            else:
+                sock.send_json({"type": "talk_text", "text": utterance})
+            chips = recv(sock, "chips")
+            sock.send_json({"type": "prefs", "include": ["food"], "requested": chips["include"]})
+            board = recv(sock, "board")
+            assert board["group"] is None
+            assert {row["id"] for row in board["rows"]} == matches
+            original = items[:]
+            items[:] = [item for item in items if item["id"] in {"restaurant", "cinema"}]
+            sock.send_json({"type": "prefs", "requested": chips["include"]})
+            assert recv(sock, "board")["rows"] == []
+            items[:] = original
+
+
 def test_smoke_flow_from_integration_guide() -> None:
     client = TestClient(app)
     with client.websocket_connect("/ws") as sock:

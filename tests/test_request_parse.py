@@ -10,7 +10,7 @@ CASES = [
     # The bug: "under £20" became £10
     (
         "I want to go eat some pizza under £20 and go dance afterwards",
-        {"budget": 20, "include": ["food", "late night"]},
+        {"budget": 20, "include": ["pizza", "late night"]},
     ),
     ("under 20", {"budget": 20}),
     ("nothing over 15 quid", {"budget": 20}),
@@ -44,7 +44,7 @@ CASES = [
     ("not too loud please", {"exclude": ["loud music"]}),
     ("I don't want food", {"no_include": ["food"]}),
     # Lenient: typos and slang
-    ("pizzza and a gig", {"include": ["food", "live music"]}),
+    ("pizzza and a gig", {"include": ["pizza", "live music"]}),
     ("somthing funny, comdey maybe", {"include": ["a laugh"]}),
     ("hungry af", {"include": ["food"]}),
     ("UNDER £20!!!", {"budget": 20}),
@@ -68,9 +68,28 @@ def test_parse_request(text: str, expected: dict[str, Any]) -> None:
 
 
 def test_only_what_was_said() -> None:
-    assert parse_request("bowling") == {"include": ["active"], "exclude": []}
+    assert parse_request("bowling") == {"include": ["active", "bowling"], "exclude": []}
+    assert parse_request("Pizza and a comedy show") == {
+        "include": ["pizza", "comedy"],
+        "exclude": [],
+    }
 
 
 def test_cheaper_is_relative() -> None:
     assert parse_request("cheaper please").get("cheaper") is True
     assert "cheaper" not in parse_request("cheaper, under £20")  # an explicit amount wins
+
+
+@pytest.mark.parametrize(
+    ("text", "terms"),
+    [
+        ("I fancy ice cream", {"ice cream"}),
+        ("I would love some cheap ice cream for two", {"ice cream"}),
+        ("pizza and music", {"pizza", "music"}),
+        ("sushi and karaoke", {"sushi", "karaoke"}),
+        ("I want a pottery class", {"pottery class"}),
+        ("ice cream but no pizza", {"ice cream"}),
+    ],
+)
+def test_named_requests_keep_the_requested_things(text: str, terms: set[str]) -> None:
+    assert terms <= set(parse_request(text)["include"])

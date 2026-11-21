@@ -12,6 +12,12 @@ from fastapi import WebSocket
 
 from app.geo import Weather
 from app.ranking import rank
+from app.request_parse import (
+    matches_interest,
+    matches_specific_interests,
+    normalise_interest,
+    specific_interests,
+)
 
 BUDGETS = {10: 1, 20: 2, 999: 3}
 AGES = ("under18", "18-21", "22-25", "26-35", "36+")
@@ -54,6 +60,7 @@ def preferences(data: object) -> dict[str, Any]:
         "adult": bool(msg.get("adult", True)) and age != "under18",
         "include": [v.strip().lower() for v in strings(msg.get("include"), 20, 80)],
         "exclude": [v.strip().lower() for v in strings(msg.get("exclude"), 20, 80)],
+        "requested": [v.strip().lower() for v in strings(msg.get("requested"), 20, 80)],
         "company": min(10, max(1, company)) if type(company) is int else 1,
         "age": age if age in AGES else None,
         "vibe": msg.get("vibe") if msg.get("vibe") in ("chill", "lively") else None,
@@ -116,9 +123,9 @@ def known_price(value: object) -> int | float | None:
 
 
 def excludes(item: dict[str, Any], exclusions: list[str]) -> bool:
-    tags = set(item["tags"])
-    name = item["name"].lower()
-    return any(NOT_INTO.get(term, term) in tags or term in name for term in exclusions)
+    return any(
+        matches_interest(item, normalise_interest(NOT_INTO.get(term, term))) for term in exclusions
+    )
 
 
 def preferred_tags(prefs: dict[str, Any], items: list[dict[str, Any]]) -> frozenset[str]:
@@ -129,6 +136,8 @@ def preferred_tags(prefs: dict[str, Any], items: list[dict[str, Any]]) -> frozen
 def group_rank(
     items: list[dict[str, Any]], now: datetime, weather: Weather | None, members: list[Member]
 ) -> list[dict[str, Any]]:
+    specific = specific_interests([term for m in members for term in m.prefs.get("requested", [])])
+    items = [item for item in items if matches_specific_interests(item, specific)]
     cap = min(
         (m.prefs["budget"] for m in members if m.prefs["budget"] != 999), default=float("inf")
     )
