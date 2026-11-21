@@ -1,11 +1,15 @@
-"""Plain-code ranking: filter to what's open soon, then score out of 10."""
+"""Plain-code ranking: filter to what's open soon, then a personal match % for each place.
+
+Google's star rating is shown as-is; the match % is about *you, right now* (quality is one part).
+"""
 
 from datetime import datetime, timedelta
 from typing import Any
 
+from app.geo import Weather
+
 LOOKAHEAD = timedelta(hours=3)
 MIN_STAY = timedelta(minutes=60)
-UNRATED = 3.8  # OpenStreetMap has no ratings: score unrated places as slightly below average
 
 
 def _window(item: dict[str, Any], now: datetime) -> tuple[datetime, datetime]:
@@ -31,7 +35,7 @@ def rank(
     student: bool = False,
     adult: bool = True,
     liked: frozenset[str] = frozenset(),
-    raining: bool = False,
+    weather: Weather | None = None,
 ) -> list[dict[str, Any]]:
     liked_tags = {t for i in items if i["id"] in liked for t in i["tags"]}
     cards = []
@@ -46,35 +50,54 @@ def rank(
 
         left = (leave_by - now).total_seconds() / 60
         badge = "plenty" if left > 60 else "soon" if left > 15 else "last"
-
         overlap = len(liked_tags & set(item["tags"])) / max(len(item["tags"]), 1)
         student_deal = student and item["student_price"]
         outdoors = "outdoors" in item["tags"]
-        score = (
-            (item["rating"] or UNRATED) / 5 * 3
-            + (budget - item["price_level"] + 1) / budget * 2
-            + (0.5 if student_deal else 0)
-            + max(0.0, 1 - item["walk_mins"] / 30) * 2
-            + overlap * 2.5
-            + (-1.5 if raining and outdoors else 0)
+
+        # Match out of 100: likes 25, walk 20, budget 15, quality 15, weather 15, time 10.
+        likes = overlap if liked_tags else 0.5  # no likes yet: neutral, not a penalty
+        price = min(
+            1.0, (budget - item["price_level"] + 1) / budget + (0.25 if student_deal else 0)
+        )
+        if weather is None:
+            sky = 0.66
+        elif outdoors:
+            sky = 0.0 if weather.bad else 1.0
+        else:
+            sky = 1.0 if weather.bad else 0.66
+        timing = 0.7 if opens > now else {"plenty": 1.0, "soon": 0.6, "last": 0.2}[badge]
+        # 3.5 stars or below counts as 0, 5 stars as full; unrated (OpenStreetMap) as middling
+        quality = max(0.0, (item["rating"] - 3.5) / 1.5) if item["rating"] else 0.5
+        match = (
+            likes * 25
+            + max(0.0, 1 - item["walk_mins"] / 30) * 20
+            + price * 15
+            + quality * 15
+            + sky * 15
+            + timing * 10
         )
 
+        weather_reason = None
+        if weather and weather.bad and not outdoors:
+            weather_reason = "Indoors, it's raining" if weather.raining else "Indoors, it's cold"
+        elif weather and not weather.bad and outdoors:
+            weather_reason = "Nice out"
         reasons = [
             "Open now" if opens <= now else f"Opens {opens:%H:%M}",
-            "Indoors, it's raining" if raining and not outdoors else None,
-            "Student price" if student_deal else "Within budget",
+            weather_reason,
             "Matches your likes" if overlap else None,
+            "Student price" if student_deal else None,
             "Short walk" if item["walk_mins"] <= 10 else None,
-            f"Rated {item['rating']}" if item["rating"] else None,
+            "Within budget",
             item["tags"][0].capitalize(),
         ]
         cards.append(
             {
                 **item,
-                "score": round(min(score, 10), 1),
+                "match": round(match),
                 "badge": badge,
                 "leave_by": f"{leave_by:%H:%M}",
                 "reasons": [r for r in reasons if r][:3],
             }
         )
-    return sorted(cards, key=lambda c: c["score"], reverse=True)
+    return sorted(cards, key=lambda c: (c["match"], c["rating"] or 0), reverse=True)

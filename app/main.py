@@ -68,7 +68,7 @@ def feed(
         student=student,
         adult=adult,
         liked=frozenset(filter(None, liked.split(","))),
-        raining=geo.is_raining(lat, lng),
+        weather=geo.weather(lat, lng),
     )
 
 

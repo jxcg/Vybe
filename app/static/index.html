@@ -86,7 +86,8 @@
         <section class="card">
           <div>${BADGES[c.badge]}</div>
           <h2 style=${{ margin: 0 }}>${c.name}</h2>
-          <div>${c.score}/10 · ${c.walk_mins} min walk · ${c.price === 0 ? "Free" : c.price ? `£${c.price.toFixed(2)}` : "£".repeat(c.price_level)}</div>
+          <div><strong>${c.match}% match</strong>${c.rating ? ` · ★ ${c.rating} on Google` : ""}</div>
+          <div>${c.walk_mins} min walk ·${c.price === 0 ? "Free" : c.price ? `£${c.price.toFixed(2)}` : "£".repeat(c.price_level)}</div>
           <div class="chips">${c.reasons.map(r => html`<span key=${r}>${r}</span>`)}</div>
           <div>Leave by <strong>${c.leave_by}</strong></div>
           <button onClick=${onLike} aria-pressed=${liked}>${liked ? "♥ Liked" : "♡ Like"}</button>

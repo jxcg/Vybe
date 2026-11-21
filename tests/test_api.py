@@ -10,7 +10,7 @@ client = TestClient(app)
 @pytest.fixture(autouse=True)
 def offline(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("GOOGLE_PLACES_API_KEY", raising=False)
-    monkeypatch.setattr(geo, "is_raining", lambda lat, lng: False)
+    monkeypatch.setattr(geo, "weather", lambda lat, lng: None)
     monkeypatch.setattr(osm, "nearby", lambda lat, lng: [])
     monkeypatch.setattr(osm, "geocode", lambda q: None)
 

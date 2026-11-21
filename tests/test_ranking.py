@@ -3,6 +3,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from app.geo import Weather
 from app.ranking import rank
 
 
@@ -36,9 +37,9 @@ def test_badges_sorting_and_shape() -> None:
     assert got["museum-1"]["badge"] == "soon"  # leave by 19:40
     assert got["bowl-1"]["badge"] == "plenty"  # leave by 21:48
     assert by_id(rank(load_items(), at(19, 30)))["museum-1"]["badge"] == "last"
-    assert [c["score"] for c in cards] == sorted((c["score"] for c in cards), reverse=True)
+    assert [c["match"] for c in cards] == sorted((c["match"] for c in cards), reverse=True)
     for c in cards:
-        assert 0 <= c["score"] <= 10 and len(c["reasons"]) == 3
+        assert 0 <= c["match"] <= 100 and len(c["reasons"]) == 3
 
 
 def test_after_midnight_window() -> None:
@@ -50,12 +51,18 @@ def test_after_midnight_window() -> None:
 def test_like_boosts_similar() -> None:
     base = by_id(rank(load_items(), at(18)))
     liked = by_id(rank(load_items(), at(18), liked=frozenset({"bowl-1"})))
-    assert liked["climb-1"]["score"] > base["climb-1"]["score"]  # shares "active"
+    assert liked["climb-1"]["match"] > base["climb-1"]["match"]  # shares "active"
     assert "Matches your likes" in liked["climb-1"]["reasons"]
 
 
 def test_rain_sinks_outdoor_places() -> None:
     dry = by_id(rank(load_items(), at(12)))
-    wet = by_id(rank(load_items(), at(12), raining=True))
-    assert wet["park-1"]["score"] < dry["park-1"]["score"]
+    wet = by_id(rank(load_items(), at(12), weather=Weather(raining=True, temp_c=12)))
+    cold = by_id(rank(load_items(), at(12), weather=Weather(raining=False, temp_c=3)))
+    nice = by_id(rank(load_items(), at(12), weather=Weather(raining=False, temp_c=20)))
+    assert wet["park-1"]["match"] < dry["park-1"]["match"] < nice["park-1"]["match"]
+    assert wet["bowl-1"]["match"] > nice["bowl-1"]["match"]
     assert "Indoors, it's raining" in wet["bowl-1"]["reasons"]
+    assert "Indoors, it's cold" in cold["bowl-1"]["reasons"]
+    assert "Nice out" in nice["park-1"]["reasons"]
+    assert nice["park-1"]["rating"] == 4.2  # Google rating passes through untouched

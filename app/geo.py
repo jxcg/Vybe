@@ -2,13 +2,14 @@
 
 import math
 import time
+from dataclasses import dataclass
 from typing import Any
 
 import httpx
 
 WALK_M_PER_MIN = 80  # ~4.8 km/h
 DETOUR = 1.3  # streets aren't straight lines
-_weather_cache: dict[tuple[float, float], tuple[float, bool]] = {}
+_weather_cache: dict[tuple[float, float], tuple[float, "Weather | None"]] = {}
 
 
 def walk_mins(lat1: float, lng1: float, lat2: float, lng2: float) -> int:
@@ -31,8 +32,19 @@ def geocode_postcode(q: str) -> tuple[float, float] | None:
     return None
 
 
-def is_raining(lat: float, lng: float) -> bool:
-    """Current precipitation from Open-Meteo, cached for 30 min per ~1 km cell."""
+@dataclass(frozen=True)
+class Weather:
+    raining: bool = False
+    temp_c: float | None = None
+
+    @property
+    def bad(self) -> bool:
+        """Weather that makes indoors the better choice."""
+        return self.raining or (self.temp_c is not None and self.temp_c < 8)
+
+
+def weather(lat: float, lng: float) -> Weather | None:
+    """Current rain and temperature from Open-Meteo, cached for 30 min per ~1 km cell."""
     cell = (round(lat, 2), round(lng, 2))
     hit = _weather_cache.get(cell)
     if hit and time.time() - hit[0] < 1800:
@@ -40,11 +52,12 @@ def is_raining(lat: float, lng: float) -> bool:
     try:
         r = httpx.get(
             "https://api.open-meteo.com/v1/forecast",
-            params={"latitude": lat, "longitude": lng, "current": "precipitation"},
+            params={"latitude": lat, "longitude": lng, "current": "precipitation,temperature_2m"},
             timeout=5,
         )
-        raining = float(r.json()["current"]["precipitation"]) > 0
+        cur = r.json()["current"]
+        w: Weather | None = Weather(float(cur["precipitation"]) > 0, float(cur["temperature_2m"]))
     except (httpx.HTTPError, KeyError, ValueError):
-        raining = False  # weather is a nice-to-have; never block the feed on it
-    _weather_cache[cell] = (time.time(), raining)
-    return raining
+        w = None  # weather is a nice-to-have; never block the feed on it
+    _weather_cache[cell] = (time.time(), w)
+    return w
