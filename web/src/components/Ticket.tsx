@@ -73,7 +73,7 @@ export function Ticket({ row, next, nowMs, student, liked, onBack, onNext, onLik
   return (
     <article
       className={`ticket ${isPhoto ? 'ticket--photo' : 'ticket--poster'}`}
-      style={venueStyle({ ...colors, deep })}
+      style={venueStyle({ ...colors, deep }, row.photo_fade_start)}
       aria-label={row.name}
       data-ticket-id={row.id}
     >

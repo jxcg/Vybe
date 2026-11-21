@@ -54,7 +54,7 @@ export function HeroCard({ row, nowMs, student, onOpen }: Props) {
     <button
       className={`hero-card${isPhoto ? ' hero-card--photo' : ''}${row.score >= TOP_SCORE ? ' is-top' : ''}`}
       type="button"
-      style={venueStyle(colors)}
+      style={venueStyle(colors, row.photo_fade_start)}
       data-row-id={row.id}
       onClick={(e) => onOpen(row, e)}
     >
@@ -79,12 +79,12 @@ export function HeroCard({ row, nowMs, student, onOpen }: Props) {
       </span>
 
       <span className="hero-card-content">
+        <span className="hero-card-meta">{when(row).line}</span>
         <span className="hero-card-name">
-          <span className="hero-card-name-text">{row.name}</span>
+          <span className="hero-card-name-text" title={row.name}>{row.name}</span>
           <VenueRating rating={row.rating} />
         </span>
         <span className="hero-card-meta">
-          <span>{when(row).line}</span>
           <span>{row.walk_min} min walk</span>
           {price && <span>{price}</span>}
         </span>

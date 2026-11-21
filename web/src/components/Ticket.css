@@ -38,15 +38,12 @@
     ticket-zoom 20s ease-in-out infinite alternate;
 }
 
-/* The one gradient in the app: the photo's last 140px melts into the venue colour */
+/* Fade into the venue colour before the ticket body. */
 .ticket--photo .ticket-media::after {
   content: '';
   position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  height: 140px;
-  background: linear-gradient(to bottom, transparent, var(--deep));
+  inset: 0;
+  background: linear-gradient(to bottom in srgb, transparent var(--photo-fade-start, calc(100% - 140px)), var(--deep));
 }
 
 .ticket-poster {

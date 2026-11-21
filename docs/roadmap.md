@@ -48,6 +48,7 @@ Put `(now)` after the milestone being worked on. Owners: (Claude), (Mistral), (T
 - [ ] Keep compact card text legible beneath bright venue photos (Team)
 - [ ] Lead featured cards with venue names and give photos dedicated space (Team)
 - [ ] Review Google Places photos in the theme workflow and derive card colours from the displayed photo (Team)
+- [ ] Set the photo fade in the theme workflow from sampled readability and use a gradient when it fails (Team)
 - [x] Teammate's VYBE frontend merged, with the `/ws` backend (Claude)
 - [x] Light mode as primary, venue-colour glow on cards (Claude)
 - [ ] Brand colours from each venue's website (Mistral)

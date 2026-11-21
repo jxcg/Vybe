@@ -175,6 +175,7 @@ def _board_rows(cards: list[dict[str, Any]], now: datetime, raining: bool) -> li
         theme = cached_theme if isinstance(cached_theme, dict) else {}
         photo_url = theme.get("image_url")
         photo_credit = theme.get("image_credit")
+        fade_start = theme.get("fade_start")
         has_photo = (
             theme.get("mode") == "photo"
             and isinstance(photo_url, str)
@@ -215,6 +216,11 @@ def _board_rows(cards: list[dict[str, Any]], now: datetime, raining: bool) -> li
                 "google_place_photo": c.get("source") == "Google Places"
                 and (not theme or isinstance(theme.get("google_photo"), dict)),
                 "photo_credit": photo_credit if has_photo else None,
+                "photo_fade_start": fade_start
+                if theme.get("mode") == "photo"
+                and type(fade_start) is int
+                and 0 <= fade_start <= 60
+                else None,
                 "colors": venue_colors(theme.get("base") or extra.get("brand_color")),
                 "pitch": extra.get("deal") or extra.get("script") or "",
                 "voiceover_url": _voiceover_url(extra.get("voiceover")),
