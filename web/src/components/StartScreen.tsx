@@ -6,7 +6,7 @@ import { useTalk } from '../state/useTalk';
 import { useKeyboardOpen } from '../lib/useKeyboardOpen';
 import { fadeIn, fadeOutCopy, ghost, MORPH_MS, prefersReducedMotion, shapeOf, slideFrom } from '../lib/morph';
 import { handoff } from '../lib/handoff';
-import type { Vybe } from '../lib/vybe';
+import { isSpecificInterest, type Vybe } from '../lib/vybe';
 import { FadePill } from './FadePill';
 import { MicButton, type TalkPhase } from './MicButton';
 import { RowSheet } from './RowSheet';
@@ -154,7 +154,11 @@ export function StartScreen() {
 
   const go = (vybe?: Vybe) => {
     if (state.shared && (state.conn !== 'open' || state.roomConnecting)) return;
-    if (phase === 'listening') endTalk();
+    if (phase === 'thinking') return;
+    if (phase === 'listening') {
+      endTalk();
+      return;
+    }
     // TODO(P4): unlock audio (resume AudioContext) and request geolocation, silent fallback.
     if (vybe) setVybe(vybe);
     join(vybe);
@@ -186,7 +190,11 @@ export function StartScreen() {
               <TypeField
                 inputRef={inputRef}
                 formRef={formRef}
-                onSend={(text) => send({ type: 'talk_text', text })}
+                onSend={(text) => {
+                  if (phase === 'thinking' || state.conn !== 'open') return;
+                  setPhase('thinking');
+                  send({ type: 'talk_text', text });
+                }}
                 onVoice={() => switchMode(false)}
               />
             </div>
@@ -212,10 +220,16 @@ export function StartScreen() {
 
       {!(typing && keyboardOpen) && (
         <div className="start-footer">
-          <FadePill label={settings ? 'Update board' : 'See what\u2019s on'} onClick={() => go()} />
+          <FadePill
+            label={phase === 'thinking' ? 'Applying filters…' : phase === 'listening'
+              ? 'Finish recording' : settings ? 'Update board' : 'See what’s on'}
+            disabled={phase === 'thinking'}
+            onClick={() => go()}
+          />
           <button
             type="button"
             className="start-link"
+            disabled={phase !== 'idle'}
             onClick={() => go({ ...state.vybe, into: [], notInto: [], budget: 999 })}
           >
             Skip, show me everything
@@ -229,7 +243,10 @@ export function StartScreen() {
           vybe={state.vybe}
           onCancel={() => setSheet(null)}
           onDone={(vybe) => {
-            setVybe(vybe);
+            const choseNewInterest = sheet === 'into' && vybe.into.some(
+              (tag) => !isSpecificInterest(tag) && !state.vybe.into.includes(tag),
+            );
+            setVybe(choseNewInterest ? { ...vybe, into: vybe.into.filter((tag) => !isSpecificInterest(tag)) } : vybe);
             setSheet(null);
           }}
         />

@@ -8,13 +8,14 @@ Put `(now)` after the milestone being worked on. Owners: (Claude), (Mistral), (T
 - [x] Ruff, strict mypy, tests (Claude)
 - [x] AGENTS.md, README pitch, partner brief (Claude)
 
-## Feed and ranking
+## Feed and ranking (now)
 - [x] Swipe-up/down full-screen cards (Claude)
 - [x] Setup (budget, student, 18+) and likes saved in the browser (Claude)
 - [x] Ranking: open soon, budget, 18+, badges, leave-by (Claude)
 - [x] Google rating and personal match % shown separately (Claude)
 - [x] Weather (rain and cold) in the match (Claude)
-- [ ] Match specific typed and spoken requests to venue evidence (Team)
+- [ ] Apply explicit activity requests, exclusions, and budgets reliably (Team)
+- [x] Match specific typed and spoken requests to venue evidence (Team)
 - [ ] Show current conditions and temperature beside the board location (Team)
 - [ ] Open the board on a saved interest, group additional results, and mark short lists (Team)
 - [ ] Keep runner-up and wildcard details visible on desktop cards (Team)
@@ -23,7 +24,7 @@ Put `(now)` after the milestone being worked on. Owners: (Claude), (Mistral), (T
 - [ ] Hide the sidebar panel when there are no additional activities (Team)
 - [ ] Keep the desktop board aligned when category changes hide the sidebar (Team)
 
-## Shared plans (now)
+## Shared plans
 - [x] Invite friends to a live shared board (Team)
 - [ ] Show the participant count in the shared plan header (Team)
 
