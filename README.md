@@ -1,25 +1,29 @@
 # Vybe
 
-**Stop scrolling for plans. Vybe finds what's worth doing near you, right now.**
+Vybe shows you what's worth doing near you in the next few hours, best first.
 
-Open it and see activities and food deals that are open soon, fit your budget and are a short walk away, best first. Like or skip to tune it, or just say what you're after: *"cheap-ish, bowling, no clubs."*
+It reads like a station departures board. Each place has a time, a walk, and when you need to leave to make it. The top three picks sit at the top, and everything else is listed by when you'd have to set off. Tap one to open it, then swipe up for the next.
 
-## Why Vybe
+Tell it what you're after, out loud or by typing: *"me and two mates, want a laugh, nothing over a tenner."* The board re-ranks straight away. What you say only lasts for this visit and isn't saved.
 
-- **Right now, not someday:** only shows what's open in the next few hours, with a badge saying whether you've got plenty of time 🟢, should leave soon 🟡, or it's your last chance 🔴.
-- **Made for your budget:** student prices, £ / ££ / £££, and nothing 18+ unless you are.
-- **Explains itself:** every pick has a score out of 10 and three reasons why.
-- **Talk to it:** hold to talk and the board changes on the spot. Your mood tonight isn't saved to your profile.
-- **No sign-up:** pick a few settings and go. Your likes stay on your device.
-- **Deals you can trust:** an AI checker drops fake discounts and wrong prices before you see them.
+## What it does
+
+Every place gets a status (on time, boarding, last call) and a leave-by time, worked out from its closing time and how far you have to walk. You can browse by Food, Drinks, Entertainment, Culture or Outdoors.
+
+It respects your budget and student prices, and hides anything 18+ if you're under 18. Each card shows its Google rating and a match percentage for you, with up to three plain reasons, such as "Short walk" or "Top rated ★4.7".
+
+There's no sign-up. Your settings and saved places stay in your browser. Save something and similar places move up; mark "Not for me" and it drops off the board.
+
+Each venue's card takes its colours from the venue's own website, so a place with a red brand gets a red glow.
 
 ## Powered by Mistral
 
-- **Mistral Workflows** refresh the city's venues, events and deals on a schedule.
-- **Agents** scout tonight's events, turn them into clean cards, and verify every price, all in parallel.
-- **Voxtral** understands what you say and turns it into filters, and narrates each card.
-- **Built with the Mistral Vibe CLI** for the Mistral Vibe Hackathon 2026, London.
+A Mistral Workflow refreshes venues, events and deals a few times a day. Inside it, a Scout agent looks for tonight's events and deals. An Enricher turns each venue into a card with a short voiceover script and its brand colour. A Verifier drops fake discounts and wrong prices before anyone sees them.
+
+Voxtral handles voice. It turns what you say into filters for the board, and it reads out the voiceovers.
+
+Built with the Mistral Vibe CLI for the Mistral Vibe Hackathon 2026, London.
 
 ## Tech
 
-FastAPI · React · WebSocket · SQLite · Mistral Workflows, Agents SDK, Voxtral
+FastAPI · WebSocket · React · TypeScript · Vite · Google Places · Mistral Workflows, Agents SDK, Voxtral
