@@ -37,7 +37,7 @@ export function DepartureRow({ row, nowMs, onOpen }: Props) {
         <span className="drow-line t-secondary">
           <span className="drow-meta">
             <span className="drow-walk">{row.walk_min} min walk</span>
-            {price && <span>{price}</span>}
+            {price && <span className={row.over_budget ? 'drow-over' : undefined}>{price}</span>}
           </span>
           <span className="drow-hint t-label tnum">{leaveHint(row, nowMs)}</span>
         </span>

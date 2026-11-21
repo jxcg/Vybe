@@ -21,7 +21,9 @@ def test_index() -> None:
 
 def test_feed_uses_samples_without_key() -> None:
     cards = client.get("/api/feed", params={"budget": 1, "now": "18:00"}).json()
-    assert cards and all(c["price_level"] == 1 and c["source"] == "Sample data" for c in cards)
+    assert cards and all(c["source"] == "Sample data" for c in cards)
+    fits = [c["price_level"] == 1 for c in cards]
+    assert fits == sorted(fits, reverse=True)  # within budget first, pricier ones after
     assert all(c["walk_mins"] >= 1 for c in cards)
 
 

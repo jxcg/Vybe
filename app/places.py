@@ -66,6 +66,8 @@ SKIP_PRIMARY = {
     "lodging",
     "hotel",
 }
+# Usual price level when Google gives none (museums, galleries, parks are often free)
+USUAL_PRICE = {"theatre": 3, "culture": 1, "outdoors": 1}
 CACHE_TTL = 6 * 3600
 _cache: dict[tuple[float, float], tuple[float, list[dict[str, Any]]]] = {}
 
@@ -157,8 +159,8 @@ def to_item(place: dict[str, Any], now: datetime) -> dict[str, Any] | None:
         "name": place["displayName"]["text"],
         "type": place["_kind"],
         "price": float(start) if start else None,
-        # no price level usually means free entry (museums, galleries, parks)
-        "price_level": PRICE_LEVELS.get(place.get("priceLevel", ""), 1),
+        # Google often has no price level; fall back to what that kind of place usually costs
+        "price_level": PRICE_LEVELS.get(place.get("priceLevel", ""), USUAL_PRICE.get(kind.tag, 2)),
         # shortcut: Google has no student data, the Scout agent adds deals later
         "student_price": False,
         "adult_only": kind.adult,

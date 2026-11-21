@@ -111,3 +111,8 @@
   font-size: 0.8em;
   color: var(--st-boarding);
 }
+
+/* Over budget: still listed, price flagged */
+.drow-over {
+  color: var(--st-delayed);
+}

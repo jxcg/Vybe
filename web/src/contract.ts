@@ -51,6 +51,10 @@ export interface Row {
   leave_by: string;
   walk_min: number;
   your_price: number | null;
+  /** Server extension: 1–3, shown as £ / ££ / £££ when there's no exact price */
+  price_level?: number;
+  /** Server extension: pricier than the user's budget (kept as an option, ranked lower) */
+  over_budget?: boolean;
   was_price: number | null;
   /** 0–10 */
   score: number;

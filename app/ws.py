@@ -59,6 +59,7 @@ ICONS = {
     "Top rated": "Star",
     "Short walk": "Footprints",
     "Within budget": "Wallet",
+    "Pricier than your budget": "Wallet",
     "Active": "Zap",
     "Culture": "Palette",
     "Nightlife": "Beer",
@@ -156,6 +157,9 @@ def to_rows(
                 "leave_by": leave_by.replace(tzinfo=LONDON).isoformat(),
                 "walk_min": c["walk_mins"],
                 "your_price": price,
+                # Server extension: £, ££ or £££ when there's no exact price; over_budget sinks it
+                "price_level": c.get("price_level", 2),
+                "over_budget": bool(c.get("over_budget")),
                 "was_price": None,
                 "score": round(c["match"] / 10, 1),
                 "pick": None,
@@ -175,7 +179,10 @@ def to_rows(
                 "checked_at": extra.get("checked_at") or now.replace(tzinfo=LONDON).isoformat(),
             }
         )
-    live = [r for r in rows if r["status"] not in ("departed", "cancelled")]
+    # Over-budget places stay in the list but never take a hero pick
+    live = [
+        r for r in rows if r["status"] not in ("departed", "cancelled") and not r["over_budget"]
+    ]
     # Picks: the best match, then the best from a different group, then a wildcard from a third
     # group (highest rated), so the three hero cards aren't three theatres.
     used: set[str] = set()

@@ -46,8 +46,10 @@ def rank(
     liked_tags = ({t for i in items if i["id"] in liked for t in i["tags"]} | prefer) - setting
     cards = []
     for item in items:
-        if item["price_level"] > budget or (item["adult_only"] and not adult):
+        if item["adult_only"] and not adult:
             continue
+        # Over budget stays on the board as an option, but ranked below everything that fits
+        over = max(0, item["price_level"] - budget)
         opens, closes = _window(item, now)
         walk = timedelta(minutes=item["walk_mins"])
         leave_by = closes - MIN_STAY - walk
@@ -63,8 +65,12 @@ def rank(
 
         # Match out of 100: likes 25, walk 20, budget 15, quality 15, weather 15, time 10.
         likes = overlap if liked_tags else 0.5  # no likes yet: neutral, not a penalty
-        price = min(
-            1.0, (budget - item["price_level"] + 1) / budget + (0.25 if student_deal else 0)
+        price = (
+            0.0
+            if over
+            else min(
+                1.0, (budget - item["price_level"] + 1) / budget + (0.25 if student_deal else 0)
+            )
         )
         if weather is None:
             sky = 0.66
@@ -87,6 +93,7 @@ def rank(
         # Most specific first; generic ones only fill gaps. Cold weather is already in the
         # match %, and "indoors" would be on nearly every card, so it isn't a reason.
         reasons = [
+            "Pricier than your budget" if over else None,
             "Open now" if opens <= now else f"Opens {opens:%H:%M}",
             "Matches your likes" if overlap else None,
             "Student price" if student_deal else None,
@@ -96,12 +103,13 @@ def rank(
             f"Top rated ★{item['rating']}" if (item["rating"] or 0) >= 4.5 else None,
             "Short walk" if item["walk_mins"] <= 10 else None,
             item["tags"][0].capitalize(),
-            "Within budget",
+            None if over else "Within budget",
         ]
         cards.append(
             {
                 **item,
-                "match": round(match),
+                "match": max(0, round(match) - 25 * over),
+                "over_budget": bool(over),
                 "badge": badge,
                 "leave_by": f"{leave_by:%H:%M}",
                 "leave_by_at": leave_by.isoformat(),
@@ -109,4 +117,7 @@ def rank(
                 "reasons": [r for r in reasons if r][:3],
             }
         )
-    return sorted(cards, key=lambda c: (c["match"], c["rating"] or 0), reverse=True)
+    # Everything within budget first, then pricier options, each best match first
+    return sorted(
+        cards, key=lambda c: (not c["over_budget"], c["match"], c["rating"] or 0), reverse=True
+    )

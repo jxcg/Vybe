@@ -25,7 +25,10 @@ def by_id(cards: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
 def test_filters() -> None:
     got = by_id(rank(load_items(), at(18), budget=2, adult=False))
     assert "coffee-1" not in got  # closes 19:00: no time for a 60 min visit plus the walk
-    assert "climb-1" not in got  # £££ is over budget
+    assert got["climb-1"]["over_budget"]  # £££ on a ££ budget: still an option…
+    ordered = [c["id"] for c in rank(load_items(), at(18), budget=2, adult=False)]
+    assert ordered[-1] == "climb-1"  # …but ranked after everything within budget
+    assert "Pricier than your budget" in got["climb-1"]["reasons"]
     assert "comedy-1" not in got  # 18+
     assert "pizza-1" in got  # opens 21:00, exactly 3 hours ahead
     assert "pizza-1" not in by_id(rank(load_items(), at(17)))  # 4 hours ahead
