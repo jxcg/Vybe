@@ -177,3 +177,35 @@ def test_run_orchestrator_returns_empty_on_bad_answer(monkeypatch: pytest.Monkey
 
     monkeypatch.setattr(agents, "build_orchestrator", lambda: FakeAgent())
     assert asyncio.run(agents.run_orchestrator(51.5, -0.1, [], "now")) == {}
+
+
+def test_refresh_starts_theme_workflow_after_writing_enrichment(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from pipeline import theme_wf
+
+    saved: list[bool] = []
+
+    async def fetch(lat: float, lng: float) -> list[dict[str, Any]]:
+        return [{"id": "venue"}]
+
+    async def enrich(lat: float, lng: float, items: list[dict[str, Any]]) -> dict[str, Any]:
+        return {}
+
+    async def write(items: list[dict[str, Any]], claims: dict[str, Any]) -> dict[str, Any]:
+        saved.append(True)
+        return {"venues": 1}
+
+    async def start(child: Any, *, params: Any) -> dict[str, Any]:
+        assert saved == [True]
+        assert child is theme_wf.VybeTheme
+        assert (params.lat, params.lng) == (51.5, -0.1)
+        return {"themed": 1}
+
+    monkeypatch.setattr(refresh, "fetch_venues", fetch)
+    monkeypatch.setattr(refresh, "orchestrate", enrich)
+    monkeypatch.setattr(refresh, "write_enriched_activity", write)
+    monkeypatch.setattr(refresh, "execute_workflow", start)
+    assert asyncio.run(refresh.VybeRefresh().run({"lat": 51.5, "lng": -0.1})) == {
+        "result": {"venues": 1, "themed": 1},
+    }

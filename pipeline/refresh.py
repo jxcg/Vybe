@@ -1,9 +1,7 @@
 """Pipeline: fetch venues near a point, enrich them with agents, write data/enriched.json.
 
-v2 shape (docs/mistral-partner.md): the `vybe-refresh` workflow runs three activities —
-fetch venues → orchestrate (Scout/Enricher/Verifier subagents, pipeline/agents.py) →
-write data/enriched.json atomically. Verified claims only; every venue keeps at least
-an empty entry so the app always has a valid file.
+The refresh fetches venues, runs the Scout, Enricher and Verifier, writes verified
+claims to data/enriched.json, and starts the child workflow for venue themes.
 
 Worker:   DEPLOYMENT_NAME=vybe-hackathon uv run --env-file .env python -m pipeline.worker
 Trigger:  uv run --env-file .env python -m pipeline.run_once --lat 51.5136 --lng -0.1365
@@ -21,7 +19,9 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
-from mistralai.workflows import activity, workflow
+from mistralai.workflows import activity, execute_workflow, workflow
+
+from pipeline.theme_wf import ThemeAreaParams, VybeTheme
 
 
 def _root() -> Path:
@@ -147,4 +147,6 @@ class VybeRefresh:
     async def run(self, lat: float, lng: float) -> dict[str, Any]:
         items = await fetch_venues(lat, lng)
         claims = await orchestrate(lat, lng, items)
-        return await write_enriched_activity(items, claims)
+        summary = await write_enriched_activity(items, claims)
+        theme = await execute_workflow(VybeTheme, params=ThemeAreaParams(lat=lat, lng=lng))
+        return {**summary, **theme}

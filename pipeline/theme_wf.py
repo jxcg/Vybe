@@ -17,9 +17,12 @@ from typing import Any
 from mistralai.workflows import activity, execute_workflow, workflow
 from pydantic import BaseModel
 
-from pipeline.refresh import fetch_venues
-
 MAX_VENUES = 25  # bound agent cost: <= 2 candidates x (pro+con) + 1 judge per venue
+
+
+class ThemeAreaParams(BaseModel):
+    lat: float
+    lng: float
 
 
 class ThemeItemParams(BaseModel):
@@ -70,6 +73,8 @@ class VybeThemeItem:
 class VybeTheme:
     @workflow.entrypoint
     async def run(self, lat: float, lng: float) -> dict[str, Any]:
+        from pipeline.refresh import fetch_venues
+
         items = (await fetch_venues(lat, lng))[:MAX_VENUES]
         results = await asyncio.gather(
             *[execute_workflow(VybeThemeItem, params=ThemeItemParams(item=i)) for i in items]
