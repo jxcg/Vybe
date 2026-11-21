@@ -64,6 +64,8 @@ export function DepartureList({ rows, byCategory, nowMs, wallMs, onOpen }: Props
     : timeGroups
   ).filter((group) => group.items.length > 0);
 
+  if (groups.length === 0) return null;
+
   return (
     <div className="dlist">
       {groups.map((group) => (

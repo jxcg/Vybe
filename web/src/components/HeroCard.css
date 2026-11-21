@@ -133,6 +133,14 @@
 
 .hero-card-name {
   margin-top: 10px;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+}
+
+.hero-card-name-text {
+  min-width: 0;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;

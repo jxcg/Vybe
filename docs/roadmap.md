@@ -16,6 +16,9 @@ Put `(now)` after the milestone being worked on. Owners: (Claude), (Mistral), (T
 - [x] Weather (rain and cold) in the match (Claude)
 - [ ] Open the board on a saved interest, group additional results, and mark short lists (Team)
 - [ ] Keep runner-up and wildcard details visible on desktop cards (Team)
+- [ ] Show compact venue ratings out of ten on board picks and activity rows (Team)
+- [ ] Show only the best pick above the list when four activities are available (Team)
+- [ ] Hide the sidebar panel when there are no additional activities (Team)
 
 ## Real places
 - [x] Google Places near the user (Claude)
