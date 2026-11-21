@@ -63,11 +63,36 @@ def write_enriched(enriched: dict[str, Any], path: Path) -> None:
         raise
 
 
-def combine_enriched(items: list[dict[str, Any]], claims: dict[str, Any]) -> dict[str, Any]:
-    """Empty entry per venue plus verified claims; claims for unknown venue ids are dropped."""
-    out: dict[str, Any] = {item["id"]: {} for item in items}
-    for key, value in claims.items():
-        if key.startswith("event-") or key in out:
+def read_enriched(path: Path) -> dict[str, Any]:
+    """Current enriched.json as a dict ({} when missing or broken)."""
+    try:
+        data: Any = json.loads(path.read_text())
+        return data if isinstance(data, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
+
+def combine_enriched(
+    items: list[dict[str, Any]],
+    claims: dict[str, Any],
+    existing: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Verified claims over the venues, preserving existing extras (theme, brand_color).
+
+    Claims for unknown venue ids are dropped; event-<slug> entries pass through.
+    """
+    existing = existing or {}
+    out: dict[str, Any] = {}
+    for item in items:
+        iid = item["id"]
+        entry = dict(existing.get(iid, {}))
+        if iid in claims:
+            entry.update(claims[iid])  # claims carry every enrichment key, so nothing stale stays
+        elif iid not in existing:
+            entry = {}
+        out[iid] = entry
+    for key, value in {**existing, **claims}.items():
+        if key.startswith("event-"):
             out[key] = value
     return out
 
@@ -104,8 +129,12 @@ async def orchestrate(lat: float, lng: float, items: list[dict[str, Any]]) -> di
 async def write_enriched_activity(
     items: list[dict[str, Any]], claims: dict[str, Any]
 ) -> dict[str, Any]:
-    enriched = await asyncio.to_thread(combine_enriched, items, claims)
-    await asyncio.to_thread(write_enriched, enriched, _enriched_path())
+    from pipeline.refresh import read_enriched  # same module; explicit for clarity
+
+    path = _enriched_path()
+    existing = await asyncio.to_thread(read_enriched, path)
+    enriched = await asyncio.to_thread(combine_enriched, items, claims, existing)
+    await asyncio.to_thread(write_enriched, enriched, path)
     return {"venues": len(items), "claims": len(claims), "ids": sorted(enriched)}
 
 

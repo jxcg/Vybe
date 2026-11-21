@@ -1,5 +1,6 @@
 import asyncio
 import struct
+from typing import Any
 
 import pytest
 
@@ -62,7 +63,41 @@ def test_css_colors_and_palette() -> None:
     )
     assert len(pal["colors"]) == 2  # white/black/grey dropped
     assert pal["base_contrast"] >= 4.5  # base darkened until white text passes AA
-    assert theme.palette([])["colors"] == theme.DEFAULT_PALETTE[:-1]  # Vybe fallback
+    # no real brand colour -> nothing written (the app falls back to category colour)
+    assert theme.palette([]) == {"colors": [], "base": None, "base_contrast": None}
+    # declared theme-color leads the palette
+    pal2 = theme.palette([(200, 30, 30)], preferred=(30, 60, 200))
+    assert pal2["colors"][0] == "#1e3cc8"
+
+
+def test_theme_color_meta_and_manifest() -> None:
+    assert theme.theme_color('<meta name="theme-color" content="#8B2332">') == (0x8B, 0x23, 0x32)
+    assert theme.theme_color("<html>", '{"theme_color": "#1e5aa0"}') == (30, 90, 160)
+    assert theme.theme_color("<html>", "") is None
+
+
+def test_host_public_blocks_private_ips(monkeypatch: pytest.MonkeyPatch) -> None:
+    import socket
+
+    def fake_getaddrinfo(host: str, port: Any) -> list[tuple[Any, ...]]:
+        ip = "127.0.0.1" if host == "localhost" else "93.184.216.34"
+        return [(socket.AF_INET, socket.SOCK_STREAM, 6, "", (ip, 0))]
+
+    monkeypatch.setattr(socket, "getaddrinfo", fake_getaddrinfo)
+    assert not theme._host_public("localhost")
+    assert theme._host_public("example.com")
+
+
+def test_merge_themes_writes_brand_color_only_with_base() -> None:
+    existing = {"a": {"deal": "2-for-1", "verified": True}}
+    results = [
+        {"id": "a", "theme": {"mode": "photo", "base": "#8b2332", "colors": ["#8b2332"]}},
+        {"id": "b", "theme": {"mode": "gradient", "base": None, "colors": []}},
+    ]
+    out = theme.merge_themes(existing, results)
+    assert out["a"]["brand_color"] == "#8b2332" and out["a"]["theme"]["mode"] == "photo"
+    assert out["a"]["deal"] == "2-for-1"  # existing extras survive
+    assert "brand_color" not in out["b"]  # no fallback palette written
 
 
 def test_contrast_wcag() -> None:
@@ -150,7 +185,7 @@ def test_theme_item_no_website_is_gradient(monkeypatch: pytest.MonkeyPatch) -> N
         theme.theme_item({"id": "v2", "name": "Park", "type": "activity", "url": None})
     )
     assert out["theme"]["mode"] == "gradient"
-    assert out["theme"]["colors"]  # fallback palette present
+    assert out["theme"]["colors"] == [] and out["theme"]["base"] is None  # no fallback palette
 
 
 def test_theme_workflows_registered() -> None:

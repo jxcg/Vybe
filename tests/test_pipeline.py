@@ -61,6 +61,31 @@ def test_combine_enriched_merges_claims_over_empty_entries() -> None:
     assert out["event-gig"]["new_item"]["id"] == "event-gig"
 
 
+def test_combine_enriched_preserves_existing_theme_across_refreshes() -> None:
+    items = [{"id": "a"}]
+    claims = {
+        "a": {
+            "deal": None,
+            "student_price": False,
+            "price": None,
+            "script": None,
+            "verified": True,
+            "verify_note": "ok",
+            "checked_at": "now",
+            "source_url": None,
+        }
+    }
+    existing = {
+        "a": {"theme": {"mode": "photo"}, "brand_color": "#8b2332", "deal": "old deal"},
+        "event-old": {"new_item": {"id": "event-old"}, "verified": True},
+    }
+    out = refresh.combine_enriched(items, claims, existing)
+    assert out["a"]["theme"] == {"mode": "photo"}  # theme survives the refresh
+    assert out["a"]["brand_color"] == "#8b2332"
+    assert out["a"]["deal"] is None  # claim keys fully replace stale enrichment
+    assert out["event-old"]["new_item"]["id"] == "event-old"  # old events survive too
+
+
 def test_workflow_is_registered() -> None:
     from mistralai.workflows import get_workflow_definition
 

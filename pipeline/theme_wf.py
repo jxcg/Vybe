@@ -11,7 +11,6 @@ mistralai.workflows only); heavy imports happen inside the activity bodies.
 """
 
 import asyncio
-import json
 from datetime import timedelta
 from typing import Any
 
@@ -44,20 +43,13 @@ async def theme_one(item: dict[str, Any]) -> dict[str, Any]:
     retry_policy_max_attempts=2,
 )
 async def write_themes(results: list[dict[str, Any]]) -> dict[str, Any]:
-    from pipeline.refresh import _enriched_path, write_enriched  # deferred
+    from pipeline.refresh import _enriched_path, read_enriched, write_enriched  # deferred
+    from pipeline.theme import merge_themes  # deferred
 
     path = _enriched_path()
-    try:
-        enriched: dict[str, Any] = json.loads(path.read_text())
-        if not isinstance(enriched, dict):
-            enriched = {}
-    except (OSError, ValueError):
-        enriched = {}
-    for r in results:
-        rid = r.get("id") if isinstance(r, dict) else None
-        if rid:
-            enriched.setdefault(rid, {})["theme"] = r.get("theme")
-    write_enriched(enriched, path)
+    existing = await asyncio.to_thread(read_enriched, path)
+    enriched = await asyncio.to_thread(merge_themes, existing, results)
+    await asyncio.to_thread(write_enriched, enriched, path)
     return {"themed": len(results)}
 
 

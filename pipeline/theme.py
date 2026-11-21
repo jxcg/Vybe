@@ -8,8 +8,11 @@ default Vybe gradient.
 """
 
 import asyncio
+import ipaddress
 import re
+import socket
 from typing import Any
+from urllib.parse import urljoin, urlparse
 
 import httpx
 from mistralai import agents
@@ -20,7 +23,6 @@ JUDGE_MODEL = "mistral-medium-latest"  # judge reads the arguments
 MAX_CANDIDATES = 2  # keeps agent cost down: 2 candidates x (pro+con) + 1 judge
 MIN_WIDTH = 1080  # reject smaller images
 MAX_DOWNLOAD = 8 * 1024 * 1024
-DEFAULT_PALETTE = ["#7c3aed", "#db2777", "#f59e0b", "#111827"]  # Vybe fallback
 
 
 # --- measurable: image dimensions from raw bytes (no PIL needed) -------------------
@@ -133,6 +135,12 @@ def prefilter(cands: list[ImageCandidate]) -> list[ImageCandidate]:
     return sorted(ok, key=lambda c: -c.width)[:MAX_CANDIDATES]
 
 
+_THEME_COLOR = re.compile(r'<meta[^>]+name=["\']theme-color["\'][^>]+content=["\']([^"\']+)', re.I)
+_THEME_COLOR_REV = re.compile(
+    r'<meta[^>]+content=["\']([^"\']+)["\'][^>]+name=["\']theme-color["\']', re.I
+)
+_MANIFEST = re.compile(r'<link[^>]+rel=["\']manifest["\'][^>]+href=["\']([^"\']+)', re.I)
+_MANIFEST_COLOR = re.compile(r'"theme_color"\s*:\s*"(#[0-9a-fA-F]{3,8})"')
 _HEX = re.compile(r"#([0-9a-fA-F]{6})\b|#([0-9a-fA-F]{3})\b")
 _RGB = re.compile(r"rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)")
 
@@ -190,12 +198,49 @@ def _darken(c: tuple[int, int, int], step: float) -> tuple[int, int, int]:
     return tuple(max(0, int(x * (1 - step))) for x in c)  # type: ignore[return-value]
 
 
-def palette(colors: list[tuple[int, int, int]], max_colors: int = 4) -> dict[str, Any]:
+def _parse_color(text: str) -> tuple[int, int, int] | None:
+    text = text.strip()
+    if text.startswith("#"):
+        try:
+            return _norm_hex(text)
+        except ValueError:
+            return None
+    m = _RGB.fullmatch(text)
+    if m:
+        return int(m.group(1)), int(m.group(2)), int(m.group(3))
+    return None
+
+
+def theme_color(html: str, manifest: str = "") -> tuple[int, int, int] | None:
+    """The site's declared brand colour: <meta name=theme-color>, then manifest theme_color."""
+    m = _THEME_COLOR.search(html) or _THEME_COLOR_REV.search(html)
+    if m:
+        c = _parse_color(m.group(1))
+        if c:
+            return c
+    m = _MANIFEST_COLOR.search(manifest)
+    if m:
+        try:
+            return _norm_hex(m.group(1))
+        except ValueError:
+            return None
+    return None
+
+
+def palette(
+    colors: list[tuple[int, int, int]],
+    max_colors: int = 4,
+    preferred: tuple[int, int, int] | None = None,
+) -> dict[str, Any]:
     """Group similar colours, drop greys/white/black, keep the top brand colours.
 
     Base = darkest kept colour, darkened until white text passes WCAG AA (4.5:1).
+    No colours found → empty colors and base None: the app then uses its category
+    colour — we never write the fallback palette into the data.
     """
     chromatic = [c for c in colors if _hue(c) >= 0 and max(c) - min(c) >= 24]
+    if preferred and _hue(preferred) >= 0 and max(preferred) - min(preferred) >= 24:
+        chromatic = [preferred] + [c for c in chromatic if c != preferred]
     clusters: list[list[tuple[int, int, int]]] = []
     for c in sorted(chromatic, key=_hue):
         h = _hue(c)
@@ -206,17 +251,25 @@ def palette(colors: list[tuple[int, int, int]], max_colors: int = 4) -> dict[str
         else:
             clusters.append([c])
     clusters.sort(key=len, reverse=True)
-    picked = [cl[0] for cl in clusters[:max_colors]]
+    if preferred is not None:
+        for i, cl in enumerate(clusters):  # declared brand colour leads the palette
+            if preferred in cl:
+                clusters.insert(0, clusters.pop(i))
+                break
+    # representative colour per cluster = the cluster average, not an arbitrary member
+    picked: list[tuple[int, int, int]] = []
+    for cl in clusters[:max_colors]:
+        avg = tuple(round(sum(ch[i] for ch in cl) / len(cl)) for i in range(3))
+        picked.append((avg[0], avg[1], avg[2]))
     if not picked:
-        picked = [_norm_hex(DEFAULT_PALETTE[-1])]
-        colors_out = DEFAULT_PALETTE[:-1]
-    else:
-        colors_out = [f"#{c[0]:02x}{c[1]:02x}{c[2]:02x}" for c in picked]
-    base = min(picked, key=_lum)
+        return {"colors": [], "base": None, "base_contrast": None}
+    colors_out = [f"#{c[0]:02x}{c[1]:02x}{c[2]:02x}" for c in picked]
+    darkest = min(picked, key=_lum)
+    base = darkest
     step = 0.0
     while contrast(base, (255, 255, 255)) < 4.5 and step < 0.9:
         step += 0.1
-        base = _darken(picked[min(range(len(picked)), key=lambda i: _lum(picked[i]))], step)
+        base = _darken(darkest, step)
     return {
         "colors": colors_out,
         "base": f"#{base[0]:02x}{base[1]:02x}{base[2]:02x}",
@@ -356,25 +409,53 @@ async def pick_image(venue: str, candidates: list[ImageCandidate]) -> JudgeVerdi
 # --- network (mocked in tests) ---------------------------------------------------------
 
 
+def _host_public(host: str) -> bool:
+    """Resolve the host and reject private/loopback/link-local/reserved IPs (SSRF guard)."""
+    try:
+        infos = socket.getaddrinfo(host, None)
+    except OSError:
+        return False
+    for info in infos:
+        ip = ipaddress.ip_address(info[4][0])
+        if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved or ip.is_multicast:
+            return False
+    return True
+
+
+async def _safe_get(url: str, cap: int) -> bytes:
+    """GET with manual redirects (each hop host-checked), reading at most `cap` bytes.
+
+    200 KB is plenty for HTML, 64 KB for image headers — never download whole images.
+    """
+    async with httpx.AsyncClient(timeout=10, follow_redirects=False) as client:
+        for _ in range(4):
+            host = urlparse(url).hostname or ""
+            if not _host_public(host):
+                raise ValueError(f"blocked non-public host: {host}")
+            async with client.stream(
+                "GET", url, headers={"User-Agent": "vybe-hackathon-theme/0.1"}
+            ) as r:
+                location = r.headers.get("location")
+                if r.status_code in (301, 302, 303, 307, 308) and location:
+                    url = urljoin(url, location)
+                    continue
+                r.raise_for_status()
+                data = b""
+                async for chunk in r.aiter_bytes(16384):
+                    data += chunk
+                    if len(data) > cap:
+                        break
+                return data
+    raise ValueError("too many redirects")
+
+
 async def fetch_text(url: str, limit: int = 200_000) -> str:
-    async with httpx.AsyncClient(timeout=10, follow_redirects=True) as client:
-        r = await client.get(url, headers={"User-Agent": "vybe-hackathon-theme/0.1"})
-        r.raise_for_status()
-        return r.text[:limit]
+    return (await _safe_get(url, limit)).decode("utf-8", "ignore")
 
 
 async def fetch_size(cand: ImageCandidate) -> ImageCandidate:
     try:
-        async with (
-            httpx.AsyncClient(timeout=10, follow_redirects=True) as client,
-            client.stream("GET", cand.url, headers={"User-Agent": "vybe-hackathon-theme/0.1"}) as r,
-        ):
-            r.raise_for_status()
-            data = b""
-            async for chunk in r.aiter_bytes(65536):
-                data += chunk
-                if len(data) > MAX_DOWNLOAD:
-                    break
+        data = await _safe_get(cand.url, 64 * 1024)  # headers are enough for dimensions
         size = image_size(data)
         if size:
             cand.width, cand.height = size
@@ -393,11 +474,23 @@ async def theme_item(item: dict[str, Any]) -> dict[str, Any]:
     cands: list[ImageCandidate] = []
     texts = [""]  # inline HTML first; linked CSS appended below
     url = item.get("url")
+    declared: tuple[int, int, int] | None = None
     if url:
         try:
             html = await fetch_text(url)
             texts[0] = html
             cands = collect_from_html(html, url)
+            manifest = ""
+            mm = _MANIFEST.search(html)
+            if mm:
+                murl = mm.group(1)
+                if not murl.startswith("http"):
+                    murl = url.rstrip("/") + "/" + murl.lstrip("/")
+                try:
+                    manifest = await fetch_text(murl, 20_000)
+                except Exception:
+                    manifest = ""
+            declared = theme_color(html, manifest)
             sheets = [m.group(1) for m in _STYLESHEET.finditer(html)][:3]
             css_texts = await asyncio.gather(
                 *[
@@ -415,5 +508,21 @@ async def theme_item(item: dict[str, Any]) -> dict[str, Any]:
     cands = list(await asyncio.gather(*[fetch_size(c) for c in cands])) if cands else []
     shortlist = prefilter(cands)
     verdict = await pick_image(venue, shortlist)
-    pal = palette(css_colors(*texts))
+    pal = palette(css_colors(*texts), preferred=declared)
     return {"id": item["id"], "theme": build_theme(verdict, pal, shortlist)}
+
+
+def merge_themes(existing: dict[str, Any], results: list[dict[str, Any]]) -> dict[str, Any]:
+    """Merge child-workflow theme results into the enriched mapping (read-modify-write)."""
+    out = dict(existing)
+    for r in results:
+        rid = r.get("id") if isinstance(r, dict) else None
+        if not rid:
+            continue
+        entry = dict(out.get(rid, {}))
+        th = r.get("theme") or {}
+        entry["theme"] = th
+        if th.get("base"):
+            entry["brand_color"] = th["base"]  # Contract 1: what app/ws.py reads
+        out[rid] = entry
+    return out
