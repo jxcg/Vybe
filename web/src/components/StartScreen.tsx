@@ -230,7 +230,7 @@ export function StartScreen() {
             type="button"
             className="start-link"
             disabled={phase !== 'idle'}
-            onClick={() => go({ ...state.vybe, into: [], notInto: [], budget: 999 })}
+            onClick={() => go({ ...state.vybe, requested: [], into: [], notInto: [], budget: 999 })}
           >
             Skip, show me everything
           </button>
@@ -246,7 +246,7 @@ export function StartScreen() {
             const choseNewInterest = sheet === 'into' && vybe.into.some(
               (tag) => !isSpecificInterest(tag) && !state.vybe.into.includes(tag),
             );
-            setVybe(choseNewInterest ? { ...vybe, into: vybe.into.filter((tag) => !isSpecificInterest(tag)) } : vybe);
+            setVybe(choseNewInterest ? { ...vybe, requested: [], into: vybe.into.filter((tag) => !isSpecificInterest(tag)) } : vybe);
             setSheet(null);
           }}
         />

@@ -1,6 +1,6 @@
 import { useRef, useState, type MouseEvent } from 'react';
 import { Shuffle } from 'lucide-react';
-import { toPrefs } from '../lib/vybe';
+import { clearBoardFilters, toPrefs } from '../lib/vybe';
 import { isMock } from '../net/socket';
 import type { Row } from '../contract';
 import { useStore } from '../state/store';
@@ -46,9 +46,18 @@ function GroupFilter({ groups, active, onPick }: {
 }
 
 export function Board() {
-  const { state, dispatch, send, enterRoom } = useStore();
+  const { state, dispatch, send, enterRoom, join } = useStore();
   const { board, vybe, shared } = state;
   const [showInvite, setShowInvite] = useState(false);
+  const hasFilters = Boolean(board?.group || vybe.into.length || vybe.notInto.length ||
+    (vybe.budget !== null && vybe.budget !== 999) || vybe.vibe);
+  const resetFilters = () => {
+    const cleared = clearBoardFilters(vybe);
+    dispatch({ type: 'reset_filters', vybe: cleared });
+    setEmptySurprise(false);
+    if (shared) join(cleared);
+    else if (board?.group) send({ type: 'show', group: null });
+  };
   const inviteFriends = () => {
     if (shared) {
       setShowInvite((open) => !open);
@@ -162,7 +171,10 @@ export function Board() {
           </>
         )}
       </main>
-      <BottomBar onFilters={() => dispatch({ type: 'go', screen: 'start' })} />
+      <BottomBar
+        onFilters={() => dispatch({ type: 'go', screen: 'start' })}
+        onReset={board && hasFilters && state.conn === 'open' && !state.roomConnecting ? resetFilters : undefined}
+      />
     </div>
   );
 }

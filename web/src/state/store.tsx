@@ -58,6 +58,7 @@ export type Action =
   | { type: 'server'; msg: ServerMessage; at: number }
   | { type: 'conn'; status: ConnStatus }
   | { type: 'set_vybe'; vybe: Vybe }
+  | { type: 'reset_filters'; vybe: Vybe }
   | { type: 'go'; screen: Screen }
   | { type: 'clear_transcript' }
   | { type: 'dismiss_toast'; id: number }
@@ -109,6 +110,11 @@ function reducer(state: State, action: Action): State {
       return state.shared ? { ...state, vybe: action.vybe } : {
         ...state, vybe: action.vybe, soloVybe: action.vybe,
         personal: updatePersonal(state.personal, state.vybe, action.vybe),
+      };
+    case 'reset_filters':
+      return {
+        ...state, vybe: action.vybe, soloVybe: state.shared ? state.soloVybe : action.vybe,
+        transcript: '',
       };
     case 'go':
       return {

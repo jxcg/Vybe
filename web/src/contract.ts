@@ -234,6 +234,7 @@ export interface TranscriptMsg {
 export interface ChipsMsg {
   type: 'chips';
   include: string[];
+  requested?: string[];
   exclude: string[];
   budget?: Budget;
   student?: boolean;

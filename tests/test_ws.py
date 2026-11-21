@@ -30,6 +30,11 @@ def recv(sock: Any, kind: str) -> dict[str, Any]:
         ("I fancy ice cream", {"dessert"}),
         ("sushi and karaoke", {"sushi", "karaoke"}),
         ("pottery class", {"pottery"}),
+        (
+            "Have a laugh and laugh and eat food",
+            {"pizza", "restaurant", "dessert", "sushi", "comedy", "ambiguous"},
+        ),
+        ("Have a laugh", {"comedy", "ambiguous"}),
         ("I want to dance tonight", {"nightclub", "dance"}),
         ("let's go out dancing, no clubs", {"dance"}),
         ("I want to sing tonight", {"karaoke"}),
@@ -94,7 +99,7 @@ def test_specific_requests_match_venue_evidence(
             prefs = {
                 "type": "prefs",
                 "include": ["food"],
-                "requested": chips["include"],
+                "requested": chips.get("requested", []),
                 "exclude": chips["exclude"],
                 "budget": chips.get("budget", 999),
             }
@@ -103,10 +108,16 @@ def test_specific_requests_match_venue_evidence(
             assert board["group"] is None
             assert {row["id"] for row in board["rows"]} == matches
             original = items[:]
-            items[:] = [item for item in items if item["id"] in {"restaurant", "pub"}]
+            items[:] = [item for item in items if item["id"] == "pub"]
             sock.send_json(prefs)
             assert recv(sock, "board")["rows"] == []
             items[:] = original
+            sock.send_json(
+                {"type": "prefs", "include": [], "exclude": [], "requested": [], "budget": 999}
+            )
+            assert {row["id"] for row in recv(sock, "board")["rows"]} == {
+                item["id"] for item in items
+            }
 
 
 def test_smoke_flow_from_integration_guide() -> None:
