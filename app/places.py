@@ -42,6 +42,10 @@ SEARCHES = {
     "nightlife": ["bar", "pub", "cocktail_bar", "wine_bar", "night_club"],
     "food_deal": ["restaurant", "cafe", "dessert_shop"],
 }
+REQUEST_SEARCHES = {
+    "pizza": ("pizza_restaurant", "food_deal"),
+    "comedy": ("comedy_club", "activity"),
+}
 PRICE_LEVELS = {
     "PRICE_LEVEL_FREE": 1,
     "PRICE_LEVEL_INEXPENSIVE": 1,
@@ -70,6 +74,7 @@ SKIP_PRIMARY = {
 USUAL_PRICE = {"theatre": 3, "culture": 1, "outdoors": 1}
 CACHE_TTL = 6 * 3600
 _cache: dict[tuple[float, float], tuple[float, list[dict[str, Any]]]] = {}
+_request_cache: dict[tuple[float, float, str], tuple[float, list[dict[str, Any]]]] = {}
 
 
 def api_key() -> str | None:
@@ -90,6 +95,17 @@ def _post(endpoint: str, body: dict[str, Any], fields: str) -> list[dict[str, An
     return places
 
 
+def _search(lat: float, lng: float, types: list[str], kind: str) -> list[dict[str, Any]]:
+    body = {
+        "includedTypes": types,
+        "maxResultCount": 20,
+        "locationRestriction": {
+            "circle": {"center": {"latitude": lat, "longitude": lng}, "radius": 1500.0}
+        },
+    }
+    return [{**place, "_kind": kind} for place in _post("searchNearby", body, FIELDS)]
+
+
 def nearby(lat: float, lng: float) -> list[dict[str, Any]]:
     """Raw places around a point: one call per search group, per cell, every 6 hours."""
     cell = (round(lat, 2), round(lng, 2))
@@ -98,19 +114,31 @@ def nearby(lat: float, lng: float) -> list[dict[str, Any]]:
         return hit[1]
     places = []
     for kind, types in SEARCHES.items():
-        body = {
-            "includedTypes": types,
-            "maxResultCount": 20,
-            "locationRestriction": {
-                "circle": {"center": {"latitude": lat, "longitude": lng}, "radius": 1500.0}
-            },
-        }
         # nightlife is its own search so bars don't crowd out other activities
         vtype = "food_deal" if kind == "food_deal" else "activity"
-        places += [{**p, "_kind": vtype} for p in _post("searchNearby", body, FIELDS)]
+        places.extend(_search(lat, lng, types, vtype))
     places = list({p["id"]: p for p in places}.values())  # one place can match several searches
     _cache[cell] = (time.time(), places)
     return places
+
+
+def requested_nearby(lat: float, lng: float, terms: set[str]) -> list[dict[str, Any]]:
+    """Give each supported request its own result limit, including mixed requests."""
+    results = []
+    for term in sorted(terms & REQUEST_SEARCHES.keys()):
+        key = (round(lat, 2), round(lng, 2), term)
+        hit = _request_cache.get(key)
+        if hit and time.time() - hit[0] < CACHE_TTL:
+            results.extend(hit[1])
+            continue
+        place_type, kind = REQUEST_SEARCHES[term]
+        try:
+            found = _search(lat, lng, [place_type], kind)
+        except httpx.HTTPError:
+            continue  # the ordinary feed and other requested activities are still usable
+        _request_cache[key] = (time.time(), found)
+        results.extend(found)
+    return results
 
 
 def _hours_today(hours: dict[str, Any], now: datetime) -> tuple[str, str] | None:
@@ -153,12 +181,17 @@ def to_item(place: dict[str, Any], now: datetime) -> dict[str, Any] | None:
         hours = _hours_today(place.get("regularOpeningHours", {}), now)
     if not hours:
         return None  # closed today or no hours: can't promise it's open
-    start = place.get("priceRange", {}).get("startPrice", {}).get("units")
+    start = place.get("priceRange", {}).get("startPrice", {})
+    price = (
+        float(start.get("units", 0)) + int(start.get("nanos", 0)) / 1_000_000_000
+        if start and start.get("currencyCode", "GBP") == "GBP"
+        else None
+    )
     return {
         "id": place["id"],
         "name": place["displayName"]["text"],
         "type": place["_kind"],
-        "price": float(start) if start else None,
+        "price": price,
         # Google often has no price level; fall back to what that kind of place usually costs
         "price_level": PRICE_LEVELS.get(place.get("priceLevel", ""), USUAL_PRICE.get(kind.tag, 2)),
         # shortcut: Google has no student data, the Scout agent adds deals later
@@ -225,7 +258,8 @@ def featured_photo(place_id: str, selection: dict[str, Any] | None = None) -> di
     key = api_key()
     if not key or not any(
         time.time() - fetched_at < CACHE_TTL and any(place["id"] == place_id for place in results)
-        for fetched_at, results in _cache.values()
+        for cache in (_cache, _request_cache)
+        for fetched_at, results in cache.values()
     ):
         return None
     place = _place_photos(place_id, key)

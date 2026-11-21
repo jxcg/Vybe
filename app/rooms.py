@@ -94,6 +94,7 @@ class Room:
     members: dict[str, Member] = field(default_factory=dict)
     lock: asyncio.Lock = field(default_factory=asyncio.Lock)
     source: tuple[list[dict[str, Any]], Weather | None] | None = None
+    source_requests: set[str] = field(default_factory=set)
     source_at: float = float("-inf")
     published_at: float = float("-inf")
 
