@@ -24,6 +24,7 @@ Put `(now)` after the milestone being worked on. Owners: (Claude), (Mistral), (T
 
 ## Shared plans (now)
 - [x] Invite friends to a live shared board (Team)
+- [ ] Show the participant count in the shared plan header (Team)
 
 ## Real places
 - [x] Google Places near the user (Claude)
