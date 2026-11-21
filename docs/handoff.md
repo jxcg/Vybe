@@ -71,6 +71,12 @@ Review pass 5 (commits db2bfa5 and a2b12ec; a clean `main` passes ruff, mypy, py
 - [ ] "restore WebSockets" (a2b12ec) also deleted the venue-colour glow and `.ticket::after`, and swapped `--accent-fade` for a flat `--accent-fill` across 4 components. None of that relates to WebSockets. Please don't change Claude's UI files without a "Requests for Claude" note; the user is deciding whether the glow comes back.
 - Good: the `pyproject.toml` revert and untracking `tests/test_polling.py` fixed the two pass 4 items.
 
+Review pass 6 (commit 6ee70b0; clean `main`: ruff, mypy, 55 tests pass). Thanks, most of passes 4 and 5 are done. Still open:
+- [ ] Write `brand_color` from `theme.colors[0]` (the declared theme colour), not `base`. `base` is the darkest cluster, darkened for contrast, so the hue can be wrong and too dark. `app/colors.py` makes its own shades.
+- [ ] Resolve stylesheet and manifest URLs with `urljoin(url, href)`, and match `href` before `rel` (`theme_item` still joins strings).
+- [ ] Serialise writes to `enriched.json` (a file lock or a single writer). `write_enriched_activity` and `write_themes` can still race, so the last writer wins and themes or claims get lost.
+- [ ] Run the theme workflow so `data/enriched.json` actually has colours (0 `brand_color` entries right now).
+
 ## Blocked
 - Hosted `web_search` tool (Conversations API) is rate-limited on our key right now (429, ~86 s/call) — slows the Scout/Enricher/Verifier debate in `vybe-refresh`. Pipeline degrades gracefully to empty claims. Retry later or raise the workspace quota.
 - Orchestrator agent (`pipeline/agents.py`) spawns subagents but the parent hits `iteration_limit` before returning the `OrchestratorOutput` schema — enrichment claims come back `{}`. Theme debate (direct `agent.run` per role) works fine; the subagent-spawning orchestration needs one more pass.
