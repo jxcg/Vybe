@@ -120,6 +120,37 @@ def _clean(raw: Any) -> dict[str, Any]:
     return out
 
 
+def apply_filters(items: list[dict[str, Any]], filters: dict[str, Any]) -> list[dict[str, Any]]:
+    """Apply session filters to items for the current feed — in memory only.
+
+    Pure function: the route does `items = apply_filters(items, session.filters)`
+    before ranking. Nothing here is ever persisted. `clear` is not handled here —
+    the route resets the session filters when the voice says so.
+    """
+    out = items
+    if "budget" in filters:
+        out = [i for i in out if i["price_level"] <= filters["budget"]]
+    if "max_walk_mins" in filters:
+        out = [i for i in out if i.get("walk_mins", 0) <= filters["max_walk_mins"]]
+    if "type" in filters:
+        out = [i for i in out if i["type"] == filters["type"]]
+    if "include_tags" in filters:
+        want = set(filters["include_tags"])
+        out = [i for i in out if want & set(i["tags"])]
+    if "exclude_tags" in filters:
+        bad = set(filters["exclude_tags"])
+        out = [i for i in out if not bad & set(i["tags"])]
+    if "include_text" in filters:
+        words = [str(w).lower() for w in filters["include_text"]]
+        out = [i for i in out if any(w in i["name"].lower() for w in words)]
+    if "exclude_text" in filters:
+        words = [str(w).lower() for w in filters["exclude_text"]]
+        out = [i for i in out if not any(w in i["name"].lower() for w in words)]
+    if filters.get("indoors_only"):
+        out = [i for i in out if "indoors" in i["tags"]]
+    return out
+
+
 def _post(payload: dict[str, Any], key: str) -> httpx.Response:
     return httpx.post(
         API, json=payload, headers={"Authorization": f"Bearer {key}"}, timeout=_TRANSPORT

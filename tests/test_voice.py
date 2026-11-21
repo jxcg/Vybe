@@ -164,6 +164,54 @@ def test_timeout_raises_voice_error(monkeypatch: pytest.MonkeyPatch) -> None:
         voice.audio_to_filters(b"x", "audio/webm", {})
 
 
+def test_apply_filters_is_pure_and_ephemeral() -> None:
+    items = [
+        {
+            "id": "a",
+            "name": "Bowling Alley",
+            "type": "activity",
+            "price_level": 2,
+            "walk_mins": 5,
+            "tags": ["active", "indoors"],
+        },
+        {
+            "id": "b",
+            "name": "Night Club",
+            "type": "activity",
+            "price_level": 3,
+            "walk_mins": 20,
+            "tags": ["nightlife", "indoors"],
+        },
+        {
+            "id": "c",
+            "name": "Hyde Park",
+            "type": "activity",
+            "price_level": 1,
+            "walk_mins": 15,
+            "tags": ["active", "outdoors"],
+        },
+    ]
+    # empty session filters: feed unchanged
+    assert voice.apply_filters(items, {}) == items
+    assert voice.apply_filters(items, {"budget": 1}) == [items[2]]
+    assert [i["id"] for i in voice.apply_filters(items, {"max_walk_mins": 10})] == ["a"]
+    assert [i["id"] for i in voice.apply_filters(items, {"exclude_tags": ["nightlife"]})] == [
+        "a",
+        "c",
+    ]
+    assert [i["id"] for i in voice.apply_filters(items, {"include_tags": ["outdoors"]})] == ["c"]
+    assert [i["id"] for i in voice.apply_filters(items, {"include_text": ["bowling"]})] == ["a"]
+    assert [i["id"] for i in voice.apply_filters(items, {"exclude_text": ["club", "park"]})] == [
+        "a"
+    ]
+    assert [i["id"] for i in voice.apply_filters(items, {"indoors_only": True})] == ["a", "b"]
+    assert [i["id"] for i in voice.apply_filters(items, {"budget": 2, "max_walk_mins": 10})] == [
+        "a"
+    ]
+    # the input list is not mutated
+    assert [i["id"] for i in items] == ["a", "b", "c"]
+
+
 def test_no_key_raises_without_http(monkeypatch: pytest.MonkeyPatch) -> None:
     called = False
 
