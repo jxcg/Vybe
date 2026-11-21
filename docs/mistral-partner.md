@@ -74,6 +74,14 @@ Rules:
 - **Tags** use only: `active`, `culture`, `nightlife`, `food`, `indoors`, `outdoors`.
 - `opens` and `closes` are `HH:MM`. A close earlier than the open means after midnight.
 - Write atomically: write a temp file, then rename it, so the app never reads half a file.
+- Personalisation fields (from Google reviews, `reviewSummary`, `generativeSummary` and attributes such as
+  `goodForGroups` and `liveMusic`, read with a Mistral model in the Enricher):
+  - `audience`: fit per age range, 0 to 1: `{"under18": 0.1, "18-21": 0.8, "22-25": 0.7, "26-35": 0.5, "36+": 0.3}`
+  - `liveliness`: 0 (quiet, laid-back) to 1 (loud, lively)
+  - `good_for_groups`: true or false
+  - `audience_note`: one short evidence line, e.g. "Popular with students", or leave it out
+  Only write a field when the reviews support it. The app treats missing fields as neutral and only shows
+  "Popular with 18–21s" or "Good for groups" when the data is there.
 - `brand_color` is the venue's main brand colour as `#rrggbb`, taken from its own website, for example
   its `<meta name="theme-color">`, web manifest `theme_color`, logo, or dominant CSS colour. Leave it out
   if you can't find a real one, and never guess. The app turns it into the card gradient.

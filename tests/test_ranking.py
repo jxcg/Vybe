@@ -76,3 +76,25 @@ def test_likes_ignore_indoors_and_24h_stays_open() -> None:
     assert "Matches your likes" not in liked["bowl-1"]["reasons"]  # active: only shares indoors
     allday = {**load_items()[0], "id": "x", "opens": "00:00", "closes": "00:00"}
     assert by_id(rank([allday], at(23, 50)))["x"]["badge"] == "plenty"
+
+
+def test_personal_fit_from_reviews_and_guesses() -> None:
+    items = load_items()
+    plain = by_id(rank(items, at(19)))
+    # Review data from the pipeline: a strong 18-21 audience earns a reason and a higher match
+    reviewed = [{**i, "audience": {"18-21": 0.9}} if i["id"] == "bowl-1" else i for i in items]
+    young = by_id(rank(reviewed, at(19), age="18-21"))
+    assert young["bowl-1"]["match"] > plain["bowl-1"]["match"]
+    assert "Popular with 18–21s" in young["bowl-1"]["reasons"]  # noqa: RUF001
+    # Without review data it's only a nudge: no "Popular with" claim
+    guessed = by_id(rank(items, at(19), age="18-21"))
+    assert not any(r.startswith("Popular with") for c in guessed.values() for r in c["reasons"])
+    # Vibe: lively favours nightlife over a museum
+    lively = by_id(rank(items, at(19), vibe="lively"))
+    chill = by_id(rank(items, at(19), vibe="chill"))
+    assert lively["comedy-1"]["match"] - lively["museum-1"]["match"] > (
+        chill["comedy-1"]["match"] - chill["museum-1"]["match"]
+    )
+    # Groups: only claimed when the data says so
+    grouped = [{**i, "good_for_groups": True} if i["id"] == "food-1" else i for i in items]
+    assert "Good for groups" in by_id(rank(grouped, at(19), company=4))["food-1"]["reasons"]

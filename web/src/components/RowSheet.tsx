@@ -1,8 +1,10 @@
 import { useEffect, useId, useState } from 'react';
 import { Check } from 'lucide-react';
 import {
+  AGE_OPTIONS,
   BUDGET_OPTIONS,
   COMPANY_OPTIONS,
+  VIBE_OPTIONS,
   INTO_SUGGESTIONS,
   NOT_INTO_SUGGESTIONS,
   tagLabel,
@@ -17,6 +19,8 @@ const TITLES: Record<RowKey, string> = {
   notInto: 'Not into',
   budget: 'Budget',
   company: "Who's coming",
+  age: 'Your age',
+  vibe: 'Tonight’s vibe',
 };
 
 interface Props {
@@ -113,6 +117,27 @@ export function RowSheet({ row, vybe, onDone, onCancel }: Props) {
                 tone="neutral"
                 on={draft.company === o.value}
                 onToggle={() => setDraft({ ...draft, company: o.value })}
+              />
+            ))}
+          {row === 'age' &&
+            AGE_OPTIONS.map((o) => (
+              <Option
+                key={o.value}
+                label={o.label}
+                tone="neutral"
+                on={draft.age === o.value}
+                // Under 18 also hides 18+ places; any other age turns them back on
+                onToggle={() => setDraft({ ...draft, age: o.value, adult: o.value !== 'under18' })}
+              />
+            ))}
+          {row === 'vibe' &&
+            VIBE_OPTIONS.map((o) => (
+              <Option
+                key={o.value}
+                label={o.label}
+                tone="neutral"
+                on={draft.vibe === o.value}
+                onToggle={() => setDraft({ ...draft, vibe: draft.vibe === o.value ? null : o.value })}
               />
             ))}
         </div>

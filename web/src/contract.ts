@@ -106,6 +106,9 @@ export interface PrefsMsg {
   exclude: string[];
   /** people including you */
   company: number;
+  /** Server extension: age range ("under18", "18-21", "22-25", "26-35", "36+") and vibe ("chill" | "lively") */
+  age?: string | null;
+  vibe?: string | null;
 }
 
 export type TalkPurpose = 'mood' | 'command' | 'reason';

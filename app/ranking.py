@@ -30,6 +30,67 @@ def _window(item: dict[str, Any], now: datetime) -> tuple[datetime, datetime]:
     return opens, closes
 
 
+# Rough guesses used only until the Mistral pipeline has read a place's reviews. They nudge, never
+# claim: no reason chip is shown for a guess.
+LIVELY_TAGS = {"nightlife", "club", "music", "comedy", "games"}
+CHILL_TAGS = {"culture", "film", "outdoors", "food"}
+AGE_LEAN = {
+    "18-21": {"nightlife": 0.75, "club": 0.8, "games": 0.75, "music": 0.7},
+    "22-25": {"nightlife": 0.7, "music": 0.7, "comedy": 0.7, "games": 0.65},
+    "26-35": {"food": 0.65, "comedy": 0.65, "theatre": 0.65, "music": 0.6},
+    "36+": {"theatre": 0.75, "culture": 0.7, "food": 0.7, "club": 0.25},
+}
+AGE_WORDS = {
+    "under18": "under-18s",
+    "18-21": "18\u201321s",
+    "22-25": "22\u201325s",
+    "26-35": "26\u201335s",
+    "36+": "36+",
+}
+
+
+def _fits_you(
+    item: dict[str, Any], age: str | None, vibe: str | None, company: int
+) -> tuple[float, str | None]:
+    """0 to 1 for how well a place suits this person, plus a reason only when reviews back it up.
+
+    Uses the pipeline's review-based `audience` / `liveliness` when present, else a mild guess
+    from the kind of place. Unknown = 0.5 (neutral), so nobody is penalised for missing data.
+    """
+    tags = set(item["tags"])
+    reasons: list[str] = []
+    scores: list[float] = []
+
+    if age:
+        audience = item.get("audience") or {}
+        if isinstance(audience.get(age), int | float):
+            a = float(audience[age])
+            if a >= 0.7:
+                reasons.append(f"Popular with {AGE_WORDS.get(age, age)}")
+        else:
+            lean = AGE_LEAN.get(age, {})
+            a = max((lean.get(t, 0.5) for t in tags), default=0.5)
+        scores.append(a)
+
+    if vibe in ("chill", "lively"):
+        live = item.get("liveliness")
+        if isinstance(live, int | float):
+            v = float(live) if vibe == "lively" else 1 - float(live)
+            if v >= 0.7:
+                reasons.append("Lively" if vibe == "lively" else "Laid-back")
+        else:
+            lean_tags = LIVELY_TAGS if vibe == "lively" else CHILL_TAGS
+            v = 0.7 if tags & lean_tags else 0.4
+        scores.append(v)
+
+    if company > 1 and item.get("good_for_groups"):
+        scores.append(0.85)
+        reasons.append("Good for groups")
+
+    fit = sum(scores) / len(scores) if scores else 0.5
+    return fit, (reasons[0] if reasons else None)
+
+
 def rank(
     items: list[dict[str, Any]],
     now: datetime,
@@ -39,8 +100,14 @@ def rank(
     liked: frozenset[str] = frozenset(),
     weather: Weather | None = None,
     prefer: frozenset[str] = frozenset(),
+    age: str | None = None,
+    vibe: str | None = None,
+    company: int = 1,
 ) -> list[dict[str, Any]]:
-    """`prefer` adds tags the user asked for (e.g. by voice) on top of what their likes imply."""
+    """`prefer` adds tags the user asked for (e.g. by voice) on top of what their likes imply.
+
+    `age`, `vibe` and `company` make it more personal: they come from onboarding and only nudge.
+    """
     # indoors/outdoors describe nearly everything, so they don't count as taste
     setting = {"indoors", "outdoors"}
     liked_tags = ({t for i in items if i["id"] in liked for t in i["tags"]} | prefer) - setting
@@ -81,13 +148,18 @@ def rank(
         timing = 0.7 if opens > now else {"plenty": 1.0, "soon": 0.6, "last": 0.2}[badge]
         # 3.5 stars or below counts as 0, 5 stars as full; unrated (OpenStreetMap) as middling
         quality = max(0.0, (item["rating"] - 3.5) / 1.5) if item["rating"] else 0.5
+        fit, fit_reason = _fits_you(item, age, vibe, company)
         match = (
-            likes * 25
-            + max(0.0, 1 - item["walk_mins"] / 30) * 20
-            + price * 15
-            + quality * 15
-            + sky * 15
-            + timing * 10
+            0.85
+            * (
+                likes * 25
+                + max(0.0, 1 - item["walk_mins"] / 30) * 20
+                + price * 15
+                + quality * 15
+                + sky * 15
+                + timing * 10
+            )
+            + 15 * fit
         )
 
         # Most specific first; generic ones only fill gaps. Cold weather is already in the
@@ -96,6 +168,7 @@ def rank(
             "Pricier than your budget" if over else None,
             "Open now" if opens <= now else f"Opens {opens:%H:%M}",
             "Matches your likes" if overlap else None,
+            fit_reason,
             "Student price" if student_deal else None,
             "Free entry" if item.get("price") == 0 else None,
             "Nice out" if weather and not weather.bad and outdoors else None,

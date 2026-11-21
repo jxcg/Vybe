@@ -9,6 +9,10 @@ export interface Vybe {
   adult: boolean;
   /** people including you; null = not said yet */
   company: number | null;
+  /** age range, e.g. "18-21"; null = not said. Used as a gentle ranking factor, never shown to others. */
+  age?: string | null;
+  /** "chill" or "lively"; null = no preference */
+  vibe?: string | null;
 }
 
 export const EMPTY_VYBE: Vybe = {
@@ -18,7 +22,30 @@ export const EMPTY_VYBE: Vybe = {
   student: false,
   adult: true,
   company: null,
+  age: null,
+  vibe: null,
 };
+
+export const AGE_OPTIONS: { value: string; label: string }[] = [
+  { value: 'under18', label: 'Under 18' },
+  { value: '18-21', label: '18–21' },
+  { value: '22-25', label: '22–25' },
+  { value: '26-35', label: '26–35' },
+  { value: '36+', label: '36+' },
+];
+
+export const VIBE_OPTIONS: { value: string; label: string }[] = [
+  { value: 'chill', label: 'Laid-back' },
+  { value: 'lively', label: 'Lively' },
+];
+
+export function ageLabel(age: string): string {
+  return AGE_OPTIONS.find((o) => o.value === age)?.label ?? age;
+}
+
+export function vibeLabel(vibe: string): string {
+  return VIBE_OPTIONS.find((o) => o.value === vibe)?.label ?? vibe;
+}
 
 export const INTO_SUGGESTIONS = [
   'a laugh',
@@ -69,6 +96,8 @@ export function toPrefs(v: Vybe): Prefs {
     include: v.into,
     exclude: v.notInto,
     company: v.company ?? 1,
+    age: v.age ?? null,
+    vibe: v.vibe ?? null,
   };
 }
 

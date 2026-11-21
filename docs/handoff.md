@@ -60,6 +60,9 @@ Review pass 4 (commit 0f4caaa, vybe-theme; checked on a clean checkout of `main`
 - [ ] `pyproject.toml` is Claude's: please revert `[project.scripts] app = "app.main:app"` (it points a console script at an ASGI app) and ask before adding `[tool.vercel]`. Claude can add it if Vercel needs it.
 - [ ] Use one commit per feature: the agents orchestrator and refresh v2 went in under the theme message.
 
+Personalisation (user priority, 2026-11-21)
+- [ ] **Read Google reviews into audience fit:** onboarding now asks age range and vibe. In the Enricher, fetch each venue's `reviews`, `reviewSummary`, `generativeSummary`, `goodForGroups` and `liveMusic` (background only, cached; this is a pricier Google tier) and use a Mistral model to write `audience`, `liveliness`, `good_for_groups` and `audience_note` into `enriched.json`. The field shapes are in Contract 1. Ranking already uses them (`app/ranking.py::_fits_you`) and shows "Popular with 18–21s" or "Good for groups" when they're present.
+
 ## Blocked
 - Hosted `web_search` tool (Conversations API) is rate-limited on our key right now (429, ~86 s/call) — slows the Scout/Enricher/Verifier debate in `vybe-refresh`. Pipeline degrades gracefully to empty claims. Retry later or raise the workspace quota.
 - Orchestrator agent (`pipeline/agents.py`) spawns subagents but the parent hits `iteration_limit` before returning the `OrchestratorOutput` schema — enrichment claims come back `{}`. Theme debate (direct `agent.run` per role) works fine; the subagent-spawning orchestration needs one more pass.

@@ -1,9 +1,9 @@
-import { budgetLabel, companyLabel, tagLabel, type Vybe } from '../lib/vybe';
+import { ageLabel, budgetLabel, companyLabel, tagLabel, vibeLabel, type Vybe } from '../lib/vybe';
 import type { Budget } from '../contract';
 import { VybeRow } from './VybeRow';
 import './VybeCard.css';
 
-export type RowKey = 'into' | 'notInto' | 'budget' | 'company';
+export type RowKey = 'into' | 'notInto' | 'budget' | 'company' | 'age' | 'vibe';
 
 interface Props {
   vybe: Vybe;
@@ -50,6 +50,24 @@ export function VybeCard({ vybe, onChange, onOpen }: Props) {
         format={(tag) => companyLabel(Number(tag))}
         onRemove={() => onChange({ ...vybe, company: null })}
         onOpen={() => onOpen('company')}
+      />
+      <VybeRow
+        label="Age"
+        hint="helps us pick places"
+        tone="neutral"
+        tags={vybe.age ? [vybe.age] : []}
+        format={ageLabel}
+        onRemove={() => onChange({ ...vybe, age: null, adult: true })}
+        onOpen={() => onOpen('age')}
+      />
+      <VybeRow
+        label="Vibe"
+        hint="laid-back or lively?"
+        tone="neutral"
+        tags={vybe.vibe ? [vybe.vibe] : []}
+        format={vibeLabel}
+        onRemove={() => onChange({ ...vybe, vibe: null })}
+        onOpen={() => onOpen('vibe')}
       />
     </section>
   );

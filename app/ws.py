@@ -26,7 +26,15 @@ DEFAULT_PLACE = {"lat": 51.5136, "lng": -0.1365, "label": "Soho"}
 BOARD_EVERY = 20  # seconds; keeps countdowns and statuses fresh
 ENRICHED = Path(__file__).parent.parent / "data" / "enriched.json"
 
-BUDGETS = {10: 1, 20: 2, 999: 3}  # frontend budget (£ cap) → our price level
+BUDGETS = {10: 1, 20: 2, 999: 3}
+AGES = ("under18", "18-21", "22-25", "26-35", "36+")
+# Review-based fields from Mistral's Enricher that ranking uses (Contract 1)
+PERSONAL_FIELDS = (
+    "audience",
+    "liveliness",
+    "good_for_groups",
+    "audience_note",
+)  # frontend budget (£ cap) → our price level
 # Fallback when an item has no category (sample data): taste tag → frontend category
 CATEGORY = {"active": "games", "culture": "culture", "nightlife": "bar", "food": "food"}
 GROUP = {"food": "Food", "bar": "Drinks", "culture": "Culture", "other": "Outdoors"}
@@ -60,6 +68,10 @@ ICONS = {
     "Short walk": "Footprints",
     "Within budget": "Wallet",
     "Pricier than your budget": "Wallet",
+    "Popular with": "Users",
+    "Good for groups": "Users",
+    "Lively": "Zap",
+    "Laid-back": "Coffee",
     "Active": "Zap",
     "Culture": "Palette",
     "Nightlife": "Beer",
@@ -268,6 +280,18 @@ class Session:
         now = self.now()
         lat, lng = self.place["lat"], self.place["lng"]
         items = self.items_near(lat, lng, now)
+        extras = _enriched()
+        items = [
+            {
+                **i,
+                **{
+                    k: extras[i["id"]][k]
+                    for k in PERSONAL_FIELDS
+                    if k in (extras.get(i["id"]) or {})
+                },
+            }
+            for i in items
+        ]
         drop = {NOT_INTO[t] for t in self.prefs["exclude"] if t in NOT_INTO}
         words = [t for t in self.prefs["exclude"] if t not in NOT_INTO]
         items = [
@@ -293,6 +317,9 @@ class Session:
             liked=frozenset(self.liked),
             weather=weather,
             prefer=frozenset(INTO[t] for t in self.prefs["include"] if t in INTO),
+            age=self.prefs.get("age"),
+            vibe=self.prefs.get("vibe"),
+            company=self.prefs.get("company", 1),
         )
         raining = bool(weather and weather.raining)
         rows = to_rows(cards, now, raining, mixed=self.group is None)
@@ -340,7 +367,12 @@ class Session:
                 "adult": bool(msg.get("adult", True)),
                 "include": [str(t).lower() for t in msg.get("include", [])][:20],
                 "exclude": [str(t).lower() for t in msg.get("exclude", [])][:20],
+                "company": msg.get("company") if isinstance(msg.get("company"), int) else 1,
+                "age": msg.get("age") if msg.get("age") in AGES else None,
+                "vibe": msg.get("vibe") if msg.get("vibe") in ("chill", "lively") else None,
             }
+            if self.prefs["age"] == "under18":
+                self.prefs["adult"] = False
             await self.board()
         elif kind == "location":
             lat, lng = msg.get("lat"), msg.get("lng")
