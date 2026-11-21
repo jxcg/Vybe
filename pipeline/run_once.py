@@ -13,7 +13,9 @@ def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--lat", type=float, default=51.5136, help="latitude (default: Soho)")
     ap.add_argument("--lng", type=float, default=-0.1365, help="longitude (default: Soho)")
-    ap.add_argument("--workflow", default="vybe-refresh", help="vybe-refresh | vybe-theme")
+    ap.add_argument(
+        "--workflow", default="vybe-refresh", help="vybe-refresh | vybe-theme | vybe-voiceover"
+    )
     args = ap.parse_args()
     client = Mistral(api_key=os.environ["MISTRAL_API_KEY"])
     execution = client.workflows.execute_workflow(
