@@ -180,6 +180,7 @@ export function TicketStack({ open }: { open: OpenTicket }) {
   }, [gone]);
 
   const skip = (row: Row) => {
+    if (state.conn !== 'open' || state.roomConnecting) return;
     const tell = () => send({ type: 'feedback', item_id: row.id, kind: 'skip' });
     if (rows.length === 1) {
       tell();
@@ -227,7 +228,8 @@ export function TicketStack({ open }: { open: OpenTicket }) {
           onBack={back}
           onNext={() => scrollTo(i + 1)}
           onLike={() => {
-            if (!state.liked.includes(row.id)) send({ type: 'feedback', item_id: row.id, kind: 'like' });
+            if (state.conn !== 'open' || state.roomConnecting) return;
+            send({ type: 'feedback', item_id: row.id, kind: state.liked.includes(row.id) ? 'unlike' : 'like' });
             dispatch({ type: 'toggle_like', id: row.id });
           }}
           onSkip={() => skip(row)}

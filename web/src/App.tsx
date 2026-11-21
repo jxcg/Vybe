@@ -1,5 +1,6 @@
 import { StoreProvider, useStore } from './state/store';
 import { Board } from './components/Board';
+import { InviteScreen } from './components/Meetup';
 import { LoadingScreen } from './components/LoadingScreen';
 import { ReconnectBanner } from './components/ReconnectBanner';
 import { StartScreen } from './components/StartScreen';
@@ -10,6 +11,7 @@ function Screens() {
   const { state } = useStore();
   return (
     <div className="app">
+      {state.screen === 'invite' && <InviteScreen />}
       {state.screen === 'start' && <StartScreen />}
       {state.screen === 'loading' && <LoadingScreen />}
       {state.screen === 'board' && <Board />}

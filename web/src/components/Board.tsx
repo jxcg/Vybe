@@ -1,5 +1,7 @@
 import { useRef, useState, type MouseEvent } from 'react';
 import { Shuffle } from 'lucide-react';
+import { toPrefs } from '../lib/vybe';
+import { isMock } from '../net/socket';
 import type { Row } from '../contract';
 import { useStore } from '../state/store';
 import { useClock } from '../state/useClock';
@@ -8,6 +10,7 @@ import { BoardHeader } from './BoardHeader';
 import { BottomBar } from './BottomBar';
 import { DepartureList } from './DepartureList';
 import { HeroCarousel } from './HeroCarousel';
+import { Meetup } from './Meetup';
 import './Board.css';
 
 const RADIO_INTRO = '/audio/vybe-radio-intro.mp3';
@@ -36,9 +39,19 @@ function GroupFilter({ groups, active, onPick }: {
 }
 
 export function Board() {
-  const { state, dispatch, send } = useStore();
-  const { board, vybe } = state;
-  const rows = board?.count === 4
+  const { state, dispatch, send, enterRoom } = useStore();
+  const { board, vybe, shared } = state;
+  const [showInvite, setShowInvite] = useState(false);
+  const inviteFriends = () => {
+    if (shared) {
+      setShowInvite((open) => !open);
+      return;
+    }
+    dispatch({ type: 'clear_room_error' });
+    setShowInvite(true);
+    enterRoom({ type: 'room_create', name: 'Host', prefs: toPrefs(vybe), liked: state.liked });
+  };
+  const rows = !shared && board?.count === 4
     ? board.rows.map((row) => row.pick && row.pick !== 'best' ? { ...row, pick: null } : row)
     : board?.rows ?? [];
   const { nowMs, wallMs } = useClock(board, state.boardAt);
@@ -88,7 +101,12 @@ export function Board() {
   return (
     <div className="board">
       <main className="board-scroll">
-        <BoardHeader board={board} nowMs={nowMs}>
+        <BoardHeader
+          board={board}
+          nowMs={nowMs}
+          onInvite={!isMock && state.conn === 'open' && !state.roomConnecting && board ? inviteFriends : undefined}
+          inviteOpen={Boolean(shared && showInvite)}
+        >
           {board && (
             <div className="board-radio">
               <button type="button" className="board-radio-button" onClick={surprise}>
@@ -101,10 +119,11 @@ export function Board() {
             </div>
           )}
         </BoardHeader>
+        <Meetup showInvite={showInvite} />
         {!board && <p className="board-wait">Finding what{'\u2019'}s on near you{'\u2026'}</p>}
         {board && (
           <>
-            {board.groups && (
+            {!shared && board.groups && (
               <GroupFilter
                 groups={board.groups}
                 active={board.group ?? null}
@@ -115,13 +134,16 @@ export function Board() {
             <DepartureList
               rows={rows}
               byCategory={!board.group}
+              shared={Boolean(shared)}
               nowMs={nowMs}
               wallMs={wallMs}
               onOpen={openTicket}
             />
             {board.count <= 3 && (
               <p className="board-end">
-                {board.count ? 'Nothing else for today.' : 'Nothing to show for today.'}
+                {board.count ? 'Nothing else for today.' : shared
+                  ? 'Nothing fits everyone yet. Change your vibe to try again.'
+                  : 'Nothing to show for today.'}
               </p>
             )}
           </>

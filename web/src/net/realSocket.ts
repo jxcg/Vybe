@@ -1,4 +1,4 @@
-import type { ClientMessage, JoinMsg, PrefsMsg, ServerMessage } from '../contract';
+import type { ClientMessage, ServerMessage } from '../contract';
 import type { ConnStatus, VybeSocket } from './socket';
 
 const BASE_DELAY_MS = 500;
@@ -8,11 +8,7 @@ function isServerMessage(data: unknown): data is ServerMessage {
   return typeof data === 'object' && data !== null && typeof (data as { type?: unknown }).type === 'string';
 }
 
-/**
- * WebSocket with exponential backoff. While disconnected, only the latest join + prefs are kept,
- * and they're replayed on every reconnect so the server can restore the session. Everything else
- * sent while offline (talk, feedback) is dropped: it would be stale by the time we're back.
- */
+/** WebSocket with exponential backoff. The store restores the active session on open. */
 export function createRealSocket(url: string): VybeSocket {
   const listeners = new Set<(msg: ServerMessage) => void>();
   const statusListeners = new Set<(s: ConnStatus) => void>();
@@ -21,8 +17,6 @@ export function createRealSocket(url: string): VybeSocket {
   let attempt = 0;
   let retryTimer: number | undefined;
   let closed = false;
-  let lastJoin: JoinMsg | null = null;
-  let lastPrefs: PrefsMsg | null = null;
 
   const setStatus = (next: ConnStatus) => {
     if (next === status) return;
@@ -51,8 +45,6 @@ export function createRealSocket(url: string): VybeSocket {
     socket.onopen = () => {
       attempt = 0;
       setStatus('open');
-      if (lastJoin) rawSend(lastJoin);
-      if (lastPrefs) rawSend(lastPrefs);
     };
 
     socket.onmessage = (e: MessageEvent) => {
@@ -64,8 +56,6 @@ export function createRealSocket(url: string): VybeSocket {
         return;
       }
       if (!isServerMessage(parsed)) return;
-      // Rejoin the same room after a drop.
-      if (parsed.type === 'joined' && lastJoin) lastJoin = { ...lastJoin, room: parsed.room };
       listeners.forEach((cb) => cb(parsed));
     };
 
@@ -82,11 +72,7 @@ export function createRealSocket(url: string): VybeSocket {
     sendAudio(frame) {
       if (ws?.readyState === WebSocket.OPEN) ws.send(frame);
     },
-    send(msg) {
-      if (msg.type === 'join') lastJoin = msg;
-      if (msg.type === 'prefs') lastPrefs = msg;
-      rawSend(msg);
-    },
+    send: rawSend,
     subscribe(cb) {
       listeners.add(cb);
       return () => listeners.delete(cb);

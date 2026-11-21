@@ -26,6 +26,7 @@ function pounds(n: number): string {
 
 /** "Free", "£8", "£8 student" — or null when the price is unknown. */
 export function formatPrice(row: Row, student: boolean): string | null {
+  if (row.price_unknown) return 'Price unknown';
   if (row.your_price === null) return row.price_level ? '£'.repeat(row.price_level) : null;
   if (row.your_price === 0) return 'Free';
   const base = pounds(row.your_price);

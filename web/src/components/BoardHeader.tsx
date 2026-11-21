@@ -14,6 +14,8 @@ interface Props {
   board: BoardMsg | null;
   nowMs: number;
   children?: ReactNode;
+  onInvite?: () => void;
+  inviteOpen: boolean;
 }
 
 function rainText(rainFrom: string | null, nowMs: number): string | null {
@@ -24,7 +26,7 @@ function rainText(rainFrom: string | null, nowMs: number): string | null {
 /** Size of the lavender dot the loading orb shrinks to before it becomes the count. */
 const DOT_PX = 10;
 
-export function BoardHeader({ board, nowMs, children }: Props) {
+export function BoardHeader({ board, nowMs, children, onInvite, inviteOpen }: Props) {
   const rain = board ? rainText(board.weather.rain_from, nowMs) : null;
   const countRef = useRef<HTMLSpanElement>(null);
 
@@ -59,7 +61,7 @@ export function BoardHeader({ board, nowMs, children }: Props) {
         <Wordmark />
         <div className="board-header-actions">
           <ThemeToggle />
-          <button className="icon-btn" type="button" aria-label="Invite friends">
+          <button className="icon-btn" type="button" aria-label="Invite friends" aria-expanded={inviteOpen} disabled={!onInvite} onClick={onInvite}>
             <UserPlus size={20} strokeWidth={2} />
           </button>
         </div>
