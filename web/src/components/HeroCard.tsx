@@ -7,6 +7,7 @@ import { useVenueColors, venueStyle } from '../lib/venueColors';
 import { FuseLine } from './FuseLine';
 import { Grain } from './Grain';
 import { RollingNumber } from './RollingNumber';
+import { VenueRating } from './VenueRating';
 import { StatusText } from './StatusText';
 import './HeroCard.css';
 
@@ -79,7 +80,10 @@ export function HeroCard({ row, nowMs, student, onOpen }: Props) {
         <span className="hero-card-time tnum">{when(row).value}</span>
       </span>
 
-      <span className="t-section hero-card-name">{row.name}</span>
+      <span className="t-section hero-card-name">
+        <span className="hero-card-name-text">{row.name}</span>
+        <VenueRating rating={row.rating} />
+      </span>
       {reason && <span className="t-secondary hero-card-reason">{reason}</span>}
 
       <span className="hero-card-bottom">

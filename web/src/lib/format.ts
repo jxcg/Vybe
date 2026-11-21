@@ -32,6 +32,13 @@ export function formatPrice(row: Row, student: boolean): string | null {
   return student && row.was_price !== null ? `${base} student` : base;
 }
 
+/** Venue ratings arrive on a five-point scale. */
+export function formatRating(rating: number | null): string | null {
+  return rating !== null && Number.isFinite(rating) && rating > 0 && rating <= 5
+    ? `${rating * 2 === 10 ? '10' : (rating * 2).toFixed(1)}/10`
+    : null;
+}
+
 /** "just now", "4 min ago", "2 h ago" relative to the board's clock. */
 export function ago(iso: string, nowMs: number): string {
   const mins = Math.floor((nowMs - Date.parse(iso)) / 60_000);
