@@ -8,12 +8,12 @@ import {
   type Dispatch,
   type ReactNode,
 } from 'react';
-import type { BoardMsg, ClientMessage, ServerMessage } from '../contract';
+import type { BoardMsg, ClientMessage, RoomCredential, RoomEntry, RoomResume, ServerMessage } from '../contract';
 import { createSocket, type ConnStatus, type VybeSocket } from '../net/socket';
-import { loadSaved, save } from '../lib/storage';
-import { mergeChips, toPrefs, type Vybe } from '../lib/vybe';
+import { clearInvite, inviteFromUrl, loadSaved, readRoom, save, saveRoom } from '../lib/storage';
+import { fromPrefs, mergeChips, toPrefs, updatePersonal, type Vybe } from '../lib/vybe';
 
-export type Screen = 'start' | 'loading' | 'board';
+export type Screen = 'start' | 'loading' | 'board' | 'invite';
 
 /** The ticket being viewed and the screen point it opened from (the colour expands from there). */
 export interface OpenTicket {
@@ -29,8 +29,14 @@ export interface Toast {
 
 export interface State {
   conn: ConnStatus;
-  room: string | null;
-  you: string | null;
+  shared: RoomCredential | null;
+  roomConnecting: boolean;
+  invite: string | null;
+  inviteArea: string | null;
+  roomError: string | null;
+  soloVybe: Vybe;
+  personal: Vybe;
+  soloLiked: string[];
   board: BoardMsg | null;
   /** wall-clock ms when the last board arrived; lets the UI advance the server's `now` locally */
   boardAt: number;
@@ -56,24 +62,36 @@ export type Action =
   | { type: 'dismiss_toast'; id: number }
   | { type: 'open_ticket'; ticket: OpenTicket }
   | { type: 'close_ticket' }
-  | { type: 'toggle_like'; id: string };
+  | { type: 'toggle_like'; id: string }
+  | { type: 'room_connecting' }
+  | { type: 'dismiss_invite' }
+  | { type: 'clear_room_error' };
 
 function init(): State {
   const saved = loadSaved();
+  const invite = inviteFromUrl();
+  const room = readRoom();
+  const resume = room && (invite === null || invite === room.invite) ? room : null;
   return {
     conn: 'connecting',
-    room: saved.room,
-    you: null,
+    shared: resume && resume.invite !== null ? { ...resume, invite: resume.invite } : null,
+    roomConnecting: resume !== null,
+    invite,
+    inviteArea: null,
+    roomError: null,
+    soloVybe: saved.vybe,
+    personal: saved.vybe,
+    soloLiked: saved.liked,
     board: null,
     boardAt: 0,
-    screen: saved.onboarded ? 'loading' : 'start',
+    screen: resume ? 'board' : invite !== null ? 'invite' : saved.onboarded ? 'loading' : 'start',
     onboarded: saved.onboarded,
     vybe: saved.vybe,
     transcript: '',
     chipsSeq: 0,
     toasts: [],
     ticket: null,
-    liked: [],
+    liked: saved.liked,
   };
 }
 
@@ -82,14 +100,20 @@ let toastId = 0;
 function reducer(state: State, action: Action): State {
   switch (action.type) {
     case 'conn':
-      return { ...state, conn: action.status };
+      return { ...state, conn: action.status, roomConnecting: state.roomConnecting ||
+        (action.status === 'reconnecting' && state.shared !== null) };
+    case 'room_connecting':
+      return { ...state, roomConnecting: true, roomError: null };
     case 'set_vybe':
-      return { ...state, vybe: action.vybe };
+      return state.shared ? { ...state, vybe: action.vybe } : {
+        ...state, vybe: action.vybe, soloVybe: action.vybe,
+        personal: updatePersonal(state.personal, state.vybe, action.vybe),
+      };
     case 'go':
       return {
         ...state,
         screen: action.screen,
-        onboarded: state.onboarded || action.screen !== 'start',
+        onboarded: state.onboarded || (!state.shared && action.screen !== 'start'),
       };
     case 'clear_transcript':
       return { ...state, transcript: '' };
@@ -99,26 +123,50 @@ function reducer(state: State, action: Action): State {
       return { ...state, ticket: action.ticket };
     case 'close_ticket':
       return { ...state, ticket: null };
-    case 'toggle_like':
+    case 'toggle_like': {
+      const liked = state.liked.includes(action.id)
+        ? state.liked.filter((id) => id !== action.id)
+        : [...state.liked, action.id];
+      return { ...state, liked, soloLiked: state.shared ? state.soloLiked : liked };
+    }
+    case 'dismiss_invite':
       return {
-        ...state,
-        liked: state.liked.includes(action.id)
-          ? state.liked.filter((id) => id !== action.id)
-          : [...state.liked, action.id],
+        ...state, invite: null, inviteArea: null, roomError: null, roomConnecting: false, board: null,
+        screen: 'loading', onboarded: true,
       };
+    case 'clear_room_error':
+      return { ...state, roomError: null };
     case 'server': {
       const { msg } = action;
       switch (msg.type) {
-        case 'joined':
-          return { ...state, room: msg.room, you: msg.you };
+        case 'room_joined':
+          return {
+            ...state, shared: { invite: msg.invite, credential: msg.credential }, invite: null,
+            inviteArea: null, roomError: null, roomConnecting: false, board: null, screen: 'board', ticket: null,
+            vybe: fromPrefs(msg.prefs), liked: msg.liked, transcript: '',
+          };
+        case 'room_ready':
+          return { ...state, inviteArea: msg.area, roomError: null };
+        case 'room_error':
+          return state.shared || (state.roomConnecting && state.screen === 'board' && !state.board) ? {
+            ...state, shared: null, board: null, ticket: null, screen: 'invite', invite: null,
+            roomError: msg.message, roomConnecting: false, vybe: state.soloVybe, liked: state.soloLiked, transcript: '',
+          } : { ...state, roomError: msg.message, roomConnecting: false };
+        case 'room_left':
+          return {
+            ...state, shared: null, vybe: state.soloVybe, liked: state.soloLiked,
+            board: null, screen: 'board', onboarded: true, ticket: null, transcript: '',
+          };
         case 'board':
           return { ...state, board: msg, boardAt: action.at };
         case 'transcript':
           return { ...state, transcript: msg.text };
         case 'note':
           return { ...state, toasts: [...state.toasts, { id: ++toastId, text: msg.text }] };
-        case 'chips':
-          return { ...state, vybe: mergeChips(state.vybe, msg), chipsSeq: state.chipsSeq + 1 };
+        case 'chips': {
+          const vybe = mergeChips(state.vybe, msg);
+          return { ...state, vybe, soloVybe: state.shared ? state.soloVybe : vybe, chipsSeq: state.chipsSeq + 1 };
+        }
         default:
           return state;
       }
@@ -131,8 +179,9 @@ interface Store {
   dispatch: Dispatch<Action>;
   send: (msg: ClientMessage) => void;
   sendAudio: (frame: ArrayBuffer) => void;
-  /** Sends join + current prefs once per connection. */
-  join: () => void;
+  join: (vybe?: Vybe) => void;
+  dismissInvite: () => void;
+  enterRoom: (entry: RoomEntry) => void;
 }
 
 const StoreContext = createContext<Store | null>(null);
@@ -140,48 +189,111 @@ const StoreContext = createContext<Store | null>(null);
 export function StoreProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(reducer, undefined, init);
   const socketRef = useRef<VybeSocket | null>(null);
-  const joinedRef = useRef(false);
+  const started = useRef(state.onboarded);
+  const soloJoined = useRef(false);
+  const resume = useRef<RoomResume | null>(state.roomConnecting ? readRoom() : null);
+  const pendingEntry = useRef<(RoomEntry & { credential: string }) | null>(null);
   const latest = useRef(state);
   latest.current = state;
 
   const send = useCallback((msg: ClientMessage) => socketRef.current?.send(msg), []);
   const sendAudio = useCallback((frame: ArrayBuffer) => socketRef.current?.sendAudio(frame), []);
 
-  const join = useCallback(() => {
-    if (joinedRef.current) return;
-    joinedRef.current = true;
-    const { room, vybe } = latest.current;
-    send({ type: 'join', room });
-    send({ type: 'prefs', ...toPrefs(vybe) });
+  const joinSolo = useCallback((vybe: Vybe, liked: string[]) => {
+    if (soloJoined.current) return;
+    soloJoined.current = true;
+    send({ type: 'prefs', ...toPrefs(vybe), liked });
+    send({ type: 'join', room: null });
   }, [send]);
+
+  const join = useCallback((vybe = latest.current.vybe) => {
+    if (latest.current.shared) {
+      if (latest.current.roomConnecting) return;
+      send({ type: 'room_prefs', prefs: toPrefs(vybe) });
+      return;
+    }
+    started.current = true;
+    if (latest.current.conn === 'open') joinSolo(vybe, latest.current.soloLiked);
+  }, [joinSolo, send]);
+
+  const enterRoom = useCallback((entry: RoomEntry) => {
+    if (pendingEntry.current || latest.current.conn !== 'open') return;
+    const credential = Array.from(crypto.getRandomValues(new Uint8Array(32)),
+      (byte) => byte.toString(16).padStart(2, '0')).join('');
+    resume.current = { invite: entry.invite ?? null, credential };
+    pendingEntry.current = { ...entry, credential };
+    saveRoom(resume.current);
+    dispatch({ type: 'room_connecting' });
+    send(pendingEntry.current);
+  }, [send]);
+
+  const dismissInvite = useCallback(() => {
+    saveRoom(null, resume.current);
+    resume.current = null;
+    pendingEntry.current = null;
+    clearInvite();
+    dispatch({ type: 'dismiss_invite' });
+    soloJoined.current = false;
+    join(latest.current.soloVybe);
+  }, [join]);
 
   useEffect(() => {
     const socket = createSocket();
     socketRef.current = socket;
-    joinedRef.current = false;
-    const offMsg = socket.subscribe((msg) => dispatch({ type: 'server', msg, at: Date.now() }));
-    const offStatus = socket.onStatus((status) => dispatch({ type: 'conn', status }));
-    if (latest.current.onboarded) join();
+    const offMsg = socket.subscribe((msg) => {
+      if (msg.type === 'room_joined') {
+        const shared = { invite: msg.invite, credential: msg.credential };
+        resume.current = shared;
+        pendingEntry.current = null;
+        saveRoom(shared);
+        clearInvite();
+      } else if (msg.type === 'room_left' || (msg.type === 'room_error' && resume.current)) {
+        saveRoom(null, resume.current);
+        resume.current = null;
+        pendingEntry.current = null;
+      }
+      if (msg.type === 'room_left') {
+        started.current = true;
+        soloJoined.current = true;
+      }
+      dispatch({ type: 'server', msg, at: Date.now() });
+    });
+    const offStatus = socket.onStatus((status) => {
+      dispatch({ type: 'conn', status });
+      if (status !== 'open') return;
+      soloJoined.current = false;
+      const current = latest.current;
+      if (resume.current) {
+        send({ type: 'prefs', ...toPrefs(current.soloVybe), liked: current.soloLiked });
+        send(pendingEntry.current ?? { type: 'room_resume', ...resume.current });
+      } else if (current.screen === 'invite') {
+        send({ type: 'prefs', ...toPrefs(current.soloVybe), liked: current.soloLiked });
+        if (current.invite !== null) send({ type: 'room_check', invite: current.invite });
+      } else if (started.current) {
+        joinSolo(current.soloVybe, current.soloLiked);
+      } else {
+        send({ type: 'prefs', ...toPrefs(current.soloVybe), liked: current.soloLiked });
+      }
+    });
     return () => {
       offMsg();
       offStatus();
       socket.close();
       socketRef.current = null;
     };
-  }, [join]);
+  }, [joinSolo, send]);
 
-  // Every change to the vybe goes to the server (and survives a reload).
-  const { vybe, room, onboarded } = state;
+  const { soloVybe, soloLiked, personal, onboarded } = state;
   useEffect(() => {
-    send({ type: 'prefs', ...toPrefs(vybe) });
-  }, [vybe, send]);
+    if (!state.shared) send({ type: 'prefs', ...toPrefs(soloVybe) });
+  }, [soloVybe, state.shared, send]);
 
   useEffect(() => {
-    save({ vybe, room, onboarded });
-  }, [vybe, room, onboarded]);
+    save({ vybe: personal, liked: soloLiked, onboarded });
+  }, [personal, soloLiked, onboarded]);
 
   return (
-    <StoreContext.Provider value={{ state, dispatch, send, sendAudio, join }}>
+    <StoreContext.Provider value={{ state, dispatch, send, sendAudio, join, dismissInvite, enterRoom }}>
       {children}
     </StoreContext.Provider>
   );

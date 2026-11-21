@@ -13,4 +13,4 @@ RUN uv sync --locked --no-dev --no-install-project --no-cache
 COPY app/ ./app/
 COPY --from=frontend /build/dist ./web/dist
 
-CMD ["sh", "-c", "exec .venv/bin/uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
+CMD ["sh", "-c", "exec .venv/bin/uvicorn app.main:app --workers 1 --host 0.0.0.0 --port ${PORT:-8000}"]

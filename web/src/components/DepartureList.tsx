@@ -12,6 +12,7 @@ const COLLAPSE_MS = 320;
 interface Props {
   rows: Row[];
   byCategory: boolean;
+  shared: boolean;
   nowMs: number;
   wallMs: number;
   onOpen: (row: Row, e: MouseEvent<HTMLElement>) => void;
@@ -38,7 +39,7 @@ function useDepartedPhase(rows: Row[], wallMs: number): (row: Row) => Phase {
   };
 }
 
-export function DepartureList({ rows, byCategory, nowMs, wallMs, onOpen }: Props) {
+export function DepartureList({ rows, byCategory, shared, nowMs, wallMs, onOpen }: Props) {
   const phaseOf = useDepartedPhase(rows, wallMs);
   const rest = rows
     .filter((r) => !r.pick)
@@ -54,7 +55,7 @@ export function DepartureList({ rows, byCategory, nowMs, wallMs, onOpen }: Props
     { title: `Later ${dayWord(nowMs)}`, items: rest.filter((r) => !soon(r) && r.row.timed !== false) },
   ];
   const categories = [...new Set(rest.map(({ row }) => row.group ?? 'Other'))];
-  const groups = (byCategory && rest.some(({ row }) => row.group)
+  const groups = (shared ? [{ title: 'More matches', items: rest }] : byCategory && rest.some(({ row }) => row.group)
     ? categories.map((title) => ({
         title,
         items: timeGroups.flatMap(({ items }) =>
