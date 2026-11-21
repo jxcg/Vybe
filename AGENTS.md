@@ -22,6 +22,16 @@ The product is called **Vybe**, a play on Mistral Vibe. It is being built for th
 
 > **Paused for the hackathon:** commit and push straight to `main`. No issues, branches or PRs until this note is removed. The commit rules (conventional commits, no AI co-author lines) still apply.
 
+### Track progress (always, hackathon or not)
+
+`docs/roadmap.md` is the checklist for the whole project, and `/progress` (`.claude/skills/progress/`) turns it into progress bars.
+
+- **When you start** a milestone, move `(now)` to its heading.
+- **When you finish** a task (on `main`, tests passing), tick its box in the same commit as the work.
+- **When new work appears**, add it as a task under the right milestone, with an owner: (Claude), (Mistral) or (Team).
+- **After finishing a task**, give a progress update in the `/progress` format (bars, where we are, doing now, next, blocked). Agents without the skill can run `python3 .claude/skills/progress/scripts/progress.py` for the bars.
+- Only tick what actually works. Half-done work stays unticked and is reported as "in progress".
+
 **Keep process light: this is a hackathon.** Aim for a handful of key issues in total, roughly one per major feature (e.g. feed and ranking, voice, background refresh, demo mode). Put everything else under one of those. One PR per issue, and merge quickly. Don't spend time polishing issues or PRs.
 
 ### 1. Issue first
