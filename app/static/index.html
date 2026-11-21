@@ -128,6 +128,18 @@
     .toggles { display: flex; gap: 8px; }
     .toggle { flex: 1; }
     .status { min-height: 20px; font-size: 14px; color: var(--matcha); }
+
+    /* Loading: a skeleton of the card itself, so the layout doesn't jump when real cards arrive. */
+    .skel { background: linear-gradient(90deg, rgba(241,245,223,0.08) 25%, rgba(241,245,223,0.18) 37%,
+              rgba(241,245,223,0.08) 63%); background-size: 400% 100%; border-radius: 999px;
+            animation: shimmer 1.6s ease infinite; }
+    @keyframes shimmer { from { background-position: 100% 50%; } to { background-position: 0 50%; } }
+    .loading-line { font-family: var(--mono); font-size: 12px; letter-spacing: 0.06em; color: var(--matcha);
+                    text-transform: uppercase; min-height: 18px; transition: opacity .3s; }
+    .pulse { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--lime);
+             margin-right: 10px; animation: pulse 1.2s ease-in-out infinite; vertical-align: middle; }
+    @keyframes pulse { 0%, 100% { opacity: .3; transform: scale(.8); } 50% { opacity: 1; transform: scale(1.15); } }
+    @media (prefers-reduced-motion: reduce) { .skel, .pulse { animation: none; } }
   </style>
 </head>
 <body>
@@ -170,6 +182,58 @@
       if (c.price === 0) return "Free";
       if (c.price) return `£${c.price.toFixed(2)}`;
       return "£".repeat(c.price_level);
+    }
+
+    const LOADING_LINES = [
+      "Checking what's open near you",
+      "Looking at the weather",
+      "Working out walk times",
+      "Ranking it for you",
+    ];
+
+    function Loading({ area }) {
+      const [n, setN] = React.useState(0);
+      React.useEffect(() => {
+        const t = setInterval(() => setN(x => Math.min(x + 1, LOADING_LINES.length - 1)), 900);
+        return () => clearInterval(t);
+      }, []);
+      return html`
+        <section class="card" aria-busy="true" aria-label="Finding what's on">
+          <${Backdrop} />
+          <div class="shade" aria-hidden="true"></div>
+          <header class="top">
+            <span class="wordmark">vybe.</span>
+            <span class="tab">For you</span>
+            <span></span>
+            <div class="area">${area || "Near you"}</div>
+          </header>
+          <div class="bottom">
+            <div class="loading-line" aria-live="polite"><span class="pulse"></span>${LOADING_LINES[n]}…</div>
+            <div class="upper">
+              <div class="info" aria-hidden="true">
+                <div class="skel" style=${{ width: 120, height: 30 }}></div>
+                <div class="skel" style=${{ width: "78%", height: 34, margin: "18px 0 10px", borderRadius: 10 }}></div>
+                <div class="skel" style=${{ width: "52%", height: 34, marginBottom: 14, borderRadius: 10 }}></div>
+                <div class="skel" style=${{ width: 150, height: 16, marginBottom: 18 }}></div>
+                <div style=${{ display: "flex", gap: 8 }}>
+                  <div class="skel" style=${{ width: 86, height: 30 }}></div>
+                  <div class="skel" style=${{ width: 110, height: 30 }}></div>
+                  <div class="skel" style=${{ width: 70, height: 30 }}></div>
+                </div>
+              </div>
+              <div class="actions" aria-hidden="true">
+                ${[0, 1, 2].map(i => html`<div key=${i} class="skel" style=${{ width: 44, height: 44 }}></div>`)}
+              </div>
+            </div>
+            <div class="leave" aria-hidden="true">
+              <div>
+                <div class="label">LEAVE BY</div>
+                <div class="skel" style=${{ width: 150, height: 40, marginTop: 6, borderRadius: 10 }}></div>
+              </div>
+              <div class="skel" style=${{ width: 140, height: 48 }}></div>
+            </div>
+          </div>
+        </section>`;
     }
 
     function Backdrop() {
@@ -326,7 +390,7 @@
         save("vybe.saved", next);
       }
 
-      if (cards === null) return html`<main class="screen"><${Backdrop} /><p>Finding what's on…</p></main>`;
+      if (cards === null) return html`<${Loading} area=${prefs.area} />`;
       if (!cards.length) return html`
         <main class="screen">
           <${Backdrop} />
