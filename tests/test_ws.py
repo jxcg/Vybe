@@ -22,6 +22,41 @@ def recv(sock: Any, kind: str) -> dict[str, Any]:
             return msg
 
 
+def test_specific_request_keeps_both_matches_without_generic_venues(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from datetime import datetime
+
+    from app.main import items_near
+
+    now = datetime(2026, 11, 21, 18)
+    sample = items_near(51.51, -0.13, now)[0]
+    items = [
+        dict(sample, id=i, name=name, group=group, tags=tags, opens="10:00", closes="23:00")
+        for i, name, group, tags in (
+            ("pizza", "A pizzeria", "Food", ["food", "pizza"]),
+            ("restaurant", "Dishoom", "Food", ["food"]),
+            ("comedy", "A stand-up show", "Entertainment", ["comedy"]),
+            ("cinema", "Picturehouse", "Entertainment", ["film", "culture"]),
+        )
+    ]
+    monkeypatch.setattr("app.main.items_near", lambda *args: items)
+    monkeypatch.setattr(ws.Session, "now", lambda _: now)
+    with TestClient(app).websocket_connect("/ws") as sock:
+        sock.send_json({"type": "join"})
+        recv(sock, "board")
+        sock.send_json({"type": "talk_text", "text": "Pizza and a comedy show"})
+        chips = recv(sock, "chips")
+        assert chips["include"] == ["pizza", "comedy"]
+        sock.send_json({"type": "prefs", "include": ["food", *chips["include"]]})
+        board = recv(sock, "board")
+        assert board["group"] is None
+        assert {row["id"] for row in board["rows"]} == {"pizza", "comedy"}
+        items[:] = [item for item in items if item["id"] in {"restaurant", "cinema"}]
+        sock.send_json({"type": "prefs", "include": chips["include"]})
+        assert recv(sock, "board")["rows"] == []
+
+
 def test_smoke_flow_from_integration_guide() -> None:
     client = TestClient(app)
     with client.websocket_connect("/ws") as sock:

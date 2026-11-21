@@ -102,12 +102,16 @@ export function toPrefs(v: Vybe): Prefs {
 }
 
 const norm = (tags: string[]) => tags.map((t) => t.trim().toLowerCase()).filter(Boolean);
+export const isSpecificInterest = (tag: string) => tag === 'pizza' || tag === 'comedy';
 
 /** Fold a server `chips` message into the current vybe. A tag can't be both into and not-into. */
 export function mergeChips(v: Vybe, chips: ChipsMsg): Vybe {
   const include = norm(chips.include);
   const exclude = norm(chips.exclude);
-  const into = [...v.into.filter((t) => !exclude.includes(t)), ...include];
+  const into = [
+    ...v.into.filter((t) => !exclude.includes(t) && (!include.length || !isSpecificInterest(t))),
+    ...include,
+  ];
   const notInto = [...v.notInto.filter((t) => !include.includes(t)), ...exclude];
   return {
     ...v,

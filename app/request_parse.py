@@ -36,12 +36,17 @@ INTO_WORDS: dict[str, tuple[str, ...]] = {
     "late night": ("late night", "late one", "out late", "dance", "dancing", "club", "clubbing",
                    "rave", "party", "night out"),
 }  # fmt: skip
+SPECIFIC_INTERESTS = {
+    "pizza": ("pizza", "pizzeria"),
+    "comedy": ("comedy", "comedian", "stand up", "standup", "stand-up"),
+}
 NOT_INTO_WORDS: dict[str, tuple[str, ...]] = {
     "clubs": ("club", "clubs", "clubbing", "nightclub"),
     "loud music": ("loud", "loud music", "noisy"),
     "outdoors": ("outdoors", "outdoor", "outside"),
     "late nights": ("late night", "late nights", "staying out late"),
     "queues": ("queue", "queues", "waiting", "lines"),
+    **SPECIFIC_INTERESTS,
 }
 # Single words we fuzzy-match against, to forgive typos like "pizzza" or "comdey"
 VOCAB = sorted({w for words in INTO_WORDS.values() for w in words if " " not in w} | set(CHEAP))
@@ -158,6 +163,23 @@ def parse_request(text: str) -> dict[str, Any]:
         # "no clubs" shouldn't count as wanting a late night
         if hits and tag not in include:
             include.append(tag)
+    specific = [
+        tag
+        for tag, terms in SPECIFIC_INTERESTS.items()
+        if any(_has(t, term) and not _negated(t, term) for term in terms)
+    ]
+    if "pizza" in specific and "food" in include:
+        include.remove("food")
+    if "comedy" in specific:
+        include = [tag for tag in include if tag != "a laugh"]
+        # "Show" in "comedy show" is already accounted for by the comedy request.
+        if "culture" in include and not any(
+            _has(t, word) and not _negated(t, word)
+            for word in INTO_WORDS["culture"]
+            if word != "show"
+        ):
+            include.remove("culture")
+    include.extend(specific)
     if "competitive" in include and "active" not in include:
         include.append("active")
     include = [
@@ -176,3 +198,15 @@ def parse_request(text: str) -> dict[str, Any]:
     if re.search(r"\bcheaper\b", t) and budget is None:
         chips["cheaper"] = True  # command: one step down; the session applies it
     return chips
+
+
+def matches_specific_interests(item: dict[str, Any], terms: set[str]) -> bool:
+    """Match any requested activity by its specific category, tags or venue/event name."""
+    name = item["name"].lower()
+    tags = item["tags"]
+    return not terms or any(
+        term in tags
+        or term == item.get("category")
+        or any(_has(name, alias) for alias in SPECIFIC_INTERESTS[term])
+        for term in terms
+    )

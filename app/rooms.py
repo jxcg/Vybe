@@ -12,6 +12,7 @@ from fastapi import WebSocket
 
 from app.geo import Weather
 from app.ranking import rank
+from app.request_parse import SPECIFIC_INTERESTS, matches_specific_interests
 
 BUDGETS = {10: 1, 20: 2, 999: 3}
 AGES = ("under18", "18-21", "22-25", "26-35", "36+")
@@ -118,7 +119,12 @@ def known_price(value: object) -> int | float | None:
 def excludes(item: dict[str, Any], exclusions: list[str]) -> bool:
     tags = set(item["tags"])
     name = item["name"].lower()
-    return any(NOT_INTO.get(term, term) in tags or term in name for term in exclusions)
+    return any(
+        matches_specific_interests(item, {term})
+        if term in SPECIFIC_INTERESTS
+        else NOT_INTO.get(term, term) in tags or term in name
+        for term in exclusions
+    )
 
 
 def preferred_tags(prefs: dict[str, Any], items: list[dict[str, Any]]) -> frozenset[str]:
@@ -129,6 +135,8 @@ def preferred_tags(prefs: dict[str, Any], items: list[dict[str, Any]]) -> frozen
 def group_rank(
     items: list[dict[str, Any]], now: datetime, weather: Weather | None, members: list[Member]
 ) -> list[dict[str, Any]]:
+    specific = SPECIFIC_INTERESTS.keys() & {term for m in members for term in m.prefs["include"]}
+    items = [item for item in items if matches_specific_interests(item, specific)]
     cap = min(
         (m.prefs["budget"] for m in members if m.prefs["budget"] != 999), default=float("inf")
     )

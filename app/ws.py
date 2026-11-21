@@ -22,7 +22,7 @@ from starlette.concurrency import run_in_threadpool
 from app import geo, rooms, voice
 from app.colors import venue_colors
 from app.ranking import rank
-from app.request_parse import parse_request
+from app.request_parse import SPECIFIC_INTERESTS, matches_specific_interests, parse_request
 from app.rooms import BUDGETS, INTO, NOT_INTO
 
 LONDON = ZoneInfo("Europe/London")
@@ -320,13 +320,19 @@ class Session:
         now = self.now()
         items, weather = self.source(self.place, now)
         drop = {NOT_INTO[t] for t in self.prefs["exclude"] if t in NOT_INTO}
-        words = [t for t in self.prefs["exclude"] if t not in NOT_INTO]
+        words = [
+            t for t in self.prefs["exclude"] if t not in NOT_INTO and t not in SPECIFIC_INTERESTS
+        ]
+        specific = SPECIFIC_INTERESTS.keys() & self.prefs["include"]
+        excluded = SPECIFIC_INTERESTS.keys() & self.prefs["exclude"]
         items = [
             i
             for i in items
             if i["id"] not in self.skipped
             and not drop & set(i["tags"])
             and not any(w in i["name"].lower() for w in words)
+            and matches_specific_interests(i, specific)
+            and not (excluded and matches_specific_interests(i, excluded))
         ]
         cards = rank(
             items,
@@ -349,7 +355,7 @@ class Session:
                 g = row["group"]
                 counts[g] = counts.get(g, 0) + 1
         group = self.group
-        if not self.group_chosen:
+        if not self.group_chosen and not specific:
             group = next(
                 (g for tag in self.prefs["include"] if (g := INTEREST_GROUP.get(tag)) in counts),
                 None,

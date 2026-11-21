@@ -1,5 +1,5 @@
 import type { RoomResume } from '../contract';
-import { EMPTY_VYBE, type Vybe } from './vybe';
+import { EMPTY_VYBE, isSpecificInterest, type Vybe } from './vybe';
 
 const KEY = 'vybe:v1';
 const ROOM_KEY = 'vybe:meetup';
@@ -43,7 +43,12 @@ export function loadSaved(): Saved {
 
 export function save(data: Saved): void {
   try {
-    localStorage.setItem(KEY, JSON.stringify(data));
+    const vybe = {
+      ...data.vybe,
+      into: data.vybe.into.filter((tag) => !isSpecificInterest(tag)),
+      notInto: data.vybe.notInto.filter((tag) => !isSpecificInterest(tag)),
+    };
+    localStorage.setItem(KEY, JSON.stringify({ ...data, vybe }));
   } catch {
     // Private mode or storage full: the app still works, it just won't remember.
   }
