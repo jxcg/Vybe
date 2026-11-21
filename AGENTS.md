@@ -110,3 +110,10 @@ Do not add any attribution footer (e.g. "Generated with ...") to the PR body.
 - [ ] Work is on a `feature/Issue-<N>` branch, not `main`
 - [ ] Commits follow Conventional Commits and have no AI co-author trailers
 - [ ] PR body has exactly 3 bullets (1-2 sentences each) and ends with `Addresses GH issue: #N`
+
+## Run locally
+
+```sh
+uv run uvicorn app.main:app --reload   # http://localhost:8000
+uv run pytest
+```

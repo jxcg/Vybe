@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Vybe</title>
+</head>
+<body>
+  <div id="root"></div>
+  <script src="https://unpkg.com/react@18.3.1/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/htm@3.1.1/dist/htm.umd.js"></script>
+  <script>
+    // shortcut: React from a CDN with no build step, move to Vite once the UI grows
+    const html = htm.bind(React.createElement);
+
+    function App() {
+      const [items, setItems] = React.useState(null);
+      React.useEffect(() => {
+        fetch("/api/items").then(r => r.json()).then(setItems, () => setItems([]));
+      }, []);
+      if (items === null) return html`<p>Loading…</p>`;
+      return html`
+        <main>
+          <h1>Vybe</h1>
+          <ul>
+            ${items.map(i => html`<li key=${i.id}>${i.name} · ${"£".repeat(i.price_level)} · ★${i.rating}</li>`)}
+          </ul>
+        </main>`;
+    }
+
+    ReactDOM.createRoot(document.getElementById("root")).render(html`<${App} />`);
+  </script>
+</body>
+</html>
