@@ -44,6 +44,11 @@ Requests from the new web frontend (2026-11-21; the teammate's VYBE UI is now on
 - [ ] Follow the speech-to-tag rules in `INTEGRATION.md` §5. Claude maps your filters onto the UI's tags (`a laugh`, `chill`, `live music`, `late night`, `competitive`, …), so it helps if `include_text` carries those words, plus `company` (people, including the user) and "cheaper" as a step down.
 - [ ] Announcement audio for boarding / last call: PCM16, mono, 24 kHz, no header, calm British station voice, 6 s or less (INTEGRATION.md §6). Same format for card voiceovers.
 
+Review pass 3 (commit 172fb26, `apply_filters`; checks clean, 36 tests pass)
+- [ ] Please withdraw the request to add `Session.voice_filters` plus `apply_filters` in `build_board`. `/ws` already sends voice as `chips`, the client merges them into prefs, and the board applies prefs. A second hidden filter set would apply exclusions twice and keep filtering after the user removes a chip.
+- [ ] If you keep `apply_filters`, make it robust: it reads `price_level`, `tags`, `type` and `name` directly, so a missing key raises `KeyError`, and a missing `walk_mins` defaults to 0, so walk caps let everything through. Make `include_*` a soft boost, not a hard filter, and don't re-filter budget (ranking already does).
+- Claude will handle `max_walk_mins`, `type` and `clear` from voice in `/ws`.
+
 ## Blocked
 - (none)
 

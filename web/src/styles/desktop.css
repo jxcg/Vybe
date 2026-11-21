@@ -1,0 +1,210 @@
+/* Desktop layout (≥ 1024px). The phone layout is untouched below this width.
+   Board: header across the top, a bento of the three picks on the left, a departures panel on the right.
+   Start: big headline and mic on the left, "Your vybe" and the CTA on the right. */
+
+@media (min-width: 1024px) {
+  :root {
+    --gutter: 40px;
+    --side: clamp(380px, 32vw, 460px);
+  }
+
+  .app {
+    max-width: 1440px;
+  }
+
+  /* ── Board ─────────────────────────────────────────────── */
+
+  .board {
+    position: relative;
+  }
+
+  .board-scroll {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) var(--side);
+    grid-template-rows: auto 1fr;
+    column-gap: 40px;
+    align-items: start;
+    padding: 8px var(--gutter) 120px;
+  }
+
+  .board-header {
+    grid-column: 1;
+    grid-row: 1;
+    padding: 0;
+  }
+  .board-header-bar {
+    height: 80px;
+  }
+  .board-title {
+    font-size: clamp(44px, 4.2vw, 64px);
+    line-height: 1.04;
+    max-width: 14ch;
+  }
+  .board-sub {
+    font-size: 17px;
+    margin-top: 10px;
+  }
+
+  /* Picks: best pick as a big poster, the other two stacked beside it */
+  .hero {
+    grid-column: 1;
+    margin-top: 32px;
+    container-type: normal;
+  }
+  .hero-track {
+    display: grid;
+    grid-template-columns: 1.45fr 1fr;
+    /* Fit above the floating talk bar on a laptop screen */
+    grid-template-rows: repeat(2, clamp(200px, calc((100dvh - 420px) / 2), 320px));
+    gap: 16px;
+    overflow: visible;
+    padding: 0;
+    scroll-snap-type: none;
+  }
+  .hero-track::after {
+    display: none;
+  }
+  .hero-card {
+    flex: none;
+    min-width: 0;
+    scroll-snap-align: none;
+  }
+  .hero-card:first-child {
+    grid-row: 1 / span 2;
+  }
+  .hero-card:hover {
+    transform: translateY(-3px);
+  }
+  .hero-dots {
+    display: none;
+  }
+
+  /* Departures: a station-board panel that scrolls on its own */
+  .dlist {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+    position: sticky;
+    top: 16px;
+    margin-top: 24px;
+    max-height: calc(100dvh - 48px);
+    overflow-y: auto;
+    padding: 4px 24px 20px;
+    background: var(--card);
+    border: var(--hairline);
+    border-radius: var(--r-card);
+    scrollbar-width: thin;
+  }
+  .dlist-group {
+    margin-top: 20px;
+  }
+  .dlist-title {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    padding: 10px 0 8px;
+    background: var(--card);
+  }
+
+  /* Talk bar floats over the picks instead of spanning the screen */
+  .bottombar {
+    position: absolute;
+    left: var(--gutter);
+    right: calc(var(--side) + var(--gutter) * 2);
+    bottom: 24px;
+    max-width: 640px;
+    margin: 0 auto;
+    padding: 0;
+    background: transparent;
+    border: 0;
+  }
+  .bottombar-talk {
+    box-shadow: 0 12px 32px -12px rgb(106 91 179 / 0.55);
+  }
+
+  /* Ticket: a phone-sized panel over a dimmed board, not a full-screen takeover */
+  .ticket-stack {
+    inset: 24px auto 24px 50%;
+    width: min(460px, calc(100vw - 48px));
+    transform: translateX(-50%);
+    border-radius: var(--r-card);
+    box-shadow:
+      0 0 0 100vmax rgb(20 18 26 / 0.45),
+      0 30px 80px -20px rgb(0 0 0 / 0.5);
+  }
+
+  /* ── Start screen ──────────────────────────────────────── */
+
+  .start {
+    --start-x: 0px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 460px;
+    grid-template-rows: auto auto auto 1fr auto;
+    column-gap: clamp(48px, 7vw, 120px);
+    align-content: center;
+    width: 100%;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 56px var(--gutter);
+    overflow-y: auto;
+  }
+  /* Flatten the phone column so its pieces can sit in the two desktop columns */
+  .start-body,
+  .start-main {
+    display: contents;
+  }
+  .start-body > :first-child {
+    grid-column: 1;
+    grid-row: 1;
+  }
+  .start-title {
+    grid-column: 1;
+    grid-row: 2;
+    margin-top: 28px;
+    font-size: clamp(52px, 5.4vw, 80px);
+    line-height: 1.02;
+    max-width: 11ch;
+  }
+  .start-sub {
+    grid-column: 1;
+    grid-row: 3;
+    margin-top: 16px;
+    max-width: 34ch;
+    font-size: 19px;
+  }
+  .start-voice,
+  .start-type {
+    grid-column: 1;
+    grid-row: 4;
+    align-self: start;
+    align-items: flex-start;
+    margin-top: 40px;
+    padding: 0;
+  }
+  .start-voice .start-phase,
+  .start-voice .start-type-btn {
+    align-self: flex-start;
+  }
+  .start-voice .slot {
+    margin-left: 0;
+    margin-right: 0;
+    text-align: left;
+  }
+  .start-card {
+    grid-column: 2;
+    grid-row: 2 / span 3;
+    align-self: end;
+  }
+  .start-footer {
+    grid-column: 2;
+    grid-row: 5;
+    margin-top: 20px;
+    padding: 0;
+  }
+}
+
+/* Very wide screens: give the departures panel a bit more room */
+@media (min-width: 1600px) {
+  :root {
+    --side: 500px;
+  }
+}
