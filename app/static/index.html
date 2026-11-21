@@ -69,9 +69,12 @@
     .round svg { width: 20px; height: 20px; }
     .round[aria-pressed="true"] { background: var(--cream); color: var(--pine); }
 
-    .info { position: absolute; left: 24px; right: 84px; bottom: calc(150px + env(safe-area-inset-bottom)); }
-    .actions { position: absolute; right: 20px; bottom: calc(232px + env(safe-area-inset-bottom));
-               display: grid; gap: 12px; }
+    /* Bottom block stacks (info, then leave-by) so wrapping chips push up instead of overlapping. */
+    .bottom { position: absolute; left: 24px; right: 20px; bottom: calc(84px + env(safe-area-inset-bottom));
+              display: flex; flex-direction: column; gap: 18px; }
+    .upper { display: flex; align-items: flex-end; gap: 16px; }
+    .info { flex: 1; min-width: 0; }
+    .actions { display: grid; gap: 12px; flex: none; }
     .badge { display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px; border-radius: 999px;
              font-size: 13px; font-weight: 500; color: var(--pine); }
     .badge::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
@@ -88,8 +91,7 @@
     .chips span { background: var(--glass); border: 1px solid var(--glass-line); border-radius: 999px;
                   padding: 6px 12px; font-size: 12.5px; }
 
-    .leave { position: absolute; left: 24px; right: 24px; bottom: calc(84px + env(safe-area-inset-bottom));
-             border-top: 1px solid var(--glass-line); padding-top: 14px; display: flex;
+    .leave { margin-right: 4px; border-top: 1px solid var(--glass-line); padding-top: 14px; display: flex;
              align-items: flex-end; justify-content: space-between; gap: 12px; }
     .label { font-family: var(--mono); font-size: 11px; letter-spacing: 0.08em; color: var(--muted); }
     .time { font-size: 38px; font-weight: 600; letter-spacing: -0.02em; line-height: 1.1; margin-top: 4px; }
@@ -256,31 +258,33 @@
           <${Backdrop} />
           <div class="shade" aria-hidden="true"></div>
 
-          <div class="actions">
-            <button class="round" aria-label=${liked ? "Unlike" : "Like"} aria-pressed=${liked} onClick=${onLike}>
-              ${liked ? ICONS.heartOn : ICONS.heart}</button>
-            <button class="round" aria-label=${saved ? "Unsave" : "Save"} aria-pressed=${saved} onClick=${onSave}>
-              ${saved ? ICONS.saveOn : ICONS.save}</button>
-            <button class="round" aria-label="Share" onClick=${share}>${ICONS.share}</button>
-          </div>
-
-          <div class="info">
-            <span class=${`badge ${c.badge}`}>${BADGES[c.badge]}</span>
-            <h2 class="name">${c.name}</h2>
-            <div class="meta">${c.walk_mins} min walk<span class="dot">·</span>${priceText(c)}</div>
-            <div class="scores">
-              <strong>${c.match}% match</strong>${c.rating ? html`<span class="dot">·</span>★ ${c.rating} on Google` : ""}
+          <div class="bottom">
+            <div class="upper">
+              <div class="info">
+                <span class=${`badge ${c.badge}`}>${BADGES[c.badge]}</span>
+                <h2 class="name">${c.name}</h2>
+                <div class="meta">${c.walk_mins} min walk<span class="dot">·</span>${priceText(c)}</div>
+                <div class="scores">
+                  <strong>${c.match}% match</strong>${c.rating ? html`<span class="dot">·</span>★ ${c.rating} on Google` : ""}
+                </div>
+                <div class="chips">${c.reasons.map(r => html`<span key=${r}>${r}</span>`)}</div>
+              </div>
+              <div class="actions">
+                <button class="round" aria-label=${liked ? "Unlike" : "Like"} aria-pressed=${liked} onClick=${onLike}>
+                  ${liked ? ICONS.heartOn : ICONS.heart}</button>
+                <button class="round" aria-label=${saved ? "Unsave" : "Save"} aria-pressed=${saved} onClick=${onSave}>
+                  ${saved ? ICONS.saveOn : ICONS.save}</button>
+                <button class="round" aria-label="Share" onClick=${share}>${ICONS.share}</button>
+              </div>
             </div>
-            <div class="chips">${c.reasons.map(r => html`<span key=${r}>${r}</span>`)}</div>
-          </div>
-
-          <div class="leave">
-            <div>
-              <div class="label">LEAVE BY</div>
-              <div class="time">${clock(c.leave_by)}</div>
+            <div class="leave">
+              <div>
+                <div class="label">LEAVE BY</div>
+                <div class="time">${clock(c.leave_by)}</div>
+              </div>
+              ${c.maps_url && html`
+                <a class="directions" href=${c.maps_url} target="_blank" rel="noopener">Directions ${ICONS.arrow}</a>`}
             </div>
-            ${c.maps_url && html`
-              <a class="directions" href=${c.maps_url} target="_blank" rel="noopener">Directions ${ICONS.arrow}</a>`}
           </div>
         </section>`;
     }
