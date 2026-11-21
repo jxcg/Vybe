@@ -32,6 +32,9 @@
     grid-row: 1;
     padding: 0;
   }
+  .board-scroll > :is(.meetup, .board-wait, .board-end) {
+    grid-column: 1;
+  }
   .board-header-bar {
     height: 80px;
   }
