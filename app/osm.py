@@ -131,12 +131,13 @@ def to_item(el: dict[str, Any], now: datetime) -> dict[str, Any] | None:
         "closes": window[1],
         "lat": float(lat),
         "lng": float(lng),
-        "tags": tags_for(kind, outdoors=tags.get("leisure") == "park")
-        + (
-            ["pizza"]
-            if kind.group == "Food" and "pizza" in tags.get("cuisine", "").split(";")
-            else []
-        ),
+        "tags": tags_for(kind, outdoors=tags.get("leisure") == "park"),
+        "interest_terms": [
+            value
+            for key in ("cuisine", "sport", "leisure", "amenity", "tourism")
+            for value in tags.get(key, "").split(";")
+            if value.strip()
+        ],
         "category": kind.category,
         "group": kind.group,
         "needs_booking": kind.booking,

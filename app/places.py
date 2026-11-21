@@ -40,7 +40,7 @@ SEARCHES = {
     ],
     "culture": ["museum", "art_gallery", "concert_hall", "park"],
     "nightlife": ["bar", "pub", "cocktail_bar", "wine_bar", "night_club"],
-    "food_deal": ["restaurant", "pizza_restaurant", "cafe", "dessert_shop"],
+    "food_deal": ["restaurant", "cafe", "dessert_shop"],
 }
 PRICE_LEVELS = {
     "PRICE_LEVEL_FREE": 1,
@@ -169,8 +169,8 @@ def to_item(place: dict[str, Any], now: datetime) -> dict[str, Any] | None:
         "closes": hours[1],
         "lat": place["location"]["latitude"],
         "lng": place["location"]["longitude"],
-        "tags": tags_for(kind, outdoors="park" in types)
-        + (["pizza"] if "pizza_restaurant" in types or primary == "pizza_restaurant" else []),
+        "tags": tags_for(kind, outdoors="park" in types),
+        "interest_terms": list(dict.fromkeys([primary, *types])),
         "category": kind.category,
         "group": kind.group,
         "needs_booking": kind.booking,

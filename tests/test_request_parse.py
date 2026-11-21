@@ -68,7 +68,7 @@ def test_parse_request(text: str, expected: dict[str, Any]) -> None:
 
 
 def test_only_what_was_said() -> None:
-    assert parse_request("bowling") == {"include": ["active"], "exclude": []}
+    assert parse_request("bowling") == {"include": ["active", "bowling"], "exclude": []}
     assert parse_request("Pizza and a comedy show") == {
         "include": ["pizza", "comedy"],
         "exclude": [],
@@ -78,3 +78,18 @@ def test_only_what_was_said() -> None:
 def test_cheaper_is_relative() -> None:
     assert parse_request("cheaper please").get("cheaper") is True
     assert "cheaper" not in parse_request("cheaper, under £20")  # an explicit amount wins
+
+
+@pytest.mark.parametrize(
+    ("text", "terms"),
+    [
+        ("I fancy ice cream", {"ice cream"}),
+        ("I would love some cheap ice cream for two", {"ice cream"}),
+        ("pizza and music", {"pizza", "music"}),
+        ("sushi and karaoke", {"sushi", "karaoke"}),
+        ("I want a pottery class", {"pottery class"}),
+        ("ice cream but no pizza", {"ice cream"}),
+    ],
+)
+def test_named_requests_keep_the_requested_things(text: str, terms: set[str]) -> None:
+    assert terms <= set(parse_request(text)["include"])
