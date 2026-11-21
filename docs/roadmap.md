@@ -20,6 +20,7 @@ Put `(now)` after the milestone being worked on. Owners: (Claude), (Mistral), (T
 - [ ] Show compact venue ratings out of ten on board picks and activity rows (Team)
 - [ ] Show only the best pick above the list when four activities are available (Team)
 - [ ] Hide the sidebar panel when there are no additional activities (Team)
+- [ ] Keep the desktop board aligned when category changes hide the sidebar (Team)
 
 ## Shared plans (now)
 - [x] Invite friends to a live shared board (Team)
