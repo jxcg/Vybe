@@ -25,7 +25,7 @@ Put `(now)` after the milestone being worked on. Owners: (Claude), (Mistral), (T
 - [x] Browser location or typed postcode/area (Claude)
 - [x] OpenStreetMap and sample-data fallback (Claude)
 
-## Voice (now)
+## Voice
 - [x] `audio_to_filters`: Voxtral turns speech into filters (Mistral)
 - [x] Voice over `/ws`: speech or typing becomes session-only chips (Claude)
 - [x] Ranking applies voice filters (Claude)
@@ -43,9 +43,10 @@ Put `(now)` after the milestone being worked on. Owners: (Claude), (Mistral), (T
 - [ ] Voxtral TTS voiceovers (Mistral)
 - [ ] `/vybe` skill triggers a refresh (Mistral)
 
-## Design
+## Design (now)
 - [ ] Render cached photo and gradient themes and verify the Studio debate (Team)
 - [ ] Keep compact card text legible beneath bright venue photos (Team)
+- [ ] Lead featured cards with venue names and give photos dedicated space (Team)
 - [ ] Review Google Places photos in the theme workflow and derive card colours from the displayed photo (Team)
 - [x] Teammate's VYBE frontend merged, with the `/ws` backend (Claude)
 - [x] Light mode as primary, venue-colour glow on cards (Claude)
