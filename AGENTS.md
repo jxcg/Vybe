@@ -18,7 +18,9 @@ The product is called **Vybe**, a play on Mistral Vibe. It is being built for th
 - **Voice is session only.** Voxtral returns filters that live in the WebSocket session and are never saved.
 - **No AI in the live path.** Ranking is plain code. Agents run only in the background refresh (Mistral Workflow → orchestrator agent → Scout, Enricher and Verifier subagents → Voxtral TTS voiceovers).
 
-## Workflow rules (mandatory)
+## Workflow rules
+
+> **Paused for the hackathon:** commit and push straight to `main`. No issues, branches or PRs until this note is removed. The commit rules (conventional commits, no AI co-author lines) still apply.
 
 **Keep process light: this is a hackathon.** Aim for a handful of key issues in total, roughly one per major feature (e.g. feed and ranking, voice, background refresh, demo mode). Put everything else under one of those. One PR per issue, and merge quickly. Don't spend time polishing issues or PRs.
 
