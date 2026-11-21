@@ -137,6 +137,9 @@ def test_food_and_comedy_keep_both_groups_visible(monkeypatch: pytest.MonkeyPatc
             opens="10:00",
             closes="23:00",
         ),
+        dict(
+            sample, id="cinema", group="Entertainment", tags=["film"], opens="10:00", closes="23:00"
+        ),
     ]
     monkeypatch.setattr("app.main.items_near", lambda *args: items)
     monkeypatch.setattr(ws.Session, "now", lambda _: now)
@@ -145,7 +148,13 @@ def test_food_and_comedy_keep_both_groups_visible(monkeypatch: pytest.MonkeyPatc
         recv(sock, "board")
         sock.send_json({"type": "talk_text", "text": "I want to have a laugh and eat food"})
         chips = recv(sock, "chips")
-        sock.send_json({"type": "prefs", "include": chips["include"]})
+        sock.send_json(
+            {
+                "type": "prefs",
+                "include": [tag for tag in chips["include"] if tag in ws.INTO],
+                "requested": chips["requested"],
+            }
+        )
         board = recv(sock, "board")
         assert board["group"] is None
         assert {row["id"] for row in board["rows"]} == {"food", "comedy"}
