@@ -140,6 +140,24 @@
              margin-right: 10px; animation: pulse 1.2s ease-in-out infinite; vertical-align: middle; }
     @keyframes pulse { 0%, 100% { opacity: .3; transform: scale(.8); } 50% { opacity: 1; transform: scale(1.15); } }
     @media (prefers-reduced-motion: reduce) { .skel, .pulse { animation: none; } }
+
+    /* Laptop scroll rail: drag or click to jump through cards. Mouse/trackpad devices only. */
+    .rail { position: fixed; right: 12px; top: 120px; bottom: 120px; width: 28px; z-index: 11;
+            display: none; touch-action: none; cursor: pointer; }
+    .rail-track { position: absolute; left: 50%; top: 0; bottom: 0; width: 4px; transform: translateX(-50%);
+                  border-radius: 999px; background: var(--glass-line); }
+    .rail-thumb { position: absolute; left: 50%; width: 10px; transform: translateX(-50%); border-radius: 999px;
+                  background: var(--lime); min-height: 20px; transition: top .15s ease; }
+    .rail.dragging .rail-thumb { transition: none; }
+    .rail:hover .rail-thumb, .rail.dragging .rail-thumb, .rail:focus-visible .rail-thumb { width: 14px; }
+    .rail-tip { position: absolute; right: 36px; transform: translateY(-50%); white-space: nowrap;
+                padding: 6px 12px; border-radius: 999px; font-size: 12.5px; pointer-events: none;
+                background: rgba(22,34,26,0.9); border: 1px solid var(--glass-line); }
+    .rail-tip b { color: var(--lime); font-family: var(--mono); font-weight: 500; margin-right: 8px; }
+    @media (hover: hover) and (pointer: fine) {
+      .rail { display: block; }
+      .bottom { right: 60px; }
+    }
   </style>
 </head>
 <body>
@@ -353,6 +371,36 @@
         </section>`;
     }
 
+    function Rail({ index, cards, onGo }) {
+      const ref = React.useRef(null);
+      const [hover, setHover] = React.useState(null);
+      const [drag, setDrag] = React.useState(false);
+      const total = cards.length;
+
+      function at(e) {
+        const r = ref.current.getBoundingClientRect();
+        const f = Math.min(Math.max((e.clientY - r.top) / r.height, 0), 0.9999);
+        return Math.floor(f * total);
+      }
+      const shown = drag || hover !== null ? (hover ?? index) : null;
+      const pct = i => `${(i / total) * 100}%`;
+
+      return html`
+        <div class=${`rail${drag ? " dragging" : ""}`} ref=${ref} role="slider" tabIndex="0"
+          aria-label="Jump to card" aria-valuemin="1" aria-valuemax=${total} aria-valuenow=${index + 1}
+          aria-valuetext=${`${index + 1} of ${total}: ${cards[index]?.name}`}
+          onPointerDown=${e => { e.currentTarget.setPointerCapture(e.pointerId); setDrag(true); onGo(at(e), true); }}
+          onPointerMove=${e => { const i = at(e); setHover(i); if (drag) onGo(i, true); }}
+          onPointerUp=${() => setDrag(false)}
+          onPointerLeave=${() => { if (!drag) setHover(null); }}>
+          <div class="rail-track"></div>
+          <div class="rail-thumb" style=${{ top: pct(index), height: `max(20px, ${100 / total}%)` }}></div>
+          ${shown !== null && cards[shown] && html`
+            <div class="rail-tip" style=${{ top: `${((shown + 0.5) / total) * 100}%` }}>
+              <b>${shown + 1}</b>${cards[shown].name}</div>`}
+        </div>`;
+    }
+
     function Feed({ prefs, onReset }) {
       const [cards, setCards] = React.useState(null);
       const [liked, setLiked] = React.useState(() => load("vybe.liked", []));
@@ -373,6 +421,28 @@
         const el = stack.current;
         if (el) setIndex(Math.round(el.scrollTop / el.clientHeight));
       }
+
+      // Jump to a card. Big jumps (or dragging the rail) are instant; one-step moves glide.
+      function go(i, instant = false) {
+        const el = stack.current;
+        if (!el || !cards) return;
+        const target = Math.min(Math.max(i, 0), cards.length - 1);
+        el.scrollTo({ top: target * el.clientHeight, behavior: instant || Math.abs(target - index) > 2 ? "auto" : "smooth" });
+        setIndex(target);
+      }
+
+      // Keyboard: ↑/↓, j/k, PageUp/PageDown, Home/End.
+      React.useEffect(() => {
+        function onKey(e) {
+          if (e.target.closest?.("input, textarea")) return;
+          const step = { ArrowDown: 1, j: 1, PageDown: 1, ArrowUp: -1, k: -1, PageUp: -1 }[e.key];
+          if (step) { e.preventDefault(); go(index + step); }
+          if (e.key === "Home") { e.preventDefault(); go(0); }
+          if (e.key === "End") { e.preventDefault(); go(Infinity); }
+        }
+        window.addEventListener("keydown", onKey);
+        return () => window.removeEventListener("keydown", onKey);
+      });
 
       async function toggleLike(id) {
         const next = toggleIn(liked, id);
@@ -417,6 +487,7 @@
               liked=${liked.includes(c.id)} saved=${saved.includes(c.id)}
               onLike=${() => toggleLike(c.id)} onSave=${() => toggleSave(c.id)} />`)}
         </div>
+        <${Rail} index=${index} cards=${cards} onGo=${go} />
         <div class="voicebar">
           <button class="talk" title="Voice coming soon">${ICONS.mic} Hold to talk</button>
           <span class="hint">${index + 1}/${cards.length}${index === 0 ? " ↑ swipe" : ""}</span>
