@@ -21,12 +21,16 @@ def load_samples() -> list[dict[str, Any]]:
     return cast(list[dict[str, Any]], json.loads((HERE / "items.json").read_text()))
 
 
-def items_near(lat: float, lng: float, now: datetime) -> list[dict[str, Any]]:
+def items_near(
+    lat: float, lng: float, now: datetime, requested: set[str] | None = None
+) -> list[dict[str, Any]]:
     """Google Places if a key is set, else OpenStreetMap (free); samples if both fail."""
     found = None
     try:
         if places.api_key():
-            found = [i for p in places.nearby(lat, lng) if (i := places.to_item(p, now))]
+            nearby = places.nearby(lat, lng)
+            focused = places.requested_nearby(lat, lng, requested) if requested else []
+            found = [i for p in [*nearby, *focused] if (i := places.to_item(p, now))]
         else:
             found = [i for e in osm.nearby(lat, lng) if (i := osm.to_item(e, now))]
     except (httpx.HTTPError, KeyError, ValueError, TypeError):

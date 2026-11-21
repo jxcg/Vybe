@@ -299,10 +299,10 @@ class Session:
         return datetime.now(LONDON).replace(tzinfo=None, microsecond=0) + self.offset
 
     def source(
-        self, place: dict[str, Any], now: datetime
+        self, place: dict[str, Any], now: datetime, requested: set[str] | None = None
     ) -> tuple[list[dict[str, Any]], geo.Weather | None]:
         lat, lng = place["lat"], place["lng"]
-        items = self.items_near(lat, lng, now)
+        items = self.items_near(lat, lng, now, requested)
         extras = _enriched()
         items = [
             {
@@ -324,8 +324,8 @@ class Session:
 
     def build_board(self) -> dict[str, Any]:
         now = self.now()
-        items, weather = self.source(self.place, now)
         specific = specific_interests(self.prefs["requested"])
+        items, weather = self.source(self.place, now, specific)
         budget = self.prefs["budget"]
         items = [
             item
@@ -415,12 +415,18 @@ class Session:
         if not room.members:
             return
         now = datetime.now(LONDON).replace(tzinfo=None, microsecond=0) + room.offset
-        if room.source is None or monotonic() - room.source_at >= 60:
-            items, weather = await run_in_threadpool(self.source, room.place, now)
+        members = list(room.members.values())
+        requested = {term for m in members for term in specific_interests(m.prefs["requested"])}
+        if (
+            room.source is None
+            or requested != room.source_requests
+            or monotonic() - room.source_at >= 60
+        ):
+            items, weather = await run_in_threadpool(self.source, room.place, now, requested)
             room.source = items, weather
+            room.source_requests = requested
             room.source_at = monotonic()
         items, weather = room.source
-        members = list(room.members.values())
         cards = rooms.group_rank(items, now, weather, members)
         rows = _board_rows(cards, now, bool(weather and weather.raining), shared=True)
         rows = [row for row in rows if row["status"] not in ("departed", "cancelled")]

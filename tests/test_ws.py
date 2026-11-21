@@ -4,7 +4,7 @@ from typing import Any
 import pytest
 from fastapi.testclient import TestClient
 
-from app import geo, osm, voice, ws
+from app import geo, osm, rooms, voice, ws
 from app.main import app
 
 
@@ -151,7 +151,7 @@ def test_food_and_comedy_keep_both_groups_visible(monkeypatch: pytest.MonkeyPatc
         sock.send_json(
             {
                 "type": "prefs",
-                "include": [tag for tag in chips["include"] if tag in ws.INTO],
+                "include": [tag for tag in chips["include"] if tag in rooms.INTO],
                 "requested": chips["requested"],
             }
         )

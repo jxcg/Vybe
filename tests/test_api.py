@@ -75,6 +75,29 @@ def test_places_mapping() -> None:
     sun_0030 = datetime(2026, 11, 22, 0, 30)  # still inside Saturday's late window
     assert (places.to_item(place, sun_0030) or {}).get("closes") == "01:00"
     assert places.to_item({**place, "regularOpeningHours": {}}, sat_8pm) is None
+    place["priceRange"] = {
+        "startPrice": {"currencyCode": "GBP", "units": "20", "nanos": 500_000_000}
+    }
+    assert (places.to_item(place, sat_8pm) or {}).get("price") == 20.50
+
+
+def test_explicit_pizza_and_comedy_get_independent_cached_searches(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls = []
+
+    def search(endpoint: str, body: dict[str, Any], fields: str) -> list[dict[str, Any]]:
+        assert endpoint == "searchNearby"
+        assert body["maxResultCount"] == 20
+        calls.append(body["includedTypes"])
+        return [{"id": body["includedTypes"][0]}]
+
+    monkeypatch.setattr(places, "_post", search)
+    monkeypatch.setattr(places, "_request_cache", {})
+    found = places.requested_nearby(51.51, -0.13, {"pizza", "comedy", "unknown"})
+    assert {venue["id"] for venue in found} == {"pizza_restaurant", "comedy_club"}
+    assert places.requested_nearby(51.51, -0.13, {"pizza", "comedy"}) == found
+    assert calls == [["comedy_club"], ["pizza_restaurant"]]
 
 
 def test_place_photo_is_fresh_and_keeps_key_server_side(monkeypatch: pytest.MonkeyPatch) -> None:
