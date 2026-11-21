@@ -1,4 +1,5 @@
-import { useState, type MouseEvent } from 'react';
+import { useRef, useState, type MouseEvent } from 'react';
+import { Shuffle } from 'lucide-react';
 import { toPrefs } from '../lib/vybe';
 import { isMock } from '../net/socket';
 import type { Row } from '../contract';
@@ -11,6 +12,8 @@ import { DepartureList } from './DepartureList';
 import { HeroCarousel } from './HeroCarousel';
 import { Meetup } from './Meetup';
 import './Board.css';
+
+const RADIO_INTRO = '/audio/vybe-radio-intro.mp3';
 
 const GROUP_ORDER = ['Food', 'Drinks', 'Entertainment', 'Culture', 'Outdoors'];
 
@@ -52,16 +55,43 @@ export function Board() {
     ? board.rows.map((row) => row.pick && row.pick !== 'best' ? { ...row, pick: null } : row)
     : board?.rows ?? [];
   const { nowMs, wallMs } = useClock(board, state.boardAt);
+  const lastSurprise = useRef<string | null>(null);
+  const [emptySurprise, setEmptySurprise] = useState(false);
   useWakeLock();
 
+  const eligible = rows.filter((row) =>
+    row.status !== 'departed' && row.status !== 'cancelled' &&
+    row.status !== 'delayed_rain' && !row.over_budget && Date.parse(row.leave_by) >= nowMs
+  );
+
+  const surprise = (e: MouseEvent<HTMLButtonElement>) => {
+    const pool = eligible.length > 1 ? eligible.filter((row) => row.id !== lastSurprise.current) : eligible;
+    const pick = pool[Math.floor(Math.random() * pool.length)];
+    if (!pick) {
+      setEmptySurprise(true);
+      return;
+    }
+
+    setEmptySurprise(false);
+    lastSurprise.current = pick.id;
+    const audio = new Audio(pick.voiceover_url || RADIO_INTRO);
+    void audio.play().catch((error: unknown) => {
+      if (!(error instanceof DOMException) || error.name !== 'NotSupportedError' || !pick.voiceover_url) return;
+      audio.src = RADIO_INTRO;
+      return audio.play().catch(() => undefined);
+    });
+    openTicket(pick, e, audio);
+  };
+
   // Expand the ticket from where the finger landed (or the element's centre for keyboard taps).
-  const openTicket = (row: Row, e: MouseEvent<HTMLElement>) => {
+  const openTicket = (row: Row, e: MouseEvent<HTMLElement>, radioAudio?: HTMLAudioElement) => {
     const r = e.currentTarget.getBoundingClientRect();
     const fromPointer = e.detail > 0;
     dispatch({
       type: 'open_ticket',
       ticket: {
         id: row.id,
+        radioAudio,
         x: fromPointer ? e.clientX : r.left + r.width / 2,
         y: fromPointer ? e.clientY : r.top + r.height / 2,
       },
@@ -71,9 +101,24 @@ export function Board() {
   return (
     <div className="board">
       <main className="board-scroll">
-        <BoardHeader board={board} nowMs={nowMs}
+        <BoardHeader
+          board={board}
+          nowMs={nowMs}
           onInvite={!isMock && state.conn === 'open' && !state.roomConnecting && board ? inviteFriends : undefined}
-          inviteOpen={Boolean(shared && showInvite)} />
+          inviteOpen={Boolean(shared && showInvite)}
+        >
+          {board && (
+            <div className="board-radio">
+              <button type="button" className="board-radio-button" onClick={surprise}>
+                <Shuffle size={16} aria-hidden="true" />
+                Surprise me
+              </button>
+              <span role="status">
+                {emptySurprise && eligible.length === 0 ? 'Nothing else for today. Try changing your filters.' : ''}
+              </span>
+            </div>
+          )}
+        </BoardHeader>
         <Meetup showInvite={showInvite} />
         {!board && <p className="board-wait">Finding what{'\u2019'}s on near you{'\u2026'}</p>}
         {board && (
