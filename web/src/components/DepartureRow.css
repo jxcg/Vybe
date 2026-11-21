@@ -105,3 +105,9 @@
   color: var(--muted);
   white-space: nowrap;
 }
+
+/* Walk-in places show a word ("Open", "Book") instead of a start time */
+.drow-time--word {
+  font-size: 0.8em;
+  color: var(--st-boarding);
+}

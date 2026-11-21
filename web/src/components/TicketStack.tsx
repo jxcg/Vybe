@@ -7,7 +7,7 @@ import { Ticket } from './Ticket';
 import './TicketStack.css';
 
 // Quick and even: open feels instant, close starts on the tap and is gone in about a quarter second.
-const OPEN_MS = 360;
+const OPEN_MS = 420;
 const CLOSE_MS = 260;
 const FADE_MS = 90;
 const SKIP_FADE_MS = 120;
@@ -19,8 +19,21 @@ const byDeparture = (a: Row, b: Row) => Date.parse(a.departure_time) - Date.pars
 
 /** Circle big enough to cover the stack from point (x, y). */
 function coverRadius(x: number, y: number, w: number, h: number): number {
-  return Math.hypot(Math.max(x, w - x), Math.max(y, h - y));
+  // +2px so the circle fully covers the corners before the clip is removed (no last-frame snap)
+  return Math.hypot(Math.max(x, w - x), Math.max(y, h - y)) + 2;
 }
+
+/** On desktop the ticket is a centred panel over a dimmed board (see desktop.css). */
+const isDesktop = () => window.matchMedia('(min-width: 1024px)').matches;
+const PANEL_OPEN_MS = 300;
+const PANEL_CLOSE_MS = 200;
+// Must match .ticket-stack in desktop.css; the dim backdrop is the first shadow.
+const PANEL_SHADOW = '0 0 0 100vmax rgb(20 18 26 / 0.45), 0 30px 80px -20px rgb(0 0 0 / 0.5)';
+const PANEL_SHADOW_OFF = '0 0 0 100vmax rgb(20 18 26 / 0), 0 30px 80px -20px rgb(0 0 0 / 0)';
+const panelFrames = [
+  { opacity: 0, transform: 'translateX(-50%) translateY(18px) scale(0.97)', boxShadow: PANEL_SHADOW_OFF },
+  { opacity: 1, transform: 'translateX(-50%) translateY(0) scale(1)', boxShadow: PANEL_SHADOW },
+];
 
 /**
  * Full-screen tickets for every departure still on, in time order, with vertical snap between them.
@@ -57,6 +70,13 @@ export function TicketStack({ open }: { open: OpenTicket }) {
     const done = () => dispatch({ type: 'close_ticket' });
     if (prefersReducedMotion()) {
       void whenDone(stack.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 200, fill: 'forwards' })).then(done);
+      return;
+    }
+    if (isDesktop()) {
+      // Panel sinks and fades while the backdrop lifts: no clip, so nothing pops at the end.
+      void whenDone(
+        stack.animate([...panelFrames].reverse(), { duration: PANEL_CLOSE_MS, easing: EASE_IN_OUT, fill: 'forwards' }),
+      ).then(done);
       return;
     }
     // Shrink back into the row we're looking at now (if it's on screen), else where we opened from.
@@ -100,12 +120,17 @@ export function TicketStack({ open }: { open: OpenTicket }) {
       stack.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 220 });
       return;
     }
-    const p = localPoint(open.x, open.y);
-    const r = coverRadius(p.x, p.y, p.w, p.h);
-    stack.animate(
-      [{ clipPath: `circle(0px at ${p.x}px ${p.y}px)` }, { clipPath: `circle(${r}px at ${p.x}px ${p.y}px)` }],
-      { duration: OPEN_MS, easing: EASE_OUT },
-    );
+    if (isDesktop()) {
+      stack.animate(panelFrames, { duration: PANEL_OPEN_MS, easing: EASE_OUT });
+    } else {
+      const p = localPoint(open.x, open.y);
+      const r = coverRadius(p.x, p.y, p.w, p.h);
+      // Ease in-out: a fast-start ease-out looked finished at ~60% and then sat there until the clip lifted.
+      stack.animate(
+        [{ clipPath: `circle(0px at ${p.x}px ${p.y}px)` }, { clipPath: `circle(${r}px at ${p.x}px ${p.y}px)` }],
+        { duration: OPEN_MS, easing: EASE_IN_OUT },
+      );
+    }
     stack.querySelectorAll('.ticket-fade').forEach((el) =>
       el.animate([{ opacity: 0, transform: 'translateY(6px)' }, { opacity: 1, transform: 'none' }], {
         duration: 220,

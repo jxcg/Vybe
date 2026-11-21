@@ -30,3 +30,8 @@
 }
 
 
+
+.board-header-actions {
+  display: flex;
+  gap: 8px;
+}

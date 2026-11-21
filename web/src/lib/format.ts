@@ -1,3 +1,4 @@
+import { formatHM } from './time';
 import type { Category, Row, Status } from '../contract';
 
 export const STATUS_LABEL: Record<Status, string> = {
@@ -46,4 +47,19 @@ export function hostname(url: string): string | null {
   } catch {
     return null;
   }
+}
+
+/**
+ * How to show a row's time. Shows and gigs have a real start time; walk-in places (food, bars,
+ * museums) don't, so they say "Open" with their closing time instead of a misleading big time.
+ */
+export function when(row: Row): { value: string; label: string; line: string } {
+  if (row.timed !== false) {
+    const t = formatHM(row.departure_time);
+    return { value: t, label: row.departure_label, line: `${row.departure_label} ${t}` };
+  }
+  if (row.needs_booking) return { value: 'Book', label: 'Book ahead', line: 'Book ahead' };
+  const label =
+    row.departure_label === 'Open 24 hours' ? 'Open 24 hours' : `Open till ${formatHM(row.departure_time)}`;
+  return { value: 'Open', label, line: label };
 }

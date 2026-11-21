@@ -134,6 +134,7 @@ def to_item(el: dict[str, Any], now: datetime) -> dict[str, Any] | None:
         "tags": tags_for(kind, outdoors=tags.get("leisure") == "park"),
         "category": kind.category,
         "group": kind.group,
+        "needs_booking": kind.booking,
         "url": tags.get("website") or tags.get("contact:website"),
         "maps_url": f"https://www.google.com/maps/dir/?api=1&destination={lat},{lng}",
         "source": "OpenStreetMap",

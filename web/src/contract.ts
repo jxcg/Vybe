@@ -10,7 +10,13 @@ export type Status =
   | 'delayed_rain'
   | 'cancelled';
 
-export type DepartureLabel = 'Starts' | 'Deal ends' | 'Last entry' | 'Kitchen closes';
+export type DepartureLabel =
+  | 'Starts'
+  | 'Deal ends'
+  | 'Last entry'
+  | 'Kitchen closes'
+  | 'Open till'
+  | 'Open 24 hours';
 
 export type Pick = 'best' | 'runner_up' | 'wildcard';
 
@@ -35,6 +41,10 @@ export interface Row {
   category: Category;
   /** What people browse by: Food, Drinks, Entertainment, Culture, Outdoors (server extension) */
   group?: string;
+  /** Server extension. false = walk-in place with no set time (show "Open till …", not a big time). */
+  timed?: boolean;
+  /** Server extension. true = shows, gigs, comedy, cinema: book ahead. */
+  needs_booking?: boolean;
   departure_time: string;
   departure_label: DepartureLabel;
   status: Status;
@@ -123,6 +133,12 @@ export interface BoardOnMsg {
   item_id: string | null;
 }
 
+/** Server extension: show only one group (Food, Drinks, Entertainment, Culture, Outdoors), or all. */
+export interface ShowMsg {
+  type: 'show';
+  group: string | null;
+}
+
 export interface TimeTravelMsg {
   type: 'time_travel';
   now: string;
@@ -141,7 +157,8 @@ export type ClientMessage =
   | FeedbackMsg
   | BoardOnMsg
   | TimeTravelMsg
-  | RefreshNowMsg;
+  | RefreshNowMsg
+  | ShowMsg;
 
 export type Prefs = Omit<PrefsMsg, 'type'>;
 
@@ -163,6 +180,9 @@ export interface BoardMsg {
   rows: Row[];
   boarded: Record<string, string[]>;
   decision: Decision | null;
+  /** Server extension: places per group before any filter, and the group being shown. */
+  groups?: Record<string, number>;
+  group?: string | null;
 }
 
 export interface TranscriptMsg {

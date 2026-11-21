@@ -106,6 +106,7 @@ def nearby(lat: float, lng: float) -> list[dict[str, Any]]:
         # nightlife is its own search so bars don't crowd out other activities
         vtype = "food_deal" if kind == "food_deal" else "activity"
         places += [{**p, "_kind": vtype} for p in _post("searchNearby", body, FIELDS)]
+    places = list({p["id"]: p for p in places}.values())  # one place can match several searches
     _cache[cell] = (time.time(), places)
     return places
 
@@ -138,13 +139,18 @@ def to_item(place: dict[str, Any], now: datetime) -> dict[str, Any] | None:
     primary = place.get("primaryType", "")
     if primary in SKIP_PRIMARY or primary.endswith("_store") or "lodging" in place.get("types", []):
         return None
-    hours = _hours_today(place.get("regularOpeningHours", {}), now)
-    if not hours:
-        return None  # closed today or no hours: can't promise it's open
     types = place.get("types", [])
     kind = google_kind(types, primary)
     if kind is None:
         return None
+    if kind.booking:
+        # Theatres, gigs and cinemas list box-office hours, not show times, so ignore them.
+        # shortcut: treat as bookable for this evening; real start times come from the Scout agent.
+        hours: tuple[str, str] | None = ("00:00", "23:30")
+    else:
+        hours = _hours_today(place.get("regularOpeningHours", {}), now)
+    if not hours:
+        return None  # closed today or no hours: can't promise it's open
     start = place.get("priceRange", {}).get("startPrice", {}).get("units")
     return {
         "id": place["id"],
@@ -164,6 +170,7 @@ def to_item(place: dict[str, Any], now: datetime) -> dict[str, Any] | None:
         "tags": tags_for(kind, outdoors="park" in types),
         "category": kind.category,
         "group": kind.group,
+        "needs_booking": kind.booking,
         "url": place.get("websiteUri") or place.get("googleMapsUri"),
         "maps_url": place.get("googleMapsUri"),
         "source": "Google Places",

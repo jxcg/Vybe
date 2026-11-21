@@ -21,7 +21,7 @@
   .board-scroll {
     display: grid;
     grid-template-columns: minmax(0, 1fr) var(--side);
-    grid-template-rows: auto 1fr;
+    grid-template-rows: auto auto 1fr;
     column-gap: 40px;
     align-items: start;
     padding: 8px var(--gutter) 120px;
@@ -45,17 +45,24 @@
     margin-top: 10px;
   }
 
+  .group-filter {
+    grid-column: 1;
+    padding: 0;
+    margin-top: 28px;
+    min-height: 40px; /* scroll containers can collapse to 0 in an auto grid row */
+  }
+
   /* Picks: best pick as a big poster, the other two stacked beside it */
   .hero {
     grid-column: 1;
-    margin-top: 32px;
+    margin-top: 20px;
     container-type: normal;
   }
   .hero-track {
     display: grid;
     grid-template-columns: 1.45fr 1fr;
     /* Fit above the floating talk bar on a laptop screen */
-    grid-template-rows: repeat(2, clamp(200px, calc((100dvh - 420px) / 2), 320px));
+    grid-template-rows: repeat(2, clamp(190px, calc((100dvh - 480px) / 2), 320px));
     gap: 16px;
     overflow: visible;
     padding: 0;
@@ -82,7 +89,7 @@
   /* Departures: a station-board panel that scrolls on its own */
   .dlist {
     grid-column: 2;
-    grid-row: 1 / span 2;
+    grid-row: 1 / span 3;
     position: sticky;
     top: 16px;
     margin-top: 24px;

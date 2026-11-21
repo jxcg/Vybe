@@ -1,4 +1,4 @@
-import { useRef, useState, type MouseEvent } from 'react';
+import { useRef, type MouseEvent } from 'react';
 import type { Row } from '../contract';
 import { dayWord, MINUTE } from '../lib/time';
 import { DepartureRow } from './DepartureRow';
@@ -8,8 +8,6 @@ const SOON_MIN = 30;
 /** A departed row shows "Departed" this long, then collapses away. */
 const DEPARTED_SHOW_MS = 3000;
 const COLLAPSE_MS = 320;
-/** Browse order for the filter chips; only groups present on the board are shown. */
-const GROUPS = ['Food', 'Drinks', 'Entertainment', 'Culture', 'Outdoors'];
 
 interface Props {
   rows: Row[];
@@ -41,37 +39,22 @@ function useDepartedPhase(rows: Row[], wallMs: number): (row: Row) => Phase {
 
 export function DepartureList({ rows, nowMs, wallMs, onOpen }: Props) {
   const phaseOf = useDepartedPhase(rows, wallMs);
-  const [group, setGroup] = useState<string | null>(null);
-  const present = GROUPS.filter((g) => rows.some((r) => !r.pick && r.group === g));
-  const active = group && present.includes(group) ? group : null;
   const rest = rows
-    .filter((r) => !r.pick && (!active || r.group === active))
+    .filter((r) => !r.pick)
     .map((row) => ({ row, phase: phaseOf(row) }))
     .filter((r) => r.phase !== 'gone');
   const cutoff = nowMs + SOON_MIN * MINUTE;
+  // Urgent things first; walk-in places that are simply open come next; timed things later on.
+  const soon = (r: { row: Row }) => Date.parse(r.row.leave_by) <= cutoff;
   const groups = [
-    { title: 'Next 30 minutes', items: rest.filter((r) => Date.parse(r.row.leave_by) <= cutoff) },
-    { title: `Later ${dayWord(nowMs)}`, items: rest.filter((r) => Date.parse(r.row.leave_by) > cutoff) },
+    { title: 'Next 30 minutes', items: rest.filter(soon) },
+    { title: 'Open now', items: rest.filter((r) => !soon(r) && r.row.timed === false && !r.row.needs_booking) },
+    { title: 'Book for tonight', items: rest.filter((r) => !soon(r) && r.row.timed === false && r.row.needs_booking) },
+    { title: `Later ${dayWord(nowMs)}`, items: rest.filter((r) => !soon(r) && r.row.timed !== false) },
   ].filter((g) => g.items.length > 0);
 
   return (
     <div className="dlist">
-      {present.length > 1 && (
-        <div className="dlist-filter" role="group" aria-label="Show">
-          {[null, ...present].map((g) => (
-            <button
-              key={g ?? 'all'}
-              type="button"
-              className="dlist-chip"
-              aria-pressed={active === g}
-              onClick={() => setGroup(g)}
-            >
-              {g ?? 'All'}
-              {g && <span className="dlist-chip-count">{rows.filter((r) => !r.pick && r.group === g).length}</span>}
-            </button>
-          ))}
-        </div>
-      )}
       {groups.map((group) => (
         <section key={group.title} className="dlist-group">
           <h2 className="t-sub dlist-title">{group.title}</h2>

@@ -43,3 +43,38 @@
 .board-scroll > * {
   flex-shrink: 0;
 }
+
+/* Browse by kind: Everything · Food · Drinks · Entertainment · Culture · Outdoors */
+.group-filter {
+  display: flex;
+  gap: 8px;
+  margin-top: 20px;
+  padding: 0 calc(var(--gutter) + var(--safe-right)) 0 calc(var(--gutter) + var(--safe-left));
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.group-filter::-webkit-scrollbar {
+  display: none;
+}
+.group-chip {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: var(--r-pill);
+  border: var(--hairline);
+  background: var(--card);
+  color: var(--text-2);
+  font-size: 14px;
+  font-weight: 500;
+}
+.group-chip[aria-pressed='true'] {
+  background: var(--text);
+  border-color: var(--text);
+  color: var(--bg);
+}
+.group-chip-count {
+  font-size: 12px;
+  opacity: 0.6;
+}

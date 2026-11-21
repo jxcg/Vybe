@@ -1,7 +1,7 @@
 import type { MouseEvent } from 'react';
 import type { Row } from '../contract';
-import { formatPrice } from '../lib/format';
-import { formatHM, leaveHint } from '../lib/time';
+import { formatPrice, when } from '../lib/format';
+import { leaveHint } from '../lib/time';
 import { useVenueColors, venueStyle } from '../lib/venueColors';
 import { StatusText } from './StatusText';
 import './DepartureRow.css';
@@ -25,7 +25,7 @@ export function DepartureRow({ row, nowMs, onOpen }: Props) {
       data-row-id={row.id}
       onClick={(e) => onOpen(row, e)}
     >
-      <span className="drow-time tnum">{formatHM(row.departure_time)}</span>
+      <span className={`drow-time tnum${row.timed === false ? ' drow-time--word' : ''}`}>{when(row).value}</span>
       <span className="drow-body">
         <span className="drow-line">
           <span className="drow-name">

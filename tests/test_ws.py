@@ -174,3 +174,69 @@ def test_picks_come_from_different_groups() -> None:
     )
     picks = {r["pick"]: r["id"] for r in rows if r["pick"]}
     assert picks == {"best": "t1", "runner_up": "f1", "wildcard": "d1"}
+
+
+def test_audit_fixes_for_categories() -> None:
+    from app.categories import google_kind
+
+    def group(types: list[str], primary: str = "") -> str | None:
+        k = google_kind(types, primary)
+        return k.group if k else None
+
+    assert (
+        group(["indian_restaurant", "bar", "restaurant"], "indian_restaurant") == "Food"
+    )  # Dishoom
+    assert group(["steak_house", "bar"], "steak_house") == "Food"  # Blacklock
+    assert group(["bar", "miniature_golf_course"], "bar") == "Entertainment"  # Puttshack
+    assert group(["bar", "karaoke"], "bar") == "Entertainment"  # Lucky Voice
+    assert group(["irish_pub", "pub"], "irish_pub") == "Drinks"
+    assert (
+        group(["chicken_restaurant", "restaurant"], "chicken_restaurant") is None
+    )  # Dave's Hot Chicken
+    assert group(["university", "performing_arts_theater"]) is None  # Guildhall School
+    assert group(["store"], "store") is None
+
+
+def test_walk_in_places_have_no_time_and_bookable_ones_get_book() -> None:
+    from datetime import datetime
+
+    now = datetime(2026, 11, 21, 18, 0)
+    base = {
+        "type": "food_deal",
+        "tags": ["food", "indoors"],
+        "group": "Food",
+        "category": "food",
+        "opens": "11:00",
+        "closes": "00:00",
+        "closes_at": "2026-11-22T00:00:00",
+        "leave_by_at": "2026-11-21T22:50:00",
+        "walk_mins": 5,
+        "match": 80,
+        "reasons": [],
+        "rating": 4.1,
+        "lat": 0,
+        "lng": 0,
+        "url": "https://example.com",
+    }
+    food = ws.to_rows([{**base, "id": "dave", "name": "Chicken place"}], now, raining=False)[0]
+    assert (food["timed"], food["departure_label"], food["booking_url"]) == (
+        False,
+        "Open till",
+        None,
+    )
+    show = ws.to_rows(
+        [
+            {
+                **base,
+                "id": "show",
+                "name": "A Theatre",
+                "needs_booking": True,
+                "group": "Entertainment",
+            }
+        ],
+        now,
+        raining=False,
+    )[0]
+    assert (
+        show["needs_booking"] and show["booking_url"] == "https://example.com" and not show["timed"]
+    )

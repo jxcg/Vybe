@@ -6,6 +6,7 @@ import { handoff } from '../lib/handoff';
 import { ghost, MORPH_MS, prefersReducedMotion, shapeOf } from '../lib/morph';
 import { RainMark } from './RainMark';
 import { RollingNumber } from './RollingNumber';
+import { ThemeToggle } from './ThemeToggle';
 import { Wordmark } from './Wordmark';
 import './BoardHeader.css';
 
@@ -55,9 +56,12 @@ export function BoardHeader({ board, nowMs }: Props) {
     <header className="board-header">
       <div className="board-header-bar">
         <Wordmark />
-        <button className="icon-btn" type="button" aria-label="Invite friends">
-          <UserPlus size={20} strokeWidth={2} />
-        </button>
+        <div className="board-header-actions">
+          <ThemeToggle />
+          <button className="icon-btn" type="button" aria-label="Invite friends">
+            <UserPlus size={20} strokeWidth={2} />
+          </button>
+        </div>
       </div>
       {board && (
         <>

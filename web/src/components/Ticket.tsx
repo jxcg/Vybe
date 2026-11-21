@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Bookmark, ChevronLeft, Navigation, Ticket as TicketIcon, X } from 'lucide-react';
 import type { Row } from '../contract';
-import { ago, formatPrice, hostname } from '../lib/format';
+import { ago, formatPrice, hostname, when } from '../lib/format';
 import { formatHM, MINUTE } from '../lib/time';
 import { darken, useVenueColors, venueStyle } from '../lib/venueColors';
 import { Grain } from './Grain';
@@ -80,7 +80,7 @@ export function Ticket({ row, next, nowMs, student, liked, onBack, onNext, onLik
           {price && <span className="ticket-dot">·</span>}
           {price}
           <span className="ticket-dot">·</span>
-          {row.departure_label} {formatHM(row.departure_time)}
+          {when(row).line}
         </p>
         <p className="ticket-scores">
           <strong>{Math.round(row.score * 10)}% match</strong>

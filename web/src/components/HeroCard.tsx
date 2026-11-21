@@ -1,6 +1,6 @@
 import { useState, type MouseEvent } from 'react';
 import type { Pick, Row } from '../contract';
-import { formatPrice } from '../lib/format';
+import { formatPrice, when } from '../lib/format';
 import { formatHM, MINUTE, minutesUntil } from '../lib/time';
 import { useVenueColors, venueStyle } from '../lib/venueColors';
 import { FuseLine } from './FuseLine';
@@ -68,8 +68,8 @@ export function HeroCard({ row, nowMs, student, onOpen }: Props) {
       </span>
 
       <span className="hero-card-when">
-        <span className="hero-card-dlabel t-label">{row.departure_label}</span>
-        <span className="hero-card-time tnum">{formatHM(row.departure_time)}</span>
+        <span className="hero-card-dlabel t-label">{when(row).label}</span>
+        <span className="hero-card-time tnum">{when(row).value}</span>
       </span>
 
       <span className="t-section hero-card-name">{row.name}</span>

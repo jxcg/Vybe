@@ -90,6 +90,17 @@ def _icon(reason: str) -> str:
     return next((icon for prefix, icon in ICONS.items() if reason.startswith(prefix)), "Sparkles")
 
 
+def _parse_local(value: object) -> datetime | None:
+    """ISO time from the pipeline → naive London time, or None."""
+    if not isinstance(value, str):
+        return None
+    try:
+        t = datetime.fromisoformat(value)
+    except ValueError:
+        return None
+    return t.astimezone(LONDON).replace(tzinfo=None) if t.tzinfo else t
+
+
 def _enriched() -> dict[str, Any]:
     """Mistral's pipeline output (Contract 1). Missing or broken file means no extras."""
     try:
@@ -99,12 +110,26 @@ def _enriched() -> dict[str, Any]:
         return {}
 
 
-def to_rows(cards: list[dict[str, Any]], now: datetime, raining: bool) -> list[dict[str, Any]]:
+def _group_of(item: dict[str, Any]) -> str:
+    category = item.get("category") or CATEGORY.get(item["tags"][0], "other")
+    return str(item.get("group") or GROUP.get(category, "Entertainment"))
+
+
+def to_rows(
+    cards: list[dict[str, Any]], now: datetime, raining: bool, mixed: bool = True
+) -> list[dict[str, Any]]:
+    """`mixed`: pick the three hero cards from different groups (off when showing one group)."""
     extras = _enriched()
     rows = []
     for c in cards:
         extra = extras.get(c["id"]) or {}
         leave_by = datetime.fromisoformat(c["leave_by_at"])
+        # A real start time only comes from the pipeline (an event or show found by the Scout).
+        # Without one, a place is walk-in: shown as "Open till …", never as a time to turn up.
+        starts = _parse_local(extra.get("starts_at"))
+        if starts:
+            leave_by = starts - timedelta(minutes=c["walk_mins"] + 5)
+        allday = c.get("opens") == c.get("closes")
         price = extra.get("price", c.get("price"))
         rows.append(
             {
@@ -117,10 +142,18 @@ def to_rows(cards: list[dict[str, Any]], now: datetime, raining: bool) -> list[d
                 or GROUP.get(
                     c.get("category") or CATEGORY.get(c["tags"][0], "other"), "Entertainment"
                 ),
-                "departure_time": _iso(c["closes_at"]),
-                "departure_label": "Kitchen closes" if c["type"] == "food_deal" else "Last entry",
+                "departure_time": starts.replace(tzinfo=LONDON).isoformat()
+                if starts
+                else _iso(c["closes_at"]),
+                "departure_label": "Starts"
+                if starts
+                else "Open 24 hours"
+                if allday
+                else "Open till",
+                "timed": bool(starts),
+                "needs_booking": bool(c.get("needs_booking")),
                 "status": _status(leave_by, now, "outdoors" in c["tags"], raining),
-                "leave_by": _iso(c["leave_by_at"]),
+                "leave_by": leave_by.replace(tzinfo=LONDON).isoformat(),
                 "walk_min": c["walk_mins"],
                 "your_price": price,
                 "was_price": None,
@@ -131,7 +164,10 @@ def to_rows(cards: list[dict[str, Any]], now: datetime, raining: bool) -> list[d
                 "colors": venue_colors(extra.get("brand_color")),
                 "pitch": extra.get("deal") or extra.get("script") or "",
                 "voiceover_url": extra.get("voiceover"),
-                "booking_url": c.get("url"),
+                # Only bookable things get a Book button; walk-ins get Directions
+                "booking_url": (extra.get("booking_url") or c.get("url"))
+                if c.get("needs_booking")
+                else None,
                 "rating": c["rating"],
                 "lat": c["lat"],
                 "lng": c["lng"],
@@ -144,7 +180,7 @@ def to_rows(cards: list[dict[str, Any]], now: datetime, raining: bool) -> list[d
     # group (highest rated), so the three hero cards aren't three theatres.
     used: set[str] = set()
     for pick, key in (("best", None), ("runner_up", None), ("wildcard", "rating")):
-        pool = [r for r in live if r["pick"] is None and r["group"] not in used]
+        pool = [r for r in live if r["pick"] is None and (not mixed or r["group"] not in used)]
         if key:
             pool.sort(key=lambda r: -(r["rating"] or 0))
         if pool:
@@ -211,6 +247,7 @@ class Session:
         self.liked: set[str] = set()
         self.skipped: set[str] = set()
         self.offset = timedelta()  # time travel
+        self.group: str | None = None  # show only Food, Drinks, Entertainment, Culture or Outdoors
         self.audio = bytearray()
         self.talking = False
 
@@ -233,6 +270,12 @@ class Session:
             and not drop & set(i["tags"])
             and not any(w in i["name"].lower() for w in words)
         ]
+        counts: dict[str, int] = {}
+        for i in items:
+            g = _group_of(i)
+            counts[g] = counts.get(g, 0) + 1
+        if self.group:
+            items = [i for i in items if _group_of(i) == self.group]
         weather = geo.weather(lat, lng)
         cards = rank(
             items,
@@ -245,7 +288,7 @@ class Session:
             prefer=frozenset(INTO[t] for t in self.prefs["include"] if t in INTO),
         )
         raining = bool(weather and weather.raining)
-        rows = to_rows(cards, now, raining)
+        rows = to_rows(cards, now, raining, mixed=self.group is None)
         if weather is None:
             summary = ""
         else:
@@ -264,6 +307,8 @@ class Session:
             "rows": rows,
             "boarded": {},
             "decision": None,
+            "groups": counts,
+            "group": self.group,
         }
 
     async def board(self) -> None:
@@ -315,6 +360,12 @@ class Session:
                 self.offset = target - datetime.now(LONDON).replace(tzinfo=None)
             except (KeyError, ValueError):
                 return
+            await self.board()
+        elif kind == "show":
+            g = msg.get("group")
+            self.group = (
+                g if g in ("Food", "Drinks", "Entertainment", "Culture", "Outdoors") else None
+            )
             await self.board()
         elif kind == "refresh_now":
             await self.send({"type": "note", "text": "Refreshing what's on…"})

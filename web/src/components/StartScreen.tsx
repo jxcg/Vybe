@@ -12,6 +12,7 @@ import { RowSheet } from './RowSheet';
 import { SentenceSlot } from './SentenceSlot';
 import { TypeField } from './TypeField';
 import { VybeCard, type RowKey } from './VybeCard';
+import { ThemeToggle } from './ThemeToggle';
 import { Wordmark } from './Wordmark';
 import './StartScreen.css';
 
@@ -166,7 +167,10 @@ export function StartScreen() {
   return (
     <div className="start">
       <div className="start-body">
-        <Wordmark size="lg" />
+        <div className="start-top">
+          <Wordmark size="lg" />
+          <ThemeToggle />
+        </div>
         <h1 className="start-title">{settings ? 'Change your vybe' : 'Let’s build your vybe.'}</h1>
         <p className="start-sub">
           Tell us what you{'\u2019'}re in the mood for. Just talk, we{'\u2019'}ll sort out the details.
