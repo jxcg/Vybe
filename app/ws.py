@@ -325,7 +325,8 @@ class Session:
     def build_board(self) -> dict[str, Any]:
         now = self.now()
         specific = specific_interests(self.prefs["requested"])
-        items, weather = self.source(self.place, now, specific)
+        requested = specific | {self.group} if self.group else specific
+        items, weather = self.source(self.place, now, requested)
         budget = self.prefs["budget"]
         items = [
             item

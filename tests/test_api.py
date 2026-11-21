@@ -100,6 +100,26 @@ def test_explicit_pizza_and_comedy_get_independent_cached_searches(
     assert calls == [["comedy_club"], ["pizza_restaurant"]]
 
 
+def test_category_and_activity_searches_use_separate_result_limits(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[dict[str, Any]] = []
+
+    def search(endpoint: str, body: dict[str, Any], fields: str) -> list[dict[str, Any]]:
+        calls.append(body)
+        return []
+
+    monkeypatch.setattr(places, "_post", search)
+    monkeypatch.setattr(places, "_request_cache", {})
+    places.requested_nearby(51.51, -0.13, {"Food", "food", "Outdoors", "sushi", "karaoke"})
+    assert len(calls) == 4
+    assert [call.get("rankPreference") for call in calls] == ["DISTANCE", "DISTANCE", None, None]
+    assert "restaurant" in calls[0]["includedTypes"]
+    assert "park" in calls[1]["includedTypes"]
+    assert calls[2]["includedTypes"] == ["karaoke"]
+    assert calls[3]["includedTypes"] == ["sushi_restaurant"]
+
+
 def test_place_photo_is_fresh_and_keeps_key_server_side(monkeypatch: pytest.MonkeyPatch) -> None:
     import time
 

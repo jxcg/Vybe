@@ -25,12 +25,13 @@ function fallbackIntro(row: Row, previous: string | null): string {
 }
 
 /** Browse by kind. The server rebuilds the whole board (picks, count, list) for the chosen group. */
-function GroupFilter({ groups, active, onPick }: {
+function GroupFilter({ groups, active, showEmpty, onPick }: {
   groups: Record<string, number>;
   active: string | null;
+  showEmpty: boolean;
   onPick: (group: string | null) => void;
 }) {
-  const present = GROUP_ORDER.filter((g) => groups[g] || g === active);
+  const present = showEmpty ? GROUP_ORDER : GROUP_ORDER.filter((g) => groups[g] || g === active);
   if (present.length < 2 && !active) return null;
   const total = present.reduce((n, g) => n + (groups[g] ?? 0), 0);
   return (
@@ -147,6 +148,7 @@ export function Board() {
               <GroupFilter
                 groups={board.groups}
                 active={board.group ?? null}
+                showEmpty={!isMock && !toPrefs(vybe).requested?.length}
                 onPick={(group) => send({ type: 'show', group })}
               />
             )}
