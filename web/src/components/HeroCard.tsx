@@ -5,7 +5,6 @@ import { formatPrice, when } from '../lib/format';
 import { formatHM, MINUTE, minutesUntil } from '../lib/time';
 import { useVenueColors, venueStyle } from '../lib/venueColors';
 import { FuseLine } from './FuseLine';
-import { Grain } from './Grain';
 import { RollingNumber } from './RollingNumber';
 import { VenueRating } from './VenueRating';
 import { StatusText } from './StatusText';
@@ -50,7 +49,6 @@ export function HeroCard({ row, nowMs, student, onOpen }: Props) {
   const [failedPhoto, setFailedPhoto] = useState<string | null>(null);
   const isPhoto = Boolean(photoUrl && photoUrl === loadedPhoto);
   const colors = useVenueColors(row, isPhoto ? photoUrl : null);
-  const reason = row.reasons[0]?.text;
 
   return (
     <button
@@ -60,49 +58,46 @@ export function HeroCard({ row, nowMs, student, onOpen }: Props) {
       data-row-id={row.id}
       onClick={(e) => onOpen(row, e)}
     >
-      {photoUrl && photoUrl !== failedPhoto && (
-        <span className="hero-card-photo" aria-hidden="true">
-          <img src={photoUrl} alt="" onLoad={() => setLoadedPhoto(photoUrl)} onError={() => setFailedPhoto(photoUrl)} />
-        </span>
-      )}
-
-      <span className="hero-card-top">
-        {row.pick && (
-          <span className={`hero-tag${row.pick === 'best' ? ' hero-tag--best' : ''}`}>{PICK_LABEL[row.pick]}</span>
+      <span className="hero-card-media">
+        {photoUrl && photoUrl !== failedPhoto && (
+          <img
+            className="hero-card-photo"
+            src={photoUrl}
+            alt=""
+            onLoad={() => setLoadedPhoto(photoUrl)}
+            onError={() => setFailedPhoto(photoUrl)}
+          />
         )}
-        <span className="hero-tag">
-          <StatusText status={row.status} />
+        <span className="hero-card-top">
+          {row.pick && <span className="hero-tag">{PICK_LABEL[row.pick]}</span>}
+          {row.status !== 'on_time' && (
+            <span className="hero-tag hero-tag--status">
+              <StatusText status={row.status} />
+            </span>
+          )}
         </span>
       </span>
 
-      <span className="hero-card-when">
-        <span className="hero-card-dlabel t-label">{when(row).label}</span>
-        <span className="hero-card-time tnum">{when(row).value}</span>
-      </span>
-
-      <span className="t-section hero-card-name">
-        <span className="hero-card-name-text">{row.name}</span>
-        <VenueRating rating={row.rating} />
-      </span>
-      {reason && <span className="t-secondary hero-card-reason">{reason}</span>}
-
-      <span className="hero-card-bottom">
-        <span className="t-key tnum">
-          <LeaveText row={row} nowMs={nowMs} />
+      <span className="hero-card-content">
+        <span className="hero-card-meta">{when(row).line}</span>
+        <span className="hero-card-name">
+          <span className="hero-card-name-text" title={row.name}>{row.name}</span>
+          <VenueRating rating={row.rating} />
         </span>
-        <span className="t-secondary hero-card-meta">
+        <span className="hero-card-meta">
           <span>{row.walk_min} min walk</span>
           {price && <span>{price}</span>}
         </span>
-      </span>
-
-      {isPhoto && (google || row.photo_credit) && (
-        <span className="card-photo-credit">
-          {google ? ['Google Maps', ...google.authors.map((author) => author.displayName)].join(' · ') : `Photo · ${row.photo_credit}`}
+        <span className="hero-card-leave tnum">
+          <LeaveText row={row} nowMs={nowMs} />
         </span>
-      )}
+        {isPhoto && (google || row.photo_credit) && (
+          <span className="card-photo-credit">
+            {google ? ['Google Maps', ...google.authors.map((author) => author.displayName)].join(' · ') : `Photo · ${row.photo_credit}`}
+          </span>
+        )}
+      </span>
       <FuseLine fraction={fuse} />
-      <Grain />
     </button>
   );
 }

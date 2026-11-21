@@ -1,18 +1,17 @@
 .hero-card {
   position: relative;
-  flex: 0 0 calc(100cqw - 48px);
-  scroll-snap-align: start;
   display: flex;
+  flex: 0 0 calc(100cqw - 48px);
   flex-direction: column;
-  padding: 20px 20px 23px;
-  border-radius: var(--r-card);
+  min-width: 0;
+  padding: 0;
   overflow: hidden;
-  background:
-    radial-gradient(ellipse at 10% 4%, color-mix(in srgb, var(--soft) 29%, transparent), transparent 72%),
-    radial-gradient(ellipse at 90% 85%, color-mix(in srgb, var(--soft) 16%, transparent), transparent 66%),
-    var(--deep);
-  color: var(--text);
+  scroll-snap-align: start;
   border: 1px solid var(--soft);
+  border-radius: var(--r-card);
+  background: var(--deep);
+  color: var(--light);
+  text-align: left;
   transition: transform var(--dur-fast) ease;
 }
 
@@ -20,190 +19,123 @@
   transform: scale(0.985);
 }
 
-/* ── Photo variant: full-bleed image behind the top of the card, fading into the venue colour ── */
-
-.hero-card {
-  --photo-h: 180px;
-}
-
-/* Content layers above the photo (the fuse and grain keep their own absolute positioning) */
-.hero-card-top,
-.hero-card-when,
-.hero-card-name,
-.hero-card-reason,
-.hero-card-bottom {
+.hero-card-media {
   position: relative;
-}
-
-.hero-card > .hero-card-photo {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: var(--photo-h);
-  overflow: hidden;
-  visibility: hidden;
-}
-
-.hero-card--photo > .hero-card-photo {
-  visibility: visible;
-}
-
-.hero-card-photo img {
   display: block;
+  width: 100%;
+  flex: none;
+  background: linear-gradient(145deg, var(--soft), var(--deep));
+}
+
+.hero-card--photo .hero-card-media {
+  height: clamp(145px, 24vw, 204px);
+}
+
+.hero-card-photo {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
-  animation: hero-photo-in 280ms ease-out both;
+  visibility: hidden;
 }
 
-/* The one gradient in the app: photo into the venue's deep colour */
-.hero-card-photo::after {
+.hero-card--photo .hero-card-photo {
+  visibility: visible;
+}
+
+.hero-card--photo .hero-card-media::after {
   content: '';
   position: absolute;
   inset: 0;
   background: linear-gradient(to bottom in srgb, transparent var(--photo-fade-start, 50%), var(--deep));
 }
 
-/* ── Content ── */
-
 .hero-card-top {
+  position: relative;
+  z-index: 1;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
-  gap: 8px;
-  margin: -6px -6px 0; /* tags sit a little closer to the card corner */
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 14px 16px 0;
 }
 
-/* Pick + status: small dark tags, readable on a photo or a poster */
 .hero-tag {
-  display: inline-flex;
-  align-items: center;
-  height: 26px;
-  padding: 0 11px;
+  padding: 5px 9px;
   border-radius: var(--r-pill);
   background: color-mix(in oklch, var(--deep) 62%, black);
   color: var(--light);
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 600;
-  line-height: 1;
-  white-space: nowrap;
+  line-height: 1.2;
 }
 
-.hero-tag--best {
-  color: var(--accent);
-}
-
-.hero-tag:only-child {
+.hero-tag--status {
   margin-left: auto;
 }
 
-/* Poster cards push the time down so all three cards share one height cleanly */
-.hero-card-when {
-  display: flex;
-  flex-direction: column;
-  margin-top: auto;
-  padding-top: 22px;
-}
-
-/* Reserve space for the photo above the time. */
-.hero-card--photo .hero-card-when {
-  padding-top: max(22px, calc(var(--photo-h) - 34px));
-}
-
-.hero-card-dlabel {
-  color: var(--light);
-  opacity: 0.75;
-}
-
-.hero-card--photo .hero-card-dlabel,
-.hero-card--photo .hero-card-reason {
-  opacity: 1;
-}
-
-.hero-card-time {
-  margin-top: 2px;
-  font-family: var(--font-head);
-  font-size: 84px;
-  font-weight: 700;
-  line-height: 0.95;
-  letter-spacing: -0.03em;
-  color: var(--light);
+.hero-card-content {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-content: start;
+  gap: 7px;
+  flex: 1;
+  width: 100%;
+  container-type: inline-size;
+  padding: 16px 16px 19px;
 }
 
 .hero-card-name {
-  margin-top: 10px;
   display: flex;
   align-items: baseline;
   gap: 8px;
-  min-width: 0;
+  color: var(--text);
+  font-family: var(--font-head);
+  font-size: clamp(24px, 7cqi, 40px);
+  font-weight: 650;
+  line-height: 1.18;
+  letter-spacing: -0.02em;
 }
 
 .hero-card-name-text {
   min-width: 0;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
   overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.hero-card-reason {
-  margin-top: 4px;
+.hero-card-name .venue-rating {
   color: var(--light);
-  opacity: 0.8;
-  display: -webkit-box;
-  -webkit-line-clamp: 1;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
-.hero-card-bottom {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 4px 12px;
-  flex-wrap: wrap;
-  margin-top: 16px;
+  letter-spacing: normal;
 }
 
 .hero-card-meta {
   display: flex;
   flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 0 10px;
-  color: var(--light);
+  align-items: baseline;
+  gap: 3px 8px;
+  font-size: 13px;
+  line-height: 1.35;
 }
 
-@keyframes hero-photo-in {
-  from {
-    opacity: 0;
-  }
+.hero-card-meta > span + span::before {
+  content: '·';
+  margin-inline-end: 8px;
 }
 
-/* Short screens: keep the list in view under the picks */
-@media (max-height: 760px) {
-  .hero-card {
-    --photo-h: 150px;
-  }
-  .hero-card-when {
-    padding-top: 16px;
-  }
+.hero-card-leave {
+  margin-top: 3px;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
 }
 
 .card-photo-credit {
-  position: relative;
   color: var(--light);
   font-size: 11px;
   line-height: 1.3;
   overflow-wrap: anywhere;
-}
-
-.hero-card .card-photo-credit {
-  margin-top: 6px;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .hero-card-photo img {
-    animation: none;
-  }
 }
