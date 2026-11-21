@@ -120,6 +120,37 @@ def test_specific_requests_match_venue_evidence(
             }
 
 
+def test_food_and_comedy_keep_both_groups_visible(monkeypatch: pytest.MonkeyPatch) -> None:
+    from datetime import datetime
+
+    from app.main import items_near
+
+    now = datetime(2026, 11, 21, 18)
+    sample = items_near(51.51, -0.13, now)[0]
+    items = [
+        dict(sample, id="food", group="Food", tags=["food"], opens="10:00", closes="23:00"),
+        dict(
+            sample,
+            id="comedy",
+            group="Entertainment",
+            tags=["comedy"],
+            opens="10:00",
+            closes="23:00",
+        ),
+    ]
+    monkeypatch.setattr("app.main.items_near", lambda *args: items)
+    monkeypatch.setattr(ws.Session, "now", lambda _: now)
+    with TestClient(app).websocket_connect("/ws") as sock:
+        sock.send_json({"type": "join"})
+        recv(sock, "board")
+        sock.send_json({"type": "talk_text", "text": "I want to have a laugh and eat food"})
+        chips = recv(sock, "chips")
+        sock.send_json({"type": "prefs", "include": chips["include"]})
+        board = recv(sock, "board")
+        assert board["group"] is None
+        assert {row["id"] for row in board["rows"]} == {"food", "comedy"}
+
+
 def test_smoke_flow_from_integration_guide() -> None:
     client = TestClient(app)
     with client.websocket_connect("/ws") as sock:

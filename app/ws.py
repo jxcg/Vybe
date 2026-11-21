@@ -358,10 +358,10 @@ class Session:
                 counts[g] = counts.get(g, 0) + 1
         group = self.group
         if not self.group_chosen and not specific:
-            group = next(
-                (g for tag in self.prefs["include"] if (g := INTEREST_GROUP.get(tag)) in counts),
-                None,
-            )
+            groups = {
+                g for tag in self.prefs["include"] if (g := INTEREST_GROUP.get(tag)) in counts
+            }
+            group = groups.pop() if len(groups) == 1 else None
         if group:
             rows = [row for row in rows if row["group"] == group]
         _assign_picks(rows, mixed=group is None)

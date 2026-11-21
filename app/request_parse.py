@@ -255,6 +255,7 @@ def named_requests(text: str) -> tuple[list[str], list[str]]:
         "lunch",
         "brunch",
         "bite",
+        "laugh",
         "funny",
         "show",
         "stuff",
