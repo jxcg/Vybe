@@ -37,7 +37,8 @@ Put `(now)` after the milestone being worked on. Owners: (Claude), (Mistral), (T
 - [ ] Voxtral TTS voiceovers (Mistral)
 - [ ] `/vybe` skill triggers a refresh (Mistral)
 
-## Design
+## Design (now)
+- [ ] Render cached photo and gradient themes and verify the Studio debate (Team)
 - [x] Teammate's VYBE frontend merged, with the `/ws` backend (Claude)
 - [x] Light mode as primary, venue-colour glow on cards (Claude)
 - [ ] Brand colours from each venue's website (Mistral)

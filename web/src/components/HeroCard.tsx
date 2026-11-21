@@ -1,4 +1,5 @@
 import { useState, type MouseEvent } from 'react';
+import { usePlacePhoto } from '../lib/placePhoto';
 import type { Pick, Row } from '../contract';
 import { formatPrice, when } from '../lib/format';
 import { formatHM, MINUTE, minutesUntil } from '../lib/time';
@@ -43,21 +44,24 @@ export function HeroCard({ row, nowMs, student, onOpen }: Props) {
   const price = formatPrice(row, student);
   const fuse = (Date.parse(row.leave_by) - nowMs) / (FUSE_WINDOW_MIN * MINUTE);
   // Photo cards only once the image has actually loaded; otherwise the poster layout.
-  const [photo, setPhoto] = useState<'loading' | 'ok' | 'failed'>(row.photo_url ? 'loading' : 'failed');
+  const { url: photoUrl, google } = usePlacePhoto(row);
+  const [loadedPhoto, setLoadedPhoto] = useState<string | null>(null);
+  const [failedPhoto, setFailedPhoto] = useState<string | null>(null);
+  const isPhoto = Boolean(photoUrl && photoUrl === loadedPhoto);
   const reason = row.reasons[0]?.text;
   const colors = useVenueColors(row);
 
   return (
     <button
-      className={`hero-card${photo === 'ok' ? ' hero-card--photo' : ''}${row.score >= TOP_SCORE ? ' is-top' : ''}`}
+      className={`hero-card${isPhoto ? ' hero-card--photo' : ''}${row.score >= TOP_SCORE ? ' is-top' : ''}`}
       type="button"
       style={venueStyle(colors)}
       data-row-id={row.id}
       onClick={(e) => onOpen(row, e)}
     >
-      {row.photo_url && photo !== 'failed' && (
+      {photoUrl && photoUrl !== failedPhoto && (
         <span className="hero-card-photo" aria-hidden="true">
-          <img src={row.photo_url} alt="" onLoad={() => setPhoto('ok')} onError={() => setPhoto('failed')} />
+          <img src={photoUrl} alt="" onLoad={() => setLoadedPhoto(photoUrl)} onError={() => setFailedPhoto(photoUrl)} />
         </span>
       )}
 
@@ -88,6 +92,11 @@ export function HeroCard({ row, nowMs, student, onOpen }: Props) {
         </span>
       </span>
 
+      {isPhoto && (google || row.photo_credit) && (
+        <span className="card-photo-credit">
+          {google ? ['Google Maps', ...google.authors.map((author) => author.displayName)].join(' · ') : `Photo · ${row.photo_credit}`}
+        </span>
+      )}
       <FuseLine fraction={fuse} />
       <Grain />
     </button>

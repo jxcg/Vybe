@@ -1,3 +1,5 @@
+from typing import Any
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -73,3 +75,49 @@ def test_places_mapping() -> None:
     sun_0030 = datetime(2026, 11, 22, 0, 30)  # still inside Saturday's late window
     assert (places.to_item(place, sun_0030) or {}).get("closes") == "01:00"
     assert places.to_item({**place, "regularOpeningHours": {}}, sat_8pm) is None
+
+
+def test_place_photo_is_fresh_and_keeps_key_server_side(monkeypatch: pytest.MonkeyPatch) -> None:
+    import time
+
+    import httpx
+
+    place_id = "demo-place"
+    monkeypatch.setenv("GOOGLE_PLACES_API_KEY", "test-server-key")
+    monkeypatch.setattr(places, "_cache", {(0.0, 0.0): (time.time(), [{"id": place_id}])})
+    calls: list[str] = []
+
+    def get(url: str, **kwargs: Any) -> httpx.Response:
+        calls.append(url)
+        assert kwargs["headers"]["X-Goog-Api-Key"] == "test-server-key"
+        payload: dict[str, Any]
+        if url.endswith("/media"):
+            payload = {"photoUri": "https://lh3.googleusercontent.com/photo"}
+        else:
+            payload = {
+                "photos": [
+                    {"name": f"places/{place_id}/photos/small", "widthPx": 800},
+                    {
+                        "name": f"places/{place_id}/photos/large",
+                        "widthPx": 1600,
+                        "authorAttributions": [{"displayName": "Photo author"}],
+                        "googleMapsUri": "https://maps.google.com/photo",
+                    },
+                ],
+            }
+        return httpx.Response(200, json=payload, request=httpx.Request("GET", url))
+
+    monkeypatch.setattr(httpx, "get", get)
+    assert client.get("/api/places/unknown/photo").status_code == 404
+    response = client.get(f"/api/places/{place_id}/photo")
+    assert response.status_code == 200
+    assert response.headers["cache-control"] == "no-store"
+    assert response.json() == {
+        "url": "https://lh3.googleusercontent.com/photo",
+        "authors": [{"displayName": "Photo author"}],
+        "source_url": "https://maps.google.com/photo",
+    }
+    assert calls == [
+        f"{places.API}/{place_id}",
+        f"{places.API}/{place_id}/photos/large/media",
+    ]

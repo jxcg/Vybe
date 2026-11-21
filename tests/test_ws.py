@@ -271,6 +271,42 @@ def test_silent_audio_skips_voxtral(monkeypatch: pytest.MonkeyPatch) -> None:
     assert not called  # never sent to Voxtral
 
 
+def test_cached_card_photo_requires_credit(monkeypatch: pytest.MonkeyPatch) -> None:
+    from datetime import datetime
+
+    card = {
+        "id": "venue",
+        "name": "Venue",
+        "tags": ["food"],
+        "closes_at": "2026-11-21T22:00:00",
+        "leave_by_at": "2026-11-21T21:50:00",
+        "walk_mins": 5,
+        "match": 80,
+        "reasons": [],
+        "rating": None,
+        "lat": 0,
+        "lng": 0,
+    }
+    cached = {
+        "mode": "photo",
+        "image_url": "https://venue.example/photo.jpg",
+        "image_credit": "venue.example",
+        "base": "#493424",
+    }
+    monkeypatch.setattr(ws, "_enriched", lambda: {"venue": {"theme": cached}})
+    now = datetime(2026, 11, 21, 18)
+    row = ws.to_rows([card], now, raining=False)[0]
+    assert row["photo_url"] == cached["image_url"]
+    assert row["photo_credit"] == cached["image_credit"]
+    assert row["colors"] is not None
+
+    del cached["image_credit"]
+    row = ws.to_rows([card], now, raining=False)[0]
+    assert row["photo_url"] is None
+    assert row["photo_credit"] is None
+    assert row["colors"] is not None
+
+
 @pytest.mark.parametrize(
     ("interest", "group"),
     [

@@ -128,11 +128,11 @@ def test_pick_image_debates_then_judges(monkeypatch: pytest.MonkeyPatch) -> None
         return theme.Argument(stance=stance, points=[f"{stance} point"])
 
     async def fake_judge(
-        venue: str, cand: theme.ImageCandidate, pro: theme.Argument, con: theme.Argument
+        venue: str, debates: list[tuple[str, theme.Argument, theme.Argument]]
     ) -> theme.JudgeVerdict:
-        return theme.JudgeVerdict(
-            use_image=cand.url.endswith("big.jpg"), image_url=cand.url, reason="ok"
-        )
+        assert [url for url, _, _ in debates] == ["https://x/big.jpg", "https://x/small.jpg"]
+        assert [(pro.stance, con.stance) for _, pro, con in debates] == [("pro", "con")] * 2
+        return theme.JudgeVerdict(use_image=True, image_url=debates[0][0], reason="ok")
 
     monkeypatch.setattr(theme, "_argue", fake_argue)
     monkeypatch.setattr(theme, "judge", fake_judge)
@@ -143,7 +143,7 @@ def test_pick_image_debates_then_judges(monkeypatch: pytest.MonkeyPatch) -> None
     verdict = asyncio.run(theme.pick_image("Test Venue", cands))
     assert verdict.use_image and verdict.image_url == "https://x/big.jpg"
     # all rejected -> gradient mode
-    monkeypatch.setattr(theme, "judge", lambda v, c, p, co: _rejected())
+    monkeypatch.setattr(theme, "judge", lambda venue, debates: _rejected())
     verdict2 = asyncio.run(theme.pick_image("Test Venue", cands))
     assert not verdict2.use_image and "gradient" in verdict2.reason
 
