@@ -25,11 +25,17 @@ def recv(sock: Any, kind: str) -> dict[str, Any]:
 @pytest.mark.parametrize(
     ("utterance", "matches"),
     [
-        ("pizza and a comedy show", {"pizza", "comedy"}),
+        ("pizza and a comedy show", {"pizza", "comedy", "ambiguous"}),
         ("pizza and music", {"pizza", "gig"}),
         ("I fancy ice cream", {"dessert"}),
         ("sushi and karaoke", {"sushi", "karaoke"}),
         ("pottery class", {"pottery"}),
+        ("I want to dance tonight", {"nightclub", "dance"}),
+        ("let's go out dancing, no clubs", {"dance"}),
+        ("I want to sing tonight", {"karaoke"}),
+        ("I want to watch a movie", {"cinema"}),
+        ("I want to climb", {"climbing"}),
+        ("dance or sushi under £10", {"nightclub", "sushi"}),
     ],
 )
 def test_specific_requests_match_venue_evidence(
@@ -62,8 +68,15 @@ def test_specific_requests_match_venue_evidence(
             ("karaoke", "Lucky Voice", "Entertainment", ["games"], ["karaoke"]),
             ("pottery", "Soho Pottery Classes", "Culture", ["culture"], []),
             ("cinema", "Picturehouse", "Entertainment", ["film", "culture"], []),
+            ("nightclub", "Fabric", "Drinks", ["club", "nightlife"], ["night_club"]),
+            ("dance", "Late Dance Studio", "Entertainment", ["active"], ["dance"]),
+            ("pub", "The Soho Pub", "Drinks", ["nightlife"], ["pub"]),
+            ("climbing", "The Arch", "Entertainment", ["active"], ["climbing"]),
+            ("ambiguous", "Another Comedy Club", "Entertainment", ["comedy", "nightlife"], []),
         )
     ]
+    for item in items:
+        item["price"] = {"nightclub": 8, "sushi": 7, "dance": 15}.get(item["id"])
     monkeypatch.setattr("app.main.items_near", lambda *args: items)
     monkeypatch.setattr(ws.Session, "now", lambda _: now)
     for spoken in (False, True):
@@ -78,13 +91,20 @@ def test_specific_requests_match_venue_evidence(
             else:
                 sock.send_json({"type": "talk_text", "text": utterance})
             chips = recv(sock, "chips")
-            sock.send_json({"type": "prefs", "include": ["food"], "requested": chips["include"]})
+            prefs = {
+                "type": "prefs",
+                "include": ["food"],
+                "requested": chips["include"],
+                "exclude": chips["exclude"],
+                "budget": chips.get("budget", 999),
+            }
+            sock.send_json(prefs)
             board = recv(sock, "board")
             assert board["group"] is None
             assert {row["id"] for row in board["rows"]} == matches
             original = items[:]
-            items[:] = [item for item in items if item["id"] in {"restaurant", "cinema"}]
-            sock.send_json({"type": "prefs", "requested": chips["include"]})
+            items[:] = [item for item in items if item["id"] in {"restaurant", "pub"}]
+            sock.send_json(prefs)
             assert recv(sock, "board")["rows"] == []
             items[:] = original
 

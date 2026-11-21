@@ -155,7 +155,8 @@ def _board_rows(
         if starts:
             leave_by = starts - timedelta(minutes=c["walk_mins"] + 5)
         allday = c.get("opens") == c.get("closes")
-        price = c.get("price") if shared else extra.get("price", c.get("price"))
+        enriched_price = rooms.known_price(extra.get("price"))
+        price = c.get("price") if shared or enriched_price is None else enriched_price
         cached_theme = extra.get("theme")
         theme = cached_theme if isinstance(cached_theme, dict) else {}
         photo_url = theme.get("image_url")
@@ -314,23 +315,31 @@ class Session:
             }
             for i in items
         ]
+        for item in items:
+            enriched = rooms.known_price((extras.get(item["id"]) or {}).get("price"))
+            item["price"] = (
+                enriched if enriched is not None else rooms.known_price(item.get("price"))
+            )
         return items, geo.weather(lat, lng)
 
     def build_board(self) -> dict[str, Any]:
         now = self.now()
         items, weather = self.source(self.place, now)
         specific = specific_interests(self.prefs["requested"])
+        budget = self.prefs["budget"]
         items = [
             item
             for item in items
             if item["id"] not in self.skipped
             and not rooms.excludes(item, self.prefs["exclude"])
             and matches_specific_interests(item, specific)
+            and (budget == 999 or item["price"] is None or item["price"] <= budget)
         ]
         cards = rank(
             items,
             now,
-            budget=BUDGETS.get(self.prefs["budget"], 3),
+            budget=BUDGETS[budget],
+            shared_budget=budget if budget != 999 else None,
             student=self.prefs["student"],
             adult=self.prefs["adult"],
             liked=frozenset(self.liked),
@@ -408,14 +417,6 @@ class Session:
         now = datetime.now(LONDON).replace(tzinfo=None, microsecond=0) + room.offset
         if room.source is None or monotonic() - room.source_at >= 60:
             items, weather = await run_in_threadpool(self.source, room.place, now)
-            extras = _enriched()
-            for item in items:
-                enriched_price = rooms.known_price((extras.get(item["id"]) or {}).get("price"))
-                item["price"] = (
-                    enriched_price
-                    if enriched_price is not None
-                    else rooms.known_price(item.get("price"))
-                )
             room.source = items, weather
             room.source_at = monotonic()
         items, weather = room.source

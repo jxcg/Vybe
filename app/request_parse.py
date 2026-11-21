@@ -36,11 +36,25 @@ INTO_WORDS: dict[str, tuple[str, ...]] = {
     "late night": ("late night", "late one", "out late", "dance", "dancing", "club", "clubbing",
                    "rave", "party", "night out"),
 }  # fmt: skip
+# Activity phrasing and evidence from the catalogue. These describe venue capabilities,
+# so a nightclub can match dancing without treating every venue named "Club" as a nightclub.
+ACTIVITY_TERMS = {
+    "dancing": ("dance", "dancing"),
+    "karaoke": ("sing", "singing", "karaoke"),
+    "film": ("film", "films", "movie", "movies", "cinema"),
+    "climbing": ("climb", "climbing"),
+    "music": ("music", "live music", "gig", "gigs"),
+}
+ACTIVITY_NAMES = {
+    phrase: activity for activity, phrases in ACTIVITY_TERMS.items() for phrase in phrases
+}
+ACTIVITY_EVIDENCE = {"dancing": {"club", "night club", "nightclub"}}
+
 CLAUSES = re.compile(r"[,;.!?]+|\b(?:and|or|but|then|followed by)\b")
 LEAD_IN = re.compile(
     r"^(?:i (?:really )?(?:would (?:like|love)|want|fancy|feel like|am looking for)|"
     r"i'd (?:like|love)|can we|let's|looking for|want|fancy|find|"
-    r"to|go(?: get| for| to)?|get|eat(?:ing)?|have|see|hear|"
+    r"to|go(?: get| for| to| out)?|get|eat(?:ing)?|have|see|hear|watch|"
     r"some|a|an|the|something like|something|maybe|please)\b\s*"
 )
 CONTEXT = re.compile(
@@ -207,9 +221,7 @@ def parse_request(text: str) -> dict[str, Any]:
 
 def normalise_interest(value: str) -> str:
     term = " ".join(re.findall(r"[^\W_]+", value.casefold()))
-    if term in ("live music", "gig", "gigs"):
-        return "music"
-    return term
+    return ACTIVITY_NAMES.get(term, term)
 
 
 def _strip_lead_in(clause: str) -> str:
@@ -226,7 +238,7 @@ def named_requests(text: str) -> tuple[list[str], list[str]]:
         word for tag in ("chill", "competitive", "late night") for word in INTO_WORDS[tag]
     }
     broad_words = {
-        *mood_words,
+        *(mood_words - ACTIVITY_NAMES.keys()),
         *INTO_WORDS,
         *CHEAP,
         *MONEY_SLANG,
@@ -270,7 +282,7 @@ def named_requests(text: str) -> tuple[list[str], list[str]]:
             not clause
             or not re.fullmatch(r"[a-z][a-z &'\-]*(?:[a-z])?", clause)
             or len(clause.split()) > 5
-            or (clause in broad_words and clause != "live music")
+            or (clause in broad_words and clause not in ACTIVITY_NAMES)
             or any(_has(clause, word) for word in context_words)
             or any(clause in words for words in NOT_INTO_WORDS.values())
         ):
@@ -286,12 +298,19 @@ def specific_interests(terms: list[str]) -> set[str]:
 
 def matches_interest(item: dict[str, Any], term: str) -> bool:
     """Match a phrase against venue names and specific source metadata."""
-    evidence = [item["name"], *item["tags"], *item.get("interest_terms", [])]
+    metadata = [*item["tags"], *item.get("interest_terms", [])]
+    capability = ACTIVITY_EVIDENCE.get(term, set())
+    if capability and any(normalise_interest(value) in capability for value in metadata):
+        return True
+    evidence = [item["name"], *metadata]
     if item.get("category") not in (None, "music", "games", "food", "other"):
         evidence.append(item["category"])
     for value in evidence:
         normalised = normalise_interest(value)
-        if _has(normalised, term) or re.search(rf"\b{re.escape(term)}(?:s|es)\b", normalised):
+        if any(
+            _has(normalised, phrase) or re.search(rf"\b{re.escape(phrase)}(?:s|es)\b", normalised)
+            for phrase in (term, *ACTIVITY_TERMS.get(term, ()))
+        ):
             return True
     return False
 
