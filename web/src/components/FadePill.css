@@ -1,0 +1,21 @@
+.fade-pill {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  height: 56px;
+  border-radius: var(--r-pill);
+  background: var(--accent-fade);
+  color: var(--bg);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  transition: transform var(--dur-fast) ease;
+}
+
+.fade-pill:active {
+  transform: scale(0.98);
+}

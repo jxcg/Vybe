@@ -1,0 +1,92 @@
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  padding: 5px 8px 5px 12px;
+  border-radius: var(--r-pill);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 18px;
+  white-space: nowrap;
+  animation: chip-in 180ms var(--ease-out) both;
+}
+
+.chip--into {
+  color: var(--into-fg);
+  background: var(--into-bg);
+}
+
+.chip--notinto {
+  color: var(--notinto-fg);
+  background: var(--notinto-bg);
+}
+
+.chip--neutral {
+  color: var(--neutral-fg);
+  background: var(--neutral-bg);
+}
+
+.chip--leaving {
+  animation: chip-out 160ms ease-in both;
+}
+
+/* 24px hit target without growing the chip */
+.chip-x {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  margin: -3px -5px -3px -4px;
+  border-radius: 50%;
+  color: inherit;
+  pointer-events: auto;
+}
+
+.chip-x:active {
+  background: rgb(255 255 255 / 0.08);
+}
+
+@keyframes chip-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes chip-out {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+}
+
+@keyframes chip-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes chip-fade-out {
+  to {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chip {
+    animation-name: chip-fade-in;
+  }
+  .chip--leaving {
+    animation-name: chip-fade-out;
+  }
+}

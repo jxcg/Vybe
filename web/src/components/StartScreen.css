@@ -1,0 +1,171 @@
+.start {
+  --start-x: 20px;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Everything above the CTA. Scrolls only if a very short screen can't fit it. */
+.start-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  padding: calc(28px + var(--safe-top)) calc(var(--start-x) + var(--safe-right)) 0
+    calc(var(--start-x) + var(--safe-left));
+}
+
+.start-body > * {
+  flex-shrink: 0;
+}
+
+.start-title {
+  margin-top: 20px;
+  font-family: var(--font-head);
+  font-size: 38px;
+  font-weight: 700;
+  line-height: 1.12;
+  letter-spacing: -0.01em;
+  color: var(--text);
+  text-wrap: balance;
+}
+
+.start-sub {
+  margin-top: 4px;
+  text-wrap: pretty;
+  font-size: 16px;
+  line-height: 1.6;
+  color: var(--text-2);
+}
+
+/* Voice + card float in the free space so short content never leaves one big hole.
+   In typing mode on phones (or with a keyboard up) they sit right under the subtitle. */
+.start-main {
+  flex: 1 0 auto;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding-bottom: 8px;
+}
+
+.start-main--top {
+  justify-content: flex-start;
+}
+
+.start-type {
+  padding-top: 16px;
+}
+
+.start-voice {
+  /* soaks up the free space so the mic sits in the middle of it */
+  flex: 1 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 0 4px;
+}
+
+.start-phase {
+  margin-top: -4px;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--text);
+}
+
+.start-type-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 12px;
+  border-radius: var(--r-pill);
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.start-card {
+  margin-top: 14px;
+}
+
+.start-hint {
+  margin-top: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.4;
+  color: var(--muted);
+  text-align: center;
+}
+
+.start-footer {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  padding: 12px calc(var(--start-x) + var(--safe-right)) calc(8px + var(--safe-bottom))
+    calc(var(--start-x) + var(--safe-left));
+}
+
+.start-link {
+  padding: 10px 0;
+  font-size: 14px;
+  line-height: 1.4;
+  color: var(--muted);
+  text-align: center;
+}
+
+/* Short viewports (real phones once browser chrome takes its share): tighten so the whole
+   screen fits without scrolling, and keep the voice area the hero. */
+@media (max-height: 760px) {
+  .start-body {
+    padding-top: calc(16px + var(--safe-top));
+  }
+  .start-body .wordmark--lg {
+    font-size: 26px;
+  }
+  .start-title {
+    margin-top: 12px;
+  }
+  .start-voice {
+    gap: 6px;
+    padding: 8px 0 0;
+  }
+  .start-voice .mic {
+    --mic: clamp(72px, 11dvh, 84px);
+  }
+  .start-voice .slot--empty {
+    display: none;
+  }
+  .start-type-btn {
+    height: 36px;
+  }
+  .start-card {
+    margin-top: 8px;
+  }
+  .start-card .vrow {
+    padding: 6px 0;
+  }
+  .start-hint {
+    display: none;
+  }
+  .start-footer .fade-pill {
+    height: 52px;
+  }
+  .start-link {
+    padding: 6px 0;
+  }
+}
+
+/* Narrow phones: keep the title on one line */
+@media (max-width: 374px) {
+  .start-title {
+    font-size: 34px;
+  }
+}

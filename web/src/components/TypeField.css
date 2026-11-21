@@ -1,0 +1,52 @@
+.typefield {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 48px;
+  padding: 0 5px 0 16px;
+  background: var(--card);
+  border: var(--hairline);
+  border-radius: var(--r-pill);
+}
+
+.typefield:focus-within {
+  border-color: var(--accent);
+}
+
+.typefield-icon {
+  flex: none;
+  color: var(--muted);
+}
+
+.typefield-input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  border: 0;
+  outline: none !important; /* the pill's border shows focus */
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 16px; /* 16px stops iOS zooming on focus */
+  line-height: 1.4;
+}
+
+.typefield-input::placeholder {
+  color: var(--muted);
+  opacity: 1;
+}
+
+.typefield-input {
+  text-overflow: ellipsis;
+}
+
+.typefield-mic {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--elevated);
+  color: var(--text);
+}

@@ -1,0 +1,76 @@
+.rn,
+.rn-digits {
+  display: inline-flex;
+}
+
+.rn-digit {
+  position: relative;
+  display: inline-block;
+  overflow: hidden;
+  vertical-align: top;
+}
+
+.rn-glyph {
+  display: block;
+}
+
+.rn-out {
+  position: absolute;
+  inset: 0;
+}
+
+/* Counting down: the new digit drops in from above. Counting up: it rises from below. */
+.rn-in--down {
+  animation: rn-from-above 300ms var(--ease-out) both;
+}
+.rn-out--down {
+  animation: rn-to-below 300ms var(--ease-out) both;
+}
+.rn-in--up {
+  animation: rn-from-below 300ms var(--ease-out) both;
+}
+.rn-out--up {
+  animation: rn-to-above 300ms var(--ease-out) both;
+}
+
+@keyframes rn-from-above {
+  from {
+    transform: translateY(-100%);
+  }
+}
+@keyframes rn-to-below {
+  to {
+    transform: translateY(100%);
+  }
+}
+@keyframes rn-from-below {
+  from {
+    transform: translateY(100%);
+  }
+}
+@keyframes rn-to-above {
+  to {
+    transform: translateY(-100%);
+  }
+}
+@keyframes rn-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes rn-fade-out {
+  to {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rn-in--down,
+  .rn-in--up {
+    animation-name: rn-fade-in;
+  }
+  .rn-out--down,
+  .rn-out--up {
+    animation-name: rn-fade-out;
+  }
+}

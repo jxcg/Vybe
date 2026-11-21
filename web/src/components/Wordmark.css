@@ -1,0 +1,16 @@
+.wordmark {
+  display: block;
+  font-family: var(--font-mark);
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.04em;
+  color: var(--accent);
+}
+
+.wordmark--sm {
+  font-size: 18px;
+}
+
+.wordmark--lg {
+  font-size: 34px;
+}

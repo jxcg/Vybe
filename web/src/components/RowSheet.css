@@ -1,0 +1,131 @@
+.sheet-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+
+.sheet-scrim {
+  position: absolute;
+  inset: 0;
+  background: rgb(10 10 12 / 0.55);
+  animation: sheet-fade-in 220ms ease both;
+}
+
+.sheet {
+  position: relative;
+  padding: 12px calc(20px + var(--safe-right)) calc(24px + var(--safe-bottom))
+    calc(20px + var(--safe-left));
+  background: var(--card);
+  border-top: var(--hairline);
+  border-radius: var(--r-card) var(--r-card) 0 0;
+  animation: sheet-up 280ms var(--ease-out) both;
+}
+
+.is-closing .sheet-scrim {
+  animation: sheet-fade-out 200ms ease both;
+}
+
+.is-closing .sheet {
+  animation: sheet-down 200ms ease-in both;
+}
+
+.sheet-handle {
+  width: 40px;
+  height: 4px;
+  margin: 0 auto 16px;
+  border-radius: 2px;
+  background: var(--border);
+}
+
+.sheet-title {
+  margin-bottom: 16px;
+}
+
+.sheet-opts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.sheet-opts--toggles {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: var(--hairline);
+}
+
+.sheet-opt {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 40px;
+  padding: 0 16px;
+  border-radius: var(--r-pill);
+  background: var(--elevated);
+  border: var(--hairline);
+  color: var(--text-2);
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1;
+  transition: background-color var(--dur-fast) ease, color var(--dur-fast) ease;
+}
+
+.sheet-opt--on {
+  border-color: transparent;
+}
+
+.sheet-opt--into {
+  color: var(--into-fg);
+  background: var(--into-bg);
+}
+
+.sheet-opt--notinto {
+  color: var(--notinto-fg);
+  background: var(--notinto-bg);
+}
+
+.sheet-opt--neutral {
+  color: var(--neutral-fg);
+  background: var(--neutral-bg);
+}
+
+.sheet-done {
+  width: 100%;
+  min-height: 52px;
+  margin-top: 24px;
+}
+
+@keyframes sheet-up {
+  from {
+    transform: translateY(100%);
+  }
+}
+
+@keyframes sheet-down {
+  to {
+    transform: translateY(100%);
+  }
+}
+
+@keyframes sheet-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes sheet-fade-out {
+  to {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sheet {
+    animation-name: sheet-fade-in;
+  }
+  .is-closing .sheet {
+    animation-name: sheet-fade-out;
+  }
+}

@@ -1,0 +1,32 @@
+.board-header {
+  padding: 0 calc(var(--gutter) + var(--safe-right)) 0 calc(var(--gutter) + var(--safe-left));
+}
+
+.board-header-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 64px;
+}
+
+.board-title {
+  margin-top: 12px;
+  text-wrap: balance;
+}
+
+.board-title-count {
+  display: inline-block; /* so the hand-off can scale it */
+  color: var(--accent);
+  /* proportional digits so a leading 1 doesn't leave a gap at the start of the headline */
+  font-variant-numeric: proportional-nums;
+}
+
+.board-sub {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  color: var(--text-2);
+}
+
+

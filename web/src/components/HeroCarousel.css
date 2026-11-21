@@ -1,0 +1,47 @@
+.hero {
+  container-type: inline-size;
+  margin-top: 24px;
+}
+
+.hero-track {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-snap-type: x mandatory;
+  scroll-padding-inline: var(--gutter);
+  padding-left: var(--gutter);
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.hero-track::-webkit-scrollbar {
+  display: none;
+}
+
+/* Trailing space so the last card can snap to the gutter */
+.hero-track::after {
+  content: '';
+  flex: 0 0 calc(var(--gutter) - 8px);
+}
+
+.hero-dots {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 14px;
+}
+
+.hero-dots span {
+  width: 6px;
+  height: 6px;
+  border-radius: var(--r-pill);
+  background: var(--border);
+  transition: width 260ms var(--ease-out), background-color 260ms ease;
+}
+
+.hero-dots span.is-on {
+  width: 18px;
+  background: var(--accent);
+}

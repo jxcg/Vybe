@@ -1,0 +1,58 @@
+:root {
+  /* Station world */
+  --bg: #212126;
+  --header: #292930;
+  --card: #303038;
+  --elevated: #393842;
+  --hover: #414049;
+  --border: #484650;
+  --text: #f8f7f6;
+  --text-2: #c5c3cc;
+  --muted: #a9a6b4;
+  --accent: #b7aedd;
+  --accent-light: #c4bedc;
+  --cream: #f8f7f6;
+
+  /* Status (text colour only) */
+  --st-boarding: #86dfac;
+  --st-last-call: #b7aedd;
+  --st-on-time: #a9a6b4;
+  --st-delayed: #f2a2a9;
+
+  /* Weather mark */
+  --rain: #9db4cc;
+
+  /* Start screen */
+  --accent-fade: linear-gradient(to top right, #b7aedd 0%, #c9b3da 50%, #e6aab8 100%);
+  --hint-border: #5a5864;
+  --into-fg: #86dfac;
+  --into-bg: #214137;
+  --notinto-fg: #f2a2a9;
+  --notinto-bg: #4a3038;
+  --neutral-fg: #e1dee7;
+  --neutral-bg: #414049;
+
+  /* Type */
+  --font-body: 'Satoshi', system-ui, sans-serif;
+  --font-head: 'Cabinet Grotesk', 'Satoshi', sans-serif;
+  --font-mark: 'Panchang', 'Cabinet Grotesk', sans-serif;
+
+  /* Shape and rhythm */
+  --r-card: 24px;
+  --r-pill: 999px;
+  --gutter: 24px;
+  --hairline: 1px solid var(--border);
+  --icon-btn: 44px;
+  --icon-btn-lg: 52px;
+
+  /* Motion */
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --dur-fast: 180ms;
+  --dur: 300ms;
+
+  /* Safe areas */
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+}

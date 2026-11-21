@@ -1,0 +1,37 @@
+.status {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+.status--on_time {
+  color: var(--st-on-time);
+}
+
+.status--boarding {
+  color: var(--st-boarding);
+}
+
+.status--last_call {
+  color: var(--st-last-call);
+  animation: status-last-call 1.6s ease-in-out infinite alternate;
+}
+
+.status--delayed_rain,
+.status--cancelled {
+  color: var(--st-delayed);
+}
+
+.status--departed {
+  color: var(--muted);
+}
+
+@keyframes status-last-call {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0.55;
+  }
+}

@@ -1,0 +1,33 @@
+.bottombar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px calc(var(--gutter) + var(--safe-right)) calc(12px + var(--safe-bottom))
+    calc(var(--gutter) + var(--safe-left));
+  background: var(--bg);
+  border-top: var(--hairline);
+}
+
+/* Same language as the start screen's CTA: the one lavender fade on this screen */
+.bottombar-talk {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  height: var(--icon-btn-lg);
+  border-radius: var(--r-pill);
+  background: var(--accent-fade);
+  color: var(--bg);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  transition: transform var(--dur-fast) ease;
+}
+
+.bottombar-talk:active {
+  transform: scale(0.98);
+}

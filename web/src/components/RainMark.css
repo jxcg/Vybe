@@ -1,0 +1,54 @@
+/* Three rain streaks, always visible, each drifting down a little and shimmering in turn */
+.rain {
+  position: relative;
+  display: inline-block;
+  flex: none;
+  width: 16px;
+  height: 16px;
+}
+
+.rain i {
+  position: absolute;
+  top: 2px;
+  width: 1.75px;
+  height: 8px;
+  border-radius: 1px;
+  background: var(--rain);
+  transform: rotate(18deg);
+  animation: rain-drift 1.8s ease-in-out infinite;
+}
+
+.rain i:nth-child(1) {
+  left: 3px;
+  top: 3px;
+}
+.rain i:nth-child(2) {
+  left: 8px;
+  top: 6px;
+  animation-delay: -0.6s;
+}
+.rain i:nth-child(3) {
+  left: 13px;
+  top: 1px;
+  animation-delay: -1.2s;
+}
+
+@keyframes rain-drift {
+  0% {
+    transform: translate(0, -1.5px) rotate(18deg);
+    opacity: 0.45;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    transform: translate(-1px, 2.5px) rotate(18deg);
+    opacity: 0.45;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rain i {
+    animation: none;
+  }
+}

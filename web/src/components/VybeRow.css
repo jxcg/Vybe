@@ -1,0 +1,55 @@
+.vrow {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 0;
+  border-top: var(--hairline);
+}
+
+.vrow-hit {
+  flex: none;
+  display: flex;
+  align-items: center;
+  min-height: 28px; /* one chip tall, so the label lines up with the first row of chips */
+}
+
+.vrow-hit::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 8px;
+}
+
+.vrow-hit:active::after {
+  background: rgb(255 255 255 / 0.03);
+}
+
+.vrow-hit:focus-visible {
+  outline: none;
+}
+
+.vrow-hit:focus-visible::after {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.vrow-label {
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.4;
+  color: var(--text-2);
+  white-space: nowrap;
+}
+
+/* Taps fall through to the row button, except on the chips' X buttons */
+.vrow-values {
+  position: relative;
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+  pointer-events: none;
+}

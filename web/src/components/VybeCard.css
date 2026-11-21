@@ -1,0 +1,14 @@
+.vcard {
+  padding: 12px 16px 4px;
+  background: var(--card);
+  border: var(--hairline);
+  border-radius: var(--r-card);
+}
+
+.vcard-label {
+  margin-bottom: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.4;
+  color: var(--muted);
+}

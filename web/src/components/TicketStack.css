@@ -1,0 +1,17 @@
+/* Sits over the board; one ticket per screen, vertical snap between them */
+.ticket-stack {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scroll-snap-type: y mandatory;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+  background: transparent;
+}
+
+.ticket-stack::-webkit-scrollbar {
+  display: none;
+}

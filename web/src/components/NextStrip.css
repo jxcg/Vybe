@@ -1,0 +1,34 @@
+.next-strip {
+  position: relative;
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  height: calc(56px + var(--safe-bottom));
+  padding: 0 calc(24px + var(--safe-right)) var(--safe-bottom) calc(24px + var(--safe-left));
+  border-radius: var(--r-card) var(--r-card) 0 0;
+  background: var(--soft);
+  color: var(--light);
+}
+
+.next-strip-label {
+  font-size: 13px;
+  font-weight: 500;
+  opacity: 0.75;
+}
+
+.next-strip-time {
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.next-strip-name {
+  flex: 1;
+  min-width: 0;
+  font-size: 15px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

@@ -1,0 +1,107 @@
+.drow {
+  position: relative;
+  display: grid;
+  grid-template-columns: 54px minmax(0, 1fr);
+  align-items: start;
+  column-gap: 12px;
+  width: 100%;
+  min-height: 72px;
+  padding: 15px 0;
+}
+
+/* Press state: a soft rounded lift that bleeds slightly past the text column */
+.drow::before {
+  content: '';
+  position: absolute;
+  inset: 4px -12px;
+  border-radius: 16px;
+  background: var(--card);
+  opacity: 0;
+  transition: opacity var(--dur-fast) ease;
+}
+
+.drow:active::before {
+  opacity: 1;
+}
+
+.drow > * {
+  position: relative;
+}
+
+/* Board-style time */
+.drow-time {
+  font-family: var(--font-head);
+  font-size: 19px;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  color: var(--text);
+}
+
+.drow-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.drow-line {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+}
+
+.drow-name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+/* A hint of the venue's world: its colour, softened for the station chrome */
+.drow-dot {
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: color-mix(in oklch, var(--light) 70%, var(--soft));
+}
+
+.drow-name-text {
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.drow-status {
+  flex: none;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.drow-meta {
+  display: flex;
+  gap: 10px;
+  padding-left: 15px; /* line up under the name, past the dot */
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-2);
+  white-space: nowrap;
+}
+
+.drow-walk {
+  color: var(--muted);
+}
+
+.drow-hint {
+  flex: none;
+  color: var(--muted);
+  white-space: nowrap;
+}
