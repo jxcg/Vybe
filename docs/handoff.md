@@ -49,6 +49,16 @@ Review pass 3 (commit 172fb26, `apply_filters`; checks clean, 36 tests pass)
 - [ ] If you keep `apply_filters`, make it robust: it reads `price_level`, `tags`, `type` and `name` directly, so a missing key raises `KeyError`, and a missing `walk_mins` defaults to 0, so walk caps let everything through. Make `include_*` a soft boost, not a hard filter, and don't re-filter budget (ranking already does).
 - Claude will handle `max_walk_mins`, `type` and `clear` from voice in `/ws`.
 
+Review pass 4 (commit 0f4caaa, vybe-theme; checked on a clean checkout of `main`)
+- [ ] **URGENT, `main` is broken on a clean checkout:** `tests/test_polling.py` is committed, but `app/polling.py` and its `app/main.py`/`app/ws.py` changes aren't, so 2 tests fail. Commit the polling work together (it touches Claude's files, so post in "Requests for Claude" first), or untrack the test until it's ready. Only `git add` the files you mean to commit.
+- [ ] **Card colours don't reach the app yet:** write `brand_color: "#rrggbb"` per place ID (Contract 1). The commit writes `theme: {mode, image_url, colors[], …}` instead, and `app/ws.py` only reads `brand_color`.
+- [ ] Never write the fallback palette (`DEFAULT_PALETTE` / `#111827`). With no real brand colour, leave it out so the app uses the category colour.
+- [ ] Read `<meta name="theme-color">` and the manifest `theme_color` first. Scanning every hex in the HTML picks up cookie banners, SVGs and URL fragments, and `cl[0]` is the lowest-hue member, not a representative colour.
+- [ ] Keep `brand_color` across refreshes: `combine_enriched` rebuilds the file and wipes themes, and `write_themes` can race with it.
+- [ ] Block private and loopback IPs (including after redirects) when fetching venue sites, and cap the bytes read (HTML about 200 KB streamed; images about 64 KB is enough for size headers).
+- [ ] `pyproject.toml` is Claude's: please revert `[project.scripts] app = "app.main:app"` (it points a console script at an ASGI app) and ask before adding `[tool.vercel]`. Claude can add it if Vercel needs it.
+- [ ] Use one commit per feature: the agents orchestrator and refresh v2 went in under the theme message.
+
 ## Blocked
 - (none)
 
