@@ -24,7 +24,11 @@ function rainText(rainFrom: string | null, nowMs: number): string | null {
 const DOT_PX = 10;
 
 export function BoardHeader({ board, nowMs }: Props) {
-  const rain = board ? rainText(board.weather.rain_from, nowMs) : null;
+  const rainFrom = board?.weather.rain_from ?? null;
+  const rain = rainText(rainFrom, nowMs);
+  const conditions = board?.weather.summary.trim();
+  const futureRain = rainFrom !== null && Date.parse(rainFrom) > nowMs;
+  const weather = conditions && futureRain ? `${conditions} · ${rain}` : conditions || rain;
   const countRef = useRef<HTMLSpanElement>(null);
 
   // Arriving from the loading screen: its orb folds down into the headline count.
@@ -75,7 +79,7 @@ export function BoardHeader({ board, nowMs }: Props) {
             {rain && <RainMark />}
             <span>
               {board.area}
-              {rain && `, ${rain}`}
+              {weather && ` · ${weather}`}
             </span>
           </p>
         </>

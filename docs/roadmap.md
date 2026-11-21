@@ -14,6 +14,7 @@ Put `(now)` after the milestone being worked on. Owners: (Claude), (Mistral), (T
 - [x] Ranking: open soon, budget, 18+, badges, leave-by (Claude)
 - [x] Google rating and personal match % shown separately (Claude)
 - [x] Weather (rain and cold) in the match (Claude)
+- [ ] Show current conditions and temperature beside the board location (Team)
 - [ ] Open the board on a saved interest, group additional results, and mark short lists (Team)
 - [ ] Keep runner-up and wildcard details visible on desktop cards (Team)
 - [ ] Show compact venue ratings out of ten on board picks and activity rows (Team)
