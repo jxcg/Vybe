@@ -38,10 +38,12 @@ def rank(
     adult: bool = True,
     liked: frozenset[str] = frozenset(),
     weather: Weather | None = None,
+    prefer: frozenset[str] = frozenset(),
 ) -> list[dict[str, Any]]:
+    """`prefer` adds tags the user asked for (e.g. by voice) on top of what their likes imply."""
     # indoors/outdoors describe nearly everything, so they don't count as taste
     setting = {"indoors", "outdoors"}
-    liked_tags = {t for i in items if i["id"] in liked for t in i["tags"]} - setting
+    liked_tags = ({t for i in items if i["id"] in liked for t in i["tags"]} | prefer) - setting
     cards = []
     for item in items:
         if item["price_level"] > budget or (item["adult_only"] and not adult):
@@ -102,6 +104,8 @@ def rank(
                 "match": round(match),
                 "badge": badge,
                 "leave_by": f"{leave_by:%H:%M}",
+                "leave_by_at": leave_by.isoformat(),
+                "closes_at": closes.isoformat(),
                 "reasons": [r for r in reasons if r][:3],
             }
         )

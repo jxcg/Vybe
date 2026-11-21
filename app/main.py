@@ -4,10 +4,11 @@ from pathlib import Path
 from typing import Annotated, Any, cast
 
 import httpx
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, WebSocket
 from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 
-from app import geo, osm, places
+from app import geo, osm, places, ws
 from app.ranking import rank
 
 HERE = Path(__file__).parent
@@ -75,6 +76,23 @@ def feed(
     )
 
 
-@app.get("/")
-def index() -> FileResponse:
+@app.websocket("/ws")
+async def socket(websocket: WebSocket) -> None:
+    """The VYBE web frontend (web/) talks to the server only through this socket."""
+    await ws.serve(websocket, items_near)
+
+
+@app.get("/classic")
+def classic() -> FileResponse:
+    """The earlier single-file page, kept as a fallback."""
     return FileResponse(HERE / "static" / "index.html")
+
+
+WEB = HERE.parent / "web" / "dist"
+if WEB.is_dir():  # built with `cd web && npm run build`
+    app.mount("/", StaticFiles(directory=WEB, html=True), name="web")
+else:
+
+    @app.get("/")
+    def index() -> FileResponse:
+        return FileResponse(HERE / "static" / "index.html")
