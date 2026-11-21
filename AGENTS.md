@@ -7,8 +7,8 @@ Guidance for AI coding agents (Claude Code, Codex, Mistral Vibe, Cursor, etc.) w
 The product is called **Vybe**, a play on Mistral Vibe. It is being built for the Mistral Vibe Hackathon 2026 (London).
 
 - Product name: **Vybe**. Use this name in UI copy, docs, issues and PRs.
-- Repository: `le-chonk` (the repo name stays as is)
-- Remote: `https://github.com/jxcg/le-chonk`
+- Repository: `Vybe`
+- Remote: `https://github.com/jxcg/Vybe`
 - Default branch: `main`
 
 ## Build notes
@@ -19,8 +19,6 @@ The product is called **Vybe**, a play on Mistral Vibe. It is being built for th
 - **No AI in the live path.** Ranking is plain code. Agents run only in the background refresh (Mistral Workflow → orchestrator agent → Scout, Enricher and Verifier subagents → Voxtral TTS voiceovers).
 
 ## Workflow rules
-
-> **Paused for the hackathon:** commit and push straight to `main`. No issues, branches or PRs until this note is removed. The commit rules (conventional commits, no AI co-author lines) still apply.
 
 ### Track progress (always, hackathon or not)
 
