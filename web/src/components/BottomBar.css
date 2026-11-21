@@ -30,3 +30,20 @@
 .bottombar-action:active {
   transform: scale(0.98);
 }
+
+.bottombar-reset {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin-inline-start: 10px;
+  min-height: 44px;
+  padding-inline: 10px;
+  border: var(--hairline);
+  border-radius: var(--r-pill);
+  background: var(--card);
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}

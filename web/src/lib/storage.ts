@@ -45,6 +45,7 @@ export function save(data: Saved): void {
   try {
     const vybe = {
       ...data.vybe,
+      requested: undefined,
       into: data.vybe.into.filter((tag) => !isSpecificInterest(tag)),
       notInto: data.vybe.notInto.filter((tag) => !isSpecificInterest(tag)),
     };

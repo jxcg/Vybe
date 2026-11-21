@@ -40,6 +40,8 @@ INTO_WORDS: dict[str, tuple[str, ...]] = {
 # so a nightclub can match dancing without treating every venue named "Club" as a nightclub.
 ACTIVITY_TERMS = {
     "dancing": ("dance", "dancing"),
+    "comedy": ("comedy", "laugh", "stand up", "standup"),
+    "food": ("food", "dinner", "lunch", "brunch"),
     "karaoke": ("sing", "singing", "karaoke"),
     "film": ("film", "films", "movie", "movies", "cinema"),
     "climbing": ("climb", "climbing"),
@@ -207,6 +209,8 @@ def parse_request(text: str) -> dict[str, Any]:
 
     chips: dict[str, Any] = {"include": include, "exclude": sorted(set(exclude) - set(include))}
     budget = _budget(t)
+    if named:
+        chips["requested"] = list(dict.fromkeys(named))
     if budget is not None:
         chips["budget"] = budget
     company = _company(t)
@@ -293,7 +297,7 @@ def named_requests(text: str) -> tuple[list[str], list[str]]:
 
 
 def specific_interests(terms: list[str]) -> set[str]:
-    return {normalise_interest(term) for term in terms if term not in INTO_WORDS}
+    return {term for value in terms if (term := normalise_interest(value))}
 
 
 def matches_interest(item: dict[str, Any], term: str) -> bool:

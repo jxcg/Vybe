@@ -68,9 +68,14 @@ def test_parse_request(text: str, expected: dict[str, Any]) -> None:
 
 
 def test_only_what_was_said() -> None:
-    assert parse_request("bowling") == {"include": ["active", "bowling"], "exclude": []}
+    assert parse_request("bowling") == {
+        "include": ["active", "bowling"],
+        "requested": ["bowling"],
+        "exclude": [],
+    }
     assert parse_request("Pizza and a comedy show") == {
         "include": ["pizza", "comedy"],
+        "requested": ["pizza", "comedy"],
         "exclude": [],
     }
 

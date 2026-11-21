@@ -3,6 +3,7 @@ import type { Budget, ChipsMsg, Prefs } from '../contract';
 /** What the user has told us about tonight. Tags are stored lowercase. */
 export interface Vybe {
   into: string[];
+  requested?: string[];
   notInto: string[];
   budget: Budget | null;
   student: boolean;
@@ -94,7 +95,7 @@ export function toPrefs(v: Vybe): Prefs {
     student: v.student,
     adult: v.adult,
     include: v.into.filter((tag) => !isSpecificInterest(tag)),
-    requested: v.into.filter(isSpecificInterest),
+    requested: v.into.filter((tag) => isSpecificInterest(tag) || v.requested?.includes(tag)),
     exclude: v.notInto,
     company: v.company ?? 1,
     age: v.age ?? null,
@@ -118,6 +119,7 @@ export function mergeChips(v: Vybe, chips: ChipsMsg): Vybe {
   return {
     ...v,
     into: [...new Set(into)],
+    requested: include.length ? norm(chips.requested ?? []) : v.requested,
     notInto: [...new Set(notInto)],
     budget: chips.budget ?? v.budget,
     student: chips.student ?? v.student,
@@ -127,7 +129,8 @@ export function mergeChips(v: Vybe, chips: ChipsMsg): Vybe {
 
 export function fromPrefs(prefs: Prefs): Vybe {
   return {
-    into: [...prefs.include, ...(prefs.requested ?? [])], notInto: prefs.exclude, budget: prefs.budget,
+    into: [...new Set([...prefs.include, ...(prefs.requested ?? [])])],
+    requested: prefs.requested, notInto: prefs.exclude, budget: prefs.budget,
     student: prefs.student, adult: prefs.adult, company: prefs.company,
     age: prefs.age, vibe: prefs.vibe,
   };
@@ -140,4 +143,9 @@ export function updatePersonal(personal: Vybe, before: Vybe, after: Vybe): Vybe 
   }
   (Object.keys(after) as (keyof Vybe)[]).forEach(copyChange);
   return updated;
+}
+
+
+export function clearBoardFilters(vybe: Vybe): Vybe {
+  return { ...vybe, into: [], requested: [], notInto: [], budget: null, vibe: null };
 }
