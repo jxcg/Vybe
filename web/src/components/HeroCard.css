@@ -62,7 +62,7 @@
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(to bottom, transparent 50%, var(--deep) 100%);
+  background: linear-gradient(to bottom in srgb, transparent var(--photo-fade-start, 50%), var(--deep));
 }
 
 /* ── Content ── */

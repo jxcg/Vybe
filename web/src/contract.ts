@@ -63,6 +63,7 @@ export interface Row {
   reasons: Reason[];
   photo_url: string | null;
   photo_credit?: string | null;
+  photo_fade_start?: number | null;
   google_place_photo?: boolean;
   colors: VenueColors | null;
   pitch: string;

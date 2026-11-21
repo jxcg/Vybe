@@ -152,6 +152,10 @@ async def _rejected() -> theme.JudgeVerdict:
     return theme.JudgeVerdict(use_image=False, reason="blurry")
 
 
+async def _reviewed_photo(url: str, colors: list[tuple[int, int, int]]) -> dict[str, Any]:
+    return {"base": "#32254a", "colors": ["#784abd"], "fade_start": 40, "contrast": 5.2}
+
+
 def test_theme_item_offline(monkeypatch: pytest.MonkeyPatch) -> None:
     async def fake_fetch_text(url: str, limit: int = 200_000) -> str:
         return '<meta property="og:image" content="https://x/share.jpg"> body{color:#7C3AED}'
@@ -168,6 +172,7 @@ def test_theme_item_offline(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(theme, "fetch_text", fake_fetch_text)
     monkeypatch.setattr(theme, "fetch_size", fake_fetch_size)
     monkeypatch.setattr(theme, "pick_image", fake_pick)
+    monkeypatch.setattr(theme, "read_photo_theme", _reviewed_photo)
     out = asyncio.run(
         theme.theme_item({"id": "v1", "name": "Test", "type": "food_deal", "url": "https://x.test"})
     )
@@ -215,7 +220,36 @@ def test_workflow_selects_google_photo_without_storing_its_url(
         )
 
     monkeypatch.setattr(theme, "pick_image", choose)
+    monkeypatch.setattr(theme, "read_photo_theme", _reviewed_photo)
     result = asyncio.run(theme.theme_item({"id": "venue", "source": "Google Places"}))
     assert result["theme"]["mode"] == "photo"
     assert result["theme"]["google_photo"] == {"index": 1, "width": 1440, "height": 1080}
     assert result["theme"]["image_url"] is None
+    assert result["theme"]["fade_start"] == 40
+
+    async def unreadable(url: str, colors: list[tuple[int, int, int]]) -> None:
+        return None
+
+    monkeypatch.setattr(theme, "read_photo_theme", unreadable)
+    result = asyncio.run(theme.theme_item({"id": "venue", "source": "Google Places"}))
+    assert result["theme"]["mode"] == "gradient"
+    assert "google_photo" not in result["theme"]
+
+
+def test_photo_readability_adjusts_fade_and_preserves_photo_hue() -> None:
+    from io import BytesIO
+
+    from PIL import Image
+
+    def image_bytes(color: tuple[int, int, int]) -> bytes:
+        output = BytesIO()
+        Image.new("RGB", (80, 60), color).save(output, "PNG")
+        return output.getvalue()
+
+    dark = theme.photo_readability(image_bytes((16, 38, 80)), [])
+    bright = theme.photo_readability(image_bytes((214, 235, 255)), [])
+    assert dark is not None and bright is not None
+    assert bright["fade_start"] < dark["fade_start"]
+    assert bright["base"] is not None and bright["colors"][0] == "#d6ebff"
+    assert bright["contrast"] >= 4.5
+    assert theme.photo_readability(b"broken image", []) is None
