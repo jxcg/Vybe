@@ -1,22 +1,23 @@
-"""Pipeline v1: fetch venues near a point and write data/enriched.json.
+"""Pipeline: fetch venues near a point, enrich them with agents, write data/enriched.json.
 
-Contract 1 shell (docs/mistral-partner.md): one JSON object keyed by item ID,
-with an empty object per venue for now; the Scout/Enricher/Verifier agents and
-Voxtral voiceovers get layered on next.
+v2 shape (docs/mistral-partner.md): the `vybe-refresh` workflow runs three activities —
+fetch venues → orchestrate (Scout/Enricher/Verifier subagents, pipeline/agents.py) →
+write data/enriched.json atomically. Verified claims only; every venue keeps at least
+an empty entry so the app always has a valid file.
 
-Worker:   uv run --env-file .env python -m pipeline.worker
+Worker:   DEPLOYMENT_NAME=vybe-hackathon uv run --env-file .env python -m pipeline.worker
 Trigger:  uv run --env-file .env python -m pipeline.run_once --lat 51.5136 --lng -0.1365
 
-Note: network/file-system imports are deferred into the functions that use them,
-because the workflow module itself is imported inside Temporal's sandbox, which
-rejects httpx's import chain at validation time.
+Note: network/fs/agent imports are deferred into the functions that use them, because
+the workflow module itself is imported inside Temporal's sandbox, which rejects
+httpx/pathlib.resolve/mistralai.agents import chains at validation time.
 """
 
 import asyncio
 import json
 import os
 import tempfile
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -62,28 +63,59 @@ def write_enriched(enriched: dict[str, Any], path: Path) -> None:
         raise
 
 
-def refresh_enriched_sync(lat: float, lng: float, path: Path) -> dict[str, Any]:
-    """One activity's worth of work, as a plain function so tests can run it offline."""
-    items = venues_near(lat, lng)
-    enriched: dict[str, Any] = {item["id"]: {} for item in items}
-    write_enriched(enriched, path)
-    return {"venues": len(enriched), "ids": sorted(enriched)}
+def combine_enriched(items: list[dict[str, Any]], claims: dict[str, Any]) -> dict[str, Any]:
+    """Empty entry per venue plus verified claims; claims for unknown venue ids are dropped."""
+    out: dict[str, Any] = {item["id"]: {} for item in items}
+    for key, value in claims.items():
+        if key.startswith("event-") or key in out:
+            out[key] = value
+    return out
 
 
 @activity(
-    name="fetch venues + write enriched.json",
+    name="fetch venues",
     start_to_close_timeout=timedelta(minutes=2),
     retry_policy_max_attempts=2,
 )
-async def refresh_enriched(lat: float, lng: float) -> dict[str, Any]:
-    return await asyncio.to_thread(refresh_enriched_sync, lat, lng, _enriched_path())
+async def fetch_venues(lat: float, lng: float) -> list[dict[str, Any]]:
+    return await asyncio.to_thread(venues_near, lat, lng)
+
+
+@activity(
+    name="orchestrate scout/enricher/verifier",
+    start_to_close_timeout=timedelta(minutes=8),
+    retry_policy_max_attempts=1,
+)
+async def orchestrate(lat: float, lng: float, items: list[dict[str, Any]]) -> dict[str, Any]:
+    from pipeline.agents import run_orchestrator  # deferred: not sandbox-safe at module level
+
+    now_iso = datetime.now(UTC).isoformat()
+    try:
+        return await run_orchestrator(lat, lng, items, now_iso)
+    except Exception:
+        return {}  # never fail the refresh: fall back to empty enrichments
+
+
+@activity(
+    name="write enriched.json",
+    start_to_close_timeout=timedelta(minutes=1),
+    retry_policy_max_attempts=2,
+)
+async def write_enriched_activity(
+    items: list[dict[str, Any]], claims: dict[str, Any]
+) -> dict[str, Any]:
+    enriched = await asyncio.to_thread(combine_enriched, items, claims)
+    await asyncio.to_thread(write_enriched, enriched, _enriched_path())
+    return {"venues": len(items), "claims": len(claims), "ids": sorted(enriched)}
 
 
 @workflow.define(
     name="vybe-refresh",
-    workflow_description="Fetch venues near a point, write data/enriched.json (pipeline v1)",
+    workflow_description="Fetch venues near a point, enrich via agents, write data/enriched.json",
 )
 class VybeRefresh:
     @workflow.entrypoint
     async def run(self, lat: float, lng: float) -> dict[str, Any]:
-        return await refresh_enriched(lat, lng)
+        items = await fetch_venues(lat, lng)
+        claims = await orchestrate(lat, lng, items)
+        return await write_enriched_activity(items, claims)

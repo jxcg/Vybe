@@ -30,3 +30,9 @@ select = ["E", "W", "F", "I", "B", "UP", "SIM", "RUF"]
 
 [tool.mypy]
 strict = true
+
+[project.scripts]
+app = "app.main:app"
+
+[tool.vercel.scripts]
+build = "npm ci --prefix web && npm run build --prefix web"
