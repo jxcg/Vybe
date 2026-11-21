@@ -37,7 +37,7 @@ All types are in [`web/src/contract.ts`](web/src/contract.ts). Times are **ISO 8
 |---|---|
 | `{type:"join", room: string\|null, name?: string}` | On "See what's on" / "Skip" (first visit), on page load if already onboarded, and on every reconnect |
 | `{type:"prefs", budget: 10\|20\|999, student, adult, include: string[], exclude: string[], company: number}` | On **every** change to the user's vybe, right after `join`, and on reconnect. `company` = people including the user (1 = just me) |
-| `{type:"talk_start", purpose:"mood"\|"command"\|"reason", item_id?}` | User taps the mic (start screen uses `"mood"`) |
+| `{type:"talk_start", purpose:"mood"\|"command"\|"reason", item_id?}` | User taps the mic: `"mood"` on the start screen, `"command"` on the board. `"reason"` (+ `item_id`) is reserved and not sent yet |
 | binary PCM frames | Between `talk_start` and `talk_end` (P4) |
 | `{type:"talk_end"}` | User taps again, or after 15 s |
 | `{type:"talk_text", text}` | Typed alternative to talking (900 ms after the user stops typing, or on Enter). Reply with `chips`, same as for speech |
@@ -158,6 +158,162 @@ Tags are lowercase; the UI capitalises them.
   }]
 }
 ```
+
+## How it should behave, end to end
+
+Each flow is the exact order of messages the phone sends (→) and what the server should answer (←).
+
+### 1. Talking on the start screen (mood)
+
+The user hasn't joined yet. They tap the mic, talk, tap again (or hit 15 s).
+
+```
+→ {"type":"talk_start","purpose":"mood"}
+→ <binary PCM frames, ~100 ms each, 16 kHz mono PCM16 LE>      (P4)
+← {"type":"transcript","text":"Me and two","final":false}         every ~300–500 ms while talking
+← {"type":"transcript","text":"Me and two mates, want a laugh","final":false}
+→ {"type":"talk_end"}
+← {"type":"transcript","text":"Me and two mates, want a laugh, nothing over a tenner.","final":true}
+← {"type":"chips","include":["a laugh"],"exclude":[],"budget":10,"company":3}   within ~1–2 s
+→ {"type":"prefs", ...updated vybe...}                            the client echoes the merged result
+```
+
+- Partial transcripts make the "You said …" line update live. If your speech-to-text can't stream,
+  send just the final one, but send it straight after `talk_end`.
+- The UI shows "Got it…" from `talk_end` until `chips` arrives (gives up after 8 s). **Always send `chips`**,
+  even empty (`{"type":"chips","include":[],"exclude":[]}`) if nothing was understood.
+
+### 2. Typing instead
+
+```
+→ {"type":"talk_text","text":"something chill to eat, under £15"}
+← {"type":"chips","include":["chill","food"],"exclude":[],"budget":20}
+→ {"type":"prefs", ...}
+```
+
+Same interpretation as speech, minus the audio. It fires 900 ms after the user stops typing, so expect
+a few in a row while they edit. Each one should return the chips for the **whole** text.
+
+### 3. "See what's on" (or "Skip, show me everything")
+
+```
+→ {"type":"join","room":null}
+→ {"type":"prefs", ...}
+← {"type":"joined","room":"r_8f2k","you":"u_31"}
+← {"type":"board", ...}                                           ASAP: the loading screen waits for it
+```
+
+"Skip, show me everything" sends prefs with `include:[]`, `exclude:[]`, `budget:999`.
+After that, send a fresh `board` whenever anything changes (statuses tick over, new listings, weather), and
+at least every ~30 s.
+
+### 4. Talking to the board (command)
+
+The user is on the board and says something like "cheaper, nothing outdoors" or "we're hungry".
+
+```
+→ {"type":"talk_start","purpose":"command"}
+→ <binary PCM frames>
+← {"type":"transcript", ... "final":false}
+→ {"type":"talk_end"}
+← {"type":"transcript","text":"cheaper, nothing outdoors","final":true}
+← {"type":"chips","include":[],"exclude":["outdoors"],"budget":10}
+← {"type":"note","text":"Removed 1 outdoor, budget now under £10"}
+← {"type":"board", ...re-ranked...}
+→ {"type":"prefs", ...}                                            echo of the merged vybe
+```
+
+- `note` is one short sentence saying **what changed** (shown as a 3 s toast). If nothing changed, say so:
+  "Nothing cheaper is still on, showing what's left".
+- The `prefs` echo arriving after your `board` is expected. If it matches what you already applied,
+  don't re-rank again.
+
+### 5. Turning speech into tags (rules for both `mood` and `command`)
+
+| The user says… | Send in `chips` |
+|---|---|
+| "a laugh", "comedy", "something funny" | `include: ["a laugh"]` |
+| "chill", "quiet", "relaxed" | `include: ["chill"]` |
+| "eat", "hungry", "dinner", "food" | `include: ["food"]` |
+| "gig", "live music", "jazz" | `include: ["live music"]` |
+| "active", "bowling", "ping pong" | `include: ["active"]`, also `"competitive"` if they want to win something |
+| "art", "gallery", "museum", "culture" | `include: ["culture"]` |
+| "late one", "out late" | `include: ["late night"]` |
+| "nothing outdoors", "not outside", "it's raining" | `exclude: ["outdoors"]` |
+| "no clubs", "not loud", "no queues" | `exclude: ["clubs"]` / `["loud music"]` / `["queues"]` |
+| "under a tenner", "cheap", "skint" | `budget: 10` |
+| "under 15/20 quid" | `budget: 20` (anything ≤ £10 → 10, ≤ £20 → 20, more → 999) |
+| "money's no object", "whatever" | `budget: 999` |
+| "me and two mates", "three of us" | `company: 3` (count the user too) |
+| "just me", "on my own" | `company: 1` |
+| "I'm a student" | `student: true` |
+| **command only:** "cheaper" | budget one step down (999 → 20 → 10) |
+| **command only:** "forget the budget" | `budget: 999` |
+
+- Prefer the vocabulary tags above (the UI has quick-pick chips for them). New lowercase tags are fine
+  too, e.g. `"karaoke"`. They appear as chips and the user can remove them.
+- Only send fields the user actually mentioned. Omitted `budget`/`student`/`company` keep their current values.
+- The client **adds** your tags to the current vybe; a tag can't be both into and not-into (the newest wins).
+  To remove a tag, put it on the other side (e.g. `include: ["outdoors"]` lifts an earlier exclude).
+
+### 6. Announcements (the station voice)
+
+Send an `announce` when one of the user's **picked** rows changes status:
+
+| When | `kind` | Example caption |
+|---|---|---|
+| A pick goes `on_time` → `boarding` | `boarding` | "Basement Stand-Up is now boarding. Leave in 15 minutes." |
+| A pick goes → `last_call` | `last_call` | "Last call for Basement Stand-Up. Leave now." |
+| Group decision made (P6) | `doors` | "Doors closing. You're going to Basement Stand-Up." |
+
+```json
+{"type":"announce","item_id":"basement-stand-up","kind":"boarding",
+ "url":"/audio/basement-stand-up-boarding.pcm","caption":"Basement Stand-Up is now boarding. Leave in 15 minutes."}
+```
+
+- **Audio format:** raw **PCM16 little-endian, mono, 24 000 Hz, no WAV header**. Serve it from the same
+  origin (or with CORS). A calm British station-announcer voice, ≤ ~6 s.
+- Once per row per `kind` (don't repeat on every board). The client plays one clip at a time and drops
+  extras if more than 2 are queued, so don't burst.
+- The caption is shown on screen while the clip plays, so make it match what's said.
+- `voiceover_url` on a row (the ticket's speaker button) uses the same audio format.
+
+### 7. Save and "Not for me"
+
+```
+→ {"type":"feedback","item_id":"basement-stand-up","kind":"like"}
+← {"type":"note","text":"Saved Basement Stand-Up"}
+→ {"type":"feedback","item_id":"basement-stand-up","kind":"skip"}
+← {"type":"note","text":"Hidden Basement Stand-Up. We'll show fewer like it."}
+← {"type":"board", ...without that row...}
+```
+
+The client hides a skipped row immediately; your `board` should leave it out from then on, and use likes
+and skips to re-rank.
+
+### 8. Location (P4, needs agreeing, see open decisions)
+
+```
+→ {"type":"location","lat":51.5045,"lng":-0.0865,"label":"Near you","source":"gps"}
+← {"type":"board","area":"London Bridge", ...walking times recomputed...}
+```
+
+`source` is `gps` (phone location), `search` (the user picked an area or station) or `default` (location
+denied, so the server picks the default demo area).
+
+### Backend "done" checklist
+
+- [ ] `/ws` accepts `prefs`, `talk_*`, `talk_text` **before** `join`
+- [ ] `join` → `joined` + `board` within ~1 s; a repeated `join` with a room resumes that room
+- [ ] every `prefs` → re-ranked `board`
+- [ ] speech: binary frames between `talk_start`/`talk_end` → partial + final `transcript` → `chips` (always)
+- [ ] `talk_text` → `chips`
+- [ ] `purpose:"command"` → `chips` + `note` + `board`
+- [ ] statuses, `leave_by`, picks and `count` computed server-side; departed rows kept briefly
+- [ ] `announce` when a pick turns boarding / last call, with PCM16 24 kHz mono audio
+- [ ] `feedback` skip removes the row for that user, like/skip re-rank, each answered with a `note`
+- [ ] photos: good or `null`, served from your origin, `colors` sent with them
+- [ ] `location` handled (once agreed)
 
 ## Open decisions (please reply)
 
