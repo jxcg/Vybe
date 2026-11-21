@@ -69,7 +69,8 @@ def test_parse_request(text: str, expected: dict[str, Any]) -> None:
 
 def test_broad_food_and_comedy_request() -> None:
     assert parse_request("I want to have a laugh and eat food") == {
-        "include": ["a laugh", "food"],
+        "include": ["a laugh", "food", "comedy"],
+        "requested": ["comedy", "food"],
         "exclude": [],
     }
 

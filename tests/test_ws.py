@@ -145,7 +145,7 @@ def test_food_and_comedy_keep_both_groups_visible(monkeypatch: pytest.MonkeyPatc
         recv(sock, "board")
         sock.send_json({"type": "talk_text", "text": "I want to have a laugh and eat food"})
         chips = recv(sock, "chips")
-        sock.send_json({"type": "prefs", "include": chips["include"]})
+        sock.send_json({"type": "prefs", "requested": chips["requested"]})
         board = recv(sock, "board")
         assert board["group"] is None
         assert {row["id"] for row in board["rows"]} == {"food", "comedy"}
