@@ -34,6 +34,15 @@ Railway runs one service for Vybe. The Docker build compiles the Vite frontend a
 copies it into the FastAPI image. FastAPI serves the frontend at `/` and the
 WebSocket at `/ws` on the same domain.
 
+### How deploys work
+
+1. When you open or update a pull request, GitHub Actions runs the tests and builds the Docker image.
+2. When you merge into `main`, GitHub Actions checks the merged commit. With **Wait for CI** enabled, Railway deploys it once the checks pass.
+
+Railway uses its GitHub integration. GitHub Actions does not need a Railway token or project ID.
+
+### Railway setup
+
 1. Connect the `jxcg/Vybe` GitHub repository to a Railway service in the
    `production` environment. Set its deployment branch to `main` and leave the
    root directory at the repository root. Clear any old start-command override
@@ -42,8 +51,7 @@ WebSocket at `/ws` on the same domain.
    **Variables** tab, set `MISTRAL_API_KEY` for voice and optionally
    `GOOGLE_PLACES_API_KEY` for Google Places.
 3. Keep Railway's GitHub autodeploy enabled. Once the CI workflow is present on
-   `main`, enable **Wait for CI** in the service settings so Railway waits for the
-   tests and production image build to pass before deploying subsequent pushes.
+   `main`, enable **Wait for CI** in the service settings.
 4. Open the Railway URL, join the board, and change a filter. In browser
    DevTools under **Network → WS**, confirm that the same-domain `/ws` request
    returns `101 Switching Protocols` and receives board updates.
