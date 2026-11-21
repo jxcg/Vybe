@@ -43,6 +43,7 @@ Put `(now)` after the milestone being worked on. Owners: (Claude), (Mistral), (T
 - [ ] Voiceover playback with mute (Claude)
 
 ## Demo (now)
+- [ ] Deploy Railway and Vercel automatically from main (Team)
 - [ ] Connect the Vercel frontend to the Railway WebSocket backend (Team)
 - [ ] Verify the Vercel Preview on a phone (Team)
 - [ ] Time travel control (Claude)

@@ -38,3 +38,24 @@ FastAPI · WebSocket · React · TypeScript · Vite · Google Places · Mistral 
    `wss://your-service.up.railway.app/ws`. Deploy or redeploy the preview to bake in the URL.
 4. Open the preview with `/?reset`, join the board, change a filter, and verify the browser
    connects to the Railway socket and receives board updates.
+
+## Deploy production from GitHub Actions
+
+Pull requests targeting `main` run the Python tests and frontend build. A push to `main`
+runs the same checks, prepares the Vercel production build, deploys the backend to Railway,
+and publishes the Vercel build after Railway reports success.
+
+Before merging the workflow:
+
+1. Create a Railway production service in the repository root and give it a public domain.
+   Disable Railway's GitHub autodeploy for that service. Keep app secrets in Railway.
+2. Configure the Vercel project with the Vite preset and `web` as its root directory.
+   Set its **Production** `VITE_VYBE_WS_URL` to `wss://<railway-domain>/ws`.
+   The [Vercel config](web/vercel.json) disables Git-driven deployments from `main`.
+3. In GitHub, create a `production` environment and restrict deployments to `main`.
+   Add `RAILWAY_TOKEN` (a Railway production project token) and `VERCEL_TOKEN` as secrets.
+   Add `RAILWAY_PROJECT_ID`, `RAILWAY_SERVICE_ID`, `VERCEL_ORG_ID` and
+   `VERCEL_PROJECT_ID` as variables.
+4. After the first production run succeeds, open Vybe and join the board. In browser
+   DevTools, confirm the Railway `/ws` request returns `101 Switching Protocols` and
+   receives board updates when you change a filter.
