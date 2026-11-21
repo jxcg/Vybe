@@ -67,6 +67,13 @@ def test_parse_request(text: str, expected: dict[str, Any]) -> None:
             assert got.get(key) == value, f"{text!r}: {key}={got.get(key)}"
 
 
+def test_broad_food_and_comedy_request() -> None:
+    assert parse_request("I want to have a laugh and eat food") == {
+        "include": ["a laugh", "food"],
+        "exclude": [],
+    }
+
+
 def test_only_what_was_said() -> None:
     assert parse_request("bowling") == {"include": ["active", "bowling"], "exclude": []}
     assert parse_request("Pizza and a comedy show") == {
