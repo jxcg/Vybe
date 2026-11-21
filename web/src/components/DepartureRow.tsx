@@ -3,6 +3,7 @@ import type { Row } from '../contract';
 import { formatPrice, when } from '../lib/format';
 import { leaveHint } from '../lib/time';
 import { useVenueColors, venueStyle } from '../lib/venueColors';
+import { VenueRating } from './VenueRating';
 import { StatusText } from './StatusText';
 import './DepartureRow.css';
 
@@ -31,6 +32,7 @@ export function DepartureRow({ row, nowMs, onOpen }: Props) {
           <span className="drow-name">
             <span className="drow-dot" aria-hidden="true" />
             <span className="drow-name-text">{row.name}</span>
+            <VenueRating rating={row.rating} />
           </span>
           <StatusText status={row.status} className="drow-status" />
         </span>

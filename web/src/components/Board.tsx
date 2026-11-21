@@ -38,6 +38,9 @@ function GroupFilter({ groups, active, onPick }: {
 export function Board() {
   const { state, dispatch, send, enterRoom } = useStore();
   const { board, vybe, shared } = state;
+  const rows = board?.count === 4
+    ? board.rows.map((row) => row.pick && row.pick !== 'best' ? { ...row, pick: null } : row)
+    : board?.rows ?? [];
   const [showInvite, setShowInvite] = useState(false);
   const inviteFriends = () => {
     if (shared) {
@@ -82,9 +85,9 @@ export function Board() {
                 onPick={(group) => send({ type: 'show', group })}
               />
             )}
-            <HeroCarousel rows={board.rows} nowMs={nowMs} student={vybe.student} onOpen={openTicket} />
+            <HeroCarousel rows={rows} nowMs={nowMs} student={vybe.student} onOpen={openTicket} />
             <DepartureList
-              rows={board.rows}
+              rows={rows}
               byCategory={!board.group}
               shared={Boolean(shared)}
               nowMs={nowMs}

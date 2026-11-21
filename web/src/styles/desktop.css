@@ -1,5 +1,5 @@
 /* Desktop layout (≥ 1024px). The phone layout is untouched below this width.
-   Board: header across the top, a bento of the three picks on the left, a departures panel on the right.
+   Board: header across the top, picks on the left, a departures panel on the right.
    Start: big headline and mic on the left, "Your vybe" and the CTA on the right. */
 
 @media (min-width: 1024px) {
@@ -52,7 +52,11 @@
     min-height: 40px; /* scroll containers can collapse to 0 in an auto grid row */
   }
 
-  /* Picks: best pick as a big poster, the other two stacked beside it */
+  /* Give the picks the whole board when there is no departures panel. */
+  .board-scroll:not(:has(> .dlist)) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
   .hero {
     grid-column: 1;
     margin-top: 20px;
@@ -60,13 +64,14 @@
   }
   .hero-track {
     display: grid;
-    grid-template-columns: 1.45fr 1fr;
-    /* Fit above the floating talk bar on a laptop screen */
-    grid-template-rows: repeat(2, minmax(min-content, clamp(208px, calc((100dvh - 480px) / 2), 320px)));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 16px;
     overflow: visible;
     padding: 0;
     scroll-snap-type: none;
+  }
+  .board-scroll:not(:has(> .dlist)) .hero-track {
+    grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
   }
   .hero-track::after {
     display: none;
@@ -76,34 +81,12 @@
     min-width: 0;
     scroll-snap-align: none;
   }
-  .hero-card:first-child {
-    grid-row: 1 / span 2;
-  }
-  .hero-card:not(:first-child) {
-    padding: 16px;
-  }
-  .hero-card:not(:first-child) .hero-card-when {
-    padding-top: 12px;
-  }
-  /* End the photo fade before the compact card's opening-hours label. */
-  .hero-card--photo:not(:first-child) {
-    --photo-h: 84px;
-  }
-  .hero-card--photo:not(:first-child) .hero-card-when {
-    padding-top: calc(var(--photo-h) - 34px);
-  }
-  .hero-card:not(:first-child) .hero-card-time {
-    font-size: clamp(32px, 3.5vw, 48px);
-  }
-  .hero-card:not(:first-child) .hero-card-name {
-    margin-top: 6px;
-    font-size: 17px;
-  }
-  .hero-card:not(:first-child) .hero-card-bottom {
-    margin-top: 8px;
+  .board-scroll:has(> .dlist) .hero-card:only-child,
+  .board-scroll:has(> .dlist) .hero-track:has(> .hero-card:nth-child(3)) > .hero-card:first-child {
+    grid-column: 1 / -1;
   }
   .hero-card:hover {
-    transform: translateY(-3px);
+    transform: translateY(-2px);
   }
   .hero-dots {
     display: none;

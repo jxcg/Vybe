@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Bookmark, ChevronLeft, Navigation, Pause, Ticket as TicketIcon, Volume2, X } from 'lucide-react';
 import { usePlacePhoto } from '../lib/placePhoto';
 import type { Row } from '../contract';
-import { ago, formatPrice, hostname, when } from '../lib/format';
+import { ago, formatPrice, formatRating, hostname, when } from '../lib/format';
 import { formatHM, MINUTE } from '../lib/time';
 import { darken, useVenueColors, venueStyle } from '../lib/venueColors';
 import { Grain } from './Grain';
@@ -65,6 +65,7 @@ export function Ticket({ row, next, nowMs, student, liked, onBack, onNext, onLik
   const urgency = Math.min(1, Math.max(0, (DARKEN_WINDOW_MIN - minsToLeave) / DARKEN_WINDOW_MIN));
   const deep = isPhoto ? colors.deep : darken(colors.deep, DARKEN_MAX * urgency);
 
+  const rating = formatRating(row.rating);
   const price = formatPrice(row, student);
   const directions = `https://www.google.com/maps/dir/?api=1&destination=${row.lat},${row.lng}&travelmode=walking`;
   const source = row.source_url ? hostname(row.source_url) : null;
@@ -72,7 +73,7 @@ export function Ticket({ row, next, nowMs, student, liked, onBack, onNext, onLik
   return (
     <article
       className={`ticket ${isPhoto ? 'ticket--photo' : 'ticket--poster'}`}
-      style={venueStyle({ ...colors, deep })}
+      style={venueStyle({ ...colors, deep }, row.photo_fade_start)}
       aria-label={row.name}
       data-ticket-id={row.id}
     >
@@ -112,9 +113,9 @@ export function Ticket({ row, next, nowMs, student, liked, onBack, onNext, onLik
         </p>
         <p className="ticket-scores">
           <strong>{Math.round(row.score * 10)}% match</strong>
-          {row.rating !== null && (
+          {rating && (
             <>
-              <span className="ticket-dot">·</span>★ {row.rating} on Google
+              <span className="ticket-dot">·</span>★ {rating} on Google
             </>
           )}
         </p>
