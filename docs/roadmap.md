@@ -20,11 +20,12 @@ Put `(now)` after the milestone being worked on. Owners: (Claude), (Mistral), (T
 - [x] Browser location or typed postcode/area (Claude)
 - [x] OpenStreetMap and sample-data fallback (Claude)
 
-## Voice (now)
+## Voice
 - [x] `audio_to_filters`: Voxtral turns speech into filters (Mistral)
-- [ ] `POST /api/voice` with session-only filters (Claude)
-- [ ] Ranking applies voice filters (Claude)
-- [ ] Hold-to-talk button and filter chips (Claude)
+- [x] Voice over `/ws`: speech or typing becomes session-only chips (Claude)
+- [x] Ranking applies voice filters (Claude)
+- [ ] Mic capture in the web frontend, sending PCM to `/ws` (Team)
+- [ ] `text_to_filters` and transcripts from Voxtral (Mistral)
 
 ## Background refresh
 - [ ] Pipeline v1: Workflow fetches venues and writes `data/enriched.json` (Mistral)
@@ -34,9 +35,11 @@ Put `(now)` after the milestone being worked on. Owners: (Claude), (Mistral), (T
 - [ ] Voxtral TTS voiceovers (Mistral)
 - [ ] `/vybe` skill triggers a refresh (Mistral)
 
-## Design
-- [ ] Figma For You card applied (Claude)
-- [ ] Details page (Claude)
+## Design (now)
+- [x] Teammate's VYBE frontend merged, with the `/ws` backend (Claude)
+- [x] Light mode as primary, venue-colour glow on cards (Claude)
+- [ ] Brand colours from each venue's website (Mistral)
+- [ ] Location from the browser sent to `/ws` (Team)
 - [ ] Voiceover playback with mute (Claude)
 
 ## Demo

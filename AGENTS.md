@@ -131,5 +131,7 @@ Do not add any attribution footer (e.g. "Generated with ...") to the PR body.
 cp .env.example .env   # once, then add keys (optional: no key = sample data)
 uv run --env-file .env uvicorn app.main:app --reload   # http://localhost:8000
 uv run pytest
+cd web && npm install && npm run build   # the web frontend; the server serves web/dist at /
+cd web && npm run dev                     # live-reload frontend on :5173, proxies /ws to :8000
 uv run ruff format . && uv run ruff check . && uv run mypy app tests   # run before every commit
 ```
