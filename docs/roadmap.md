@@ -8,7 +8,7 @@ Put `(now)` after the milestone being worked on. Owners: (Claude), (Mistral), (T
 - [x] Ruff, strict mypy, tests (Claude)
 - [x] AGENTS.md, README pitch, partner brief (Claude)
 
-## Feed and ranking (now)
+## Feed and ranking
 - [x] Swipe-up/down full-screen cards (Claude)
 - [x] Setup (budget, student, 18+) and likes saved in the browser (Claude)
 - [x] Ranking: open soon, budget, 18+, badges, leave-by (Claude)
@@ -22,12 +22,14 @@ Put `(now)` after the milestone being worked on. Owners: (Claude), (Mistral), (T
 - [x] Browser location or typed postcode/area (Claude)
 - [x] OpenStreetMap and sample-data fallback (Claude)
 
-## Voice
+## Voice (now)
 - [x] `audio_to_filters`: Voxtral turns speech into filters (Mistral)
 - [x] Voice over `/ws`: speech or typing becomes session-only chips (Claude)
 - [x] Ranking applies voice filters (Claude)
 - [ ] Mic capture in the web frontend, sending PCM to `/ws` (Team)
 - [ ] Simplify mobile onboarding and enlarge voice and typing controls (Team)
+- [ ] Open the board when Enter submits a typed prompt (Team)
+- [ ] Open board settings from one full-width Change your vibe button (Team)
 - [ ] `text_to_filters` and transcripts from Voxtral (Mistral)
 
 ## Background refresh
@@ -38,7 +40,7 @@ Put `(now)` after the milestone being worked on. Owners: (Claude), (Mistral), (T
 - [ ] Voxtral TTS voiceovers (Mistral)
 - [ ] `/vybe` skill triggers a refresh (Mistral)
 
-## Design (now)
+## Design
 - [ ] Render cached photo and gradient themes and verify the Studio debate (Team)
 - [x] Teammate's VYBE frontend merged, with the `/ws` backend (Claude)
 - [x] Light mode as primary, venue-colour glow on cards (Claude)
