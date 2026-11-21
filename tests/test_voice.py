@@ -1,4 +1,5 @@
 import json
+import time
 from typing import Any
 
 import httpx
@@ -8,11 +9,18 @@ from app import voice
 
 
 class FakeResponse:
-    def __init__(self, payload: dict[str, Any]) -> None:
+    def __init__(self, payload: dict[str, Any], status: int = 200) -> None:
         self._payload = payload
+        self._status = status
 
     def raise_for_status(self) -> None:
-        return None
+        if self._status >= 400:
+            request = httpx.Request("POST", voice.API)
+            raise httpx.HTTPStatusError(
+                f"{self._status}",
+                request=request,
+                response=httpx.Response(self._status, request=request),
+            )
 
     def json(self) -> dict[str, Any]:
         return self._payload
@@ -58,7 +66,7 @@ def test_audio_to_filters_happy_path(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(httpx, "post", fake_post)
     monkeypatch.setenv("MISTRAL_API_KEY", "test-key")
     context = {"current_card": {"id": "bowl-1", "tags": ["active"]}, "now": "19:05", "filters": {}}
-    out = voice.audio_to_filters(b"fake-audio", "audio/webm", context)
+    out = voice.audio_to_filters(b"fake-audio", "audio/webm;codecs=opus", context)
     assert out == {
         "budget": 1,
         "max_walk_mins": 10,
@@ -74,10 +82,11 @@ def test_audio_to_filters_happy_path(monkeypatch: pytest.MonkeyPatch) -> None:
     content = body["messages"][1]["content"]
     assert content[0]["type"] == "text" and "bowl-1" in content[0]["text"]
     assert content[1]["type"] == "input_audio"
+    # codecs=opus is stripped from the MIME type
     assert content[1]["input_audio"]["format"] == "webm"
 
 
-def test_cleans_and_clamps_model_output(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_cleans_clamps_and_fills_reply(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
         httpx,
         "post",
@@ -92,7 +101,7 @@ def test_cleans_and_clamps_model_output(monkeypatch: pytest.MonkeyPatch) -> None
                     "indoors_only": "yes",  # not a bool: dropped
                     "clear": False,
                     "unknown_key": 1,  # dropped
-                    "reply": "  ok  ",
+                    # no reply: a fallback is filled in
                 }
             )
         ),
@@ -105,31 +114,57 @@ def test_cleans_and_clamps_model_output(monkeypatch: pytest.MonkeyPatch) -> None
         "include_tags": ["active"],
         "include_text": ["bowling"],
         "clear": False,
-        "reply": "ok",
+        "reply": "Filters updated for this session.",
     }
 
 
-def test_http_error_returns_reply(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_http_4xx_raises_voice_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(httpx, "post", lambda url, **kw: FakeResponse({}, status=400))
+    monkeypatch.setenv("MISTRAL_API_KEY", "k")
+    with pytest.raises(voice.VoiceError):
+        voice.audio_to_filters(b"x", "audio/webm", {})
+
+
+def test_network_error_raises_voice_error(monkeypatch: pytest.MonkeyPatch) -> None:
     def boom(url: str, **kwargs: Any) -> FakeResponse:
         raise httpx.ConnectError("offline")
 
     monkeypatch.setattr(httpx, "post", boom)
     monkeypatch.setenv("MISTRAL_API_KEY", "k")
-    assert voice.audio_to_filters(b"x", "audio/mp3", {}) == {
-        "reply": "Sorry, I didn't catch that — try again."
-    }
+    with pytest.raises(voice.VoiceError):
+        voice.audio_to_filters(b"x", "audio/mp3", {})
 
 
-def test_bad_arguments_json_returns_reply(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_no_tool_call_raises_voice_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        httpx, "post", lambda url, **kw: FakeResponse({"choices": [{"message": {}}]})
+    )
+    monkeypatch.setenv("MISTRAL_API_KEY", "k")
+    with pytest.raises(voice.VoiceError):
+        voice.audio_to_filters(b"x", "audio/webm", {})
+
+
+def test_bad_arguments_json_raises_voice_error(monkeypatch: pytest.MonkeyPatch) -> None:
     payload = {"choices": [{"message": {"tool_calls": [{"function": {"arguments": "not json"}}]}}]}
     monkeypatch.setattr(httpx, "post", lambda url, **kw: FakeResponse(payload))
     monkeypatch.setenv("MISTRAL_API_KEY", "k")
-    assert voice.audio_to_filters(b"x", "audio/webm", {}) == {
-        "reply": "Sorry, I didn't catch that — try again."
-    }
+    with pytest.raises(voice.VoiceError):
+        voice.audio_to_filters(b"x", "audio/webm", {})
 
 
-def test_no_key_short_circuits_without_http(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_timeout_raises_voice_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    def slow(url: str, **kwargs: Any) -> FakeResponse:
+        time.sleep(1.0)
+        return FakeResponse(tool_payload({"reply": "too late"}))
+
+    monkeypatch.setattr(httpx, "post", slow)
+    monkeypatch.setattr(voice, "DEADLINE", 0.2)  # one total deadline, not per-stage
+    monkeypatch.setenv("MISTRAL_API_KEY", "k")
+    with pytest.raises(voice.VoiceError, match="timed out"):
+        voice.audio_to_filters(b"x", "audio/webm", {})
+
+
+def test_no_key_raises_without_http(monkeypatch: pytest.MonkeyPatch) -> None:
     called = False
 
     def fake_post(url: str, **kwargs: Any) -> FakeResponse:
@@ -138,6 +173,6 @@ def test_no_key_short_circuits_without_http(monkeypatch: pytest.MonkeyPatch) -> 
         return FakeResponse({})
 
     monkeypatch.setattr(httpx, "post", fake_post)
-    out = voice.audio_to_filters(b"x", "audio/webm", {})
-    assert "reply" in out
+    with pytest.raises(voice.VoiceError):
+        voice.audio_to_filters(b"x", "audio/webm", {})
     assert not called

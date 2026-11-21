@@ -3,9 +3,13 @@
 No web framework code here, and nothing is ever persisted: the spoken request
 goes to Voxtral as audio with tool calling, and only the parsed filters come back.
 Calls the Mistral REST API over httpx so no new dependency is needed.
+
+Any failure (missing key, network/HTTP error, timeout, unparseable reply) raises
+VoiceError, so the route can answer 502 instead of pretending the user was heard.
 """
 
 import base64
+import concurrent.futures
 import json
 import os
 from typing import Any
@@ -13,8 +17,16 @@ from typing import Any
 import httpx
 
 API = "https://api.mistral.ai/v1/chat/completions"
-MODEL = "voxtral-mini-latest"
-TIMEOUT = 1.8  # the whole call must stay under 2 s: this runs live
+# voxtral-mini-* 400s on audio input (checked live 2026-11-21); the dated small ID
+# is the stable one — voxtral-small-latest is its alias
+MODEL = "voxtral-small-2507"
+DEADLINE = 1.9  # one total deadline for the whole call: this runs live
+_TRANSPORT = httpx.Timeout(1.8, connect=0.5)  # per-stage backstop under DEADLINE
+
+
+class VoiceError(RuntimeError):
+    """Voice request failed: bad config, network/HTTP error, timeout, bad reply."""
+
 
 TAGS = ["active", "culture", "nightlife", "food", "indoors", "outdoors"]
 TYPES = ["activity", "food_deal"]
@@ -58,6 +70,7 @@ FILTER_TOOL: dict[str, Any] = {
                 },
                 "reply": {"type": "string", "description": "One short sentence for the UI."},
             },
+            "required": ["reply"],
             "additionalProperties": False,
         },
     },
@@ -107,17 +120,25 @@ def _clean(raw: Any) -> dict[str, Any]:
     return out
 
 
+def _post(payload: dict[str, Any], key: str) -> httpx.Response:
+    return httpx.post(
+        API, json=payload, headers={"Authorization": f"Bearer {key}"}, timeout=_TRANSPORT
+    )
+
+
 def audio_to_filters(audio: bytes, mime: str, context: dict[str, Any]) -> dict[str, Any]:
     """Voxtral: a spoken request turned into session filters.
 
     `context` is what the user is looking at, e.g. {"current_card": {...item...},
     "now": "19:05", "filters": {...current filters...}}, so relative requests like
     "like this but closer" work. Returns only the Contract 2 shape; every key is
-    optional. Never writes anything to disk, database or logs.
+    optional. Never writes anything to disk, database or logs. Raises VoiceError
+    on any failure.
     """
     key = os.environ.get("MISTRAL_API_KEY")
     if not key:
-        return {"reply": "Voice is off — no Mistral API key on this device."}
+        raise VoiceError("MISTRAL_API_KEY is not set")
+    fmt = mime.split("/")[-1].split(";")[0].strip() or "webm"  # "audio/webm;codecs=opus" -> "webm"
     payload = {
         "model": MODEL,
         "messages": [
@@ -132,10 +153,7 @@ def audio_to_filters(audio: bytes, mime: str, context: dict[str, Any]) -> dict[s
                     },
                     {
                         "type": "input_audio",
-                        "input_audio": {
-                            "data": base64.b64encode(audio).decode(),
-                            "format": mime.split("/")[-1] or "webm",
-                        },
+                        "input_audio": {"data": base64.b64encode(audio).decode(), "format": fmt},
                     },
                 ],
             },
@@ -143,13 +161,27 @@ def audio_to_filters(audio: bytes, mime: str, context: dict[str, Any]) -> dict[s
         "tools": [FILTER_TOOL],
         "tool_choice": "any",
     }
+    pool = concurrent.futures.ThreadPoolExecutor(max_workers=1)
     try:
-        r = httpx.post(
-            API, json=payload, headers={"Authorization": f"Bearer {key}"}, timeout=TIMEOUT
-        )
+        future = pool.submit(_post, payload, key)
+        try:
+            r = future.result(timeout=DEADLINE)  # one total deadline, not per-stage
+        except concurrent.futures.TimeoutError as e:
+            raise VoiceError("voice request timed out") from e
+        except Exception as e:  # network errors surface here from the worker thread
+            raise VoiceError(f"voice request failed: {e}") from e
+    finally:
+        pool.shutdown(wait=False, cancel_futures=True)
+    try:
         r.raise_for_status()
         calls = r.json()["choices"][0]["message"].get("tool_calls") or []
+        if not calls:
+            raise VoiceError("Voxtral returned no tool call")
         args = json.loads(calls[0]["function"]["arguments"])
-    except (httpx.HTTPError, KeyError, IndexError, TypeError, ValueError):
-        return {"reply": "Sorry, I didn't catch that — try again."}
-    return _clean(args)
+    except VoiceError:
+        raise
+    except (httpx.HTTPError, KeyError, IndexError, TypeError, ValueError) as e:
+        raise VoiceError(f"could not parse Voxtral reply: {e}") from e
+    out = _clean(args)
+    out.setdefault("reply", "Filters updated for this session.")
+    return out

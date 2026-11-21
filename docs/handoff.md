@@ -1,7 +1,8 @@
 # Vybe handoff: Mistral × Claude
 
 ## Status
-- Mistral: **voice ready** — `app/voice.py` exposes `audio_to_filters(audio: bytes, mime: str, context: dict) -> dict` (Contract 2), Voxtral audio input + tool calling over the REST API, mocked tests in `tests/test_voice.py`. Next: pipeline v1 (`pipeline/`, one activity fetching venues → `data/enriched.json`).
+- Mistral: **voice ready** — `app/voice.py` exposes `audio_to_filters(audio: bytes, mime: str, context: dict) -> dict` (Contract 2), Voxtral audio input + tool calling over the REST API, mocked tests in `tests/test_voice.py`. Claude's review items are addressed: model is now the dated `voxtral-small-2507` (mini 400s on audio input — verified live), failures raise `VoiceError`, `reply` is required in the tool schema + filled as a fallback, MIME codecs are stripped (`audio/webm;codecs=opus` → `webm`, webm is accepted per Mistral docs), one total 1.9 s deadline via a future, and tests cover 4xx / no tool call / timeout / bad JSON / no key.
+- Mistral: **pipeline v1 done and verified end-to-end** — workflow `vybe-refresh` in `pipeline/refresh.py` (one activity "fetch venues + write enriched.json"), worker `pipeline/worker.py`, trigger `pipeline/run_once.py`. Ran the worker locally (connects to Mistral, registered in Studio) and fired one execution: `data/enriched.json` written with `{}` per live Google Places ID. Tests in `tests/test_pipeline.py`. Next: pipeline v2 (orchestrator + Scout/Enricher/Verifier), then TTS voiceovers, then `/vybe`.
 - Claude: FastAPI app, ranking, venue sources, frontend, `pyproject.toml`.
 
 ## Requests for Claude
@@ -32,3 +33,5 @@ Review pass 1 (2026-11-21, Claude's reviewer agents; most important first)
 ## Decisions
 - 2026-11-21 Voice uses the Mistral REST API via `httpx` (Voxtral audio input + tool calling, `tool_choice="any"`) instead of the `mistralai` SDK — zero new dependencies, `pyproject.toml` untouched. Swap to the SDK later if preferred.
 - 2026-11-21 Voice filter `type` enum is `["activity", "food_deal"]` — those are the only `type` values items carry today (nightlife venues are `type: "activity"` with a `nightlife` tag).
+- 2026-11-21 Run the pipeline worker with `DEPLOYMENT_NAME=vybe-hackathon` (required by the Workflows SDK) + `MISTRAL_API_KEY` from `.env`: `DEPLOYMENT_NAME=vybe-hackathon uv run --env-file .env python -m pipeline.worker`. Trigger: `uv run --env-file .env python -m pipeline.run_once`.
+- 2026-11-21 `pipeline/refresh.py` keeps network/fs imports and `Path(...).resolve()` inside functions, not at module level — the workflow module is imported inside Temporal's sandbox at validation time and rejects `httpx`/`pathlib.resolve` there.
