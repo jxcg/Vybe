@@ -103,6 +103,7 @@ def rank(
     age: str | None = None,
     vibe: str | None = None,
     company: int = 1,
+    shared_budget: int | None = None,
 ) -> list[dict[str, Any]]:
     """`prefer` adds tags the user asked for (e.g. by voice) on top of what their likes imply.
 
@@ -139,6 +140,16 @@ def rank(
                 1.0, (budget - item["price_level"] + 1) / budget + (0.25 if student_deal else 0)
             )
         )
+        if shared_budget is not None:
+            actual = item.get("price")
+            over = 0
+            price = (
+                0.5
+                if actual is None or shared_budget == 999
+                else max(0.0, 1 - actual / shared_budget)
+            )
+            if student_deal:
+                price = min(1.0, price + 0.25)
         if weather is None:
             sky = 0.66
         elif outdoors:
