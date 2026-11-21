@@ -19,7 +19,7 @@ export function DepartureRow({ row, nowMs, onOpen }: Props) {
 
   return (
     <button
-      className="drow"
+      className={`drow${row.score >= 8 ? ' is-top' : ''}`}
       type="button"
       style={venueStyle(colors)}
       data-row-id={row.id}

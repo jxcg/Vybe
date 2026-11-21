@@ -7,7 +7,8 @@ export type ConnStatus = 'connecting' | 'open' | 'reconnecting';
 /** Shared interface for the real WebSocket and the mock. */
 export interface VybeSocket {
   send(msg: ClientMessage): void;
-  // TODO(P4): sendAudio(frame: ArrayBuffer) for binary PCM16 mic frames between talk_start/talk_end.
+  /** Binary PCM16 16 kHz mic frames, sent only between talk_start and talk_end. */
+  sendAudio(frame: ArrayBuffer): void;
   subscribe(cb: (msg: ServerMessage) => void): () => void;
   onStatus(cb: (status: ConnStatus) => void): () => void;
   close(): void;

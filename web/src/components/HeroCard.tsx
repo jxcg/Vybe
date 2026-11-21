@@ -17,6 +17,9 @@ const PICK_LABEL: Record<Pick, string> = {
 
 const FUSE_WINDOW_MIN = 60;
 
+/** Strong matches (8/10 and up) get a barely-there shine. */
+const TOP_SCORE = 8;
+
 interface Props {
   row: Row;
   nowMs: number;
@@ -46,7 +49,7 @@ export function HeroCard({ row, nowMs, student, onOpen }: Props) {
 
   return (
     <button
-      className={`hero-card${photo === 'ok' ? ' hero-card--photo' : ''}`}
+      className={`hero-card${photo === 'ok' ? ' hero-card--photo' : ''}${row.score >= TOP_SCORE ? ' is-top' : ''}`}
       type="button"
       style={venueStyle(colors)}
       data-row-id={row.id}

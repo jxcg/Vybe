@@ -83,7 +83,7 @@ def test_voice_audio_becomes_chips(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(voice, "audio_to_filters", fake)
     with TestClient(app).websocket_connect("/ws") as sock:
         sock.send_text(json.dumps({"type": "talk_start", "purpose": "mood"}))
-        sock.send_bytes(b"\x00\x00" * 1600)  # 100 ms of PCM16 silence
+        sock.send_bytes(b"\x00\x30" * 1600)  # 100 ms of a loud PCM16 tone
         sock.send_text(json.dumps({"type": "talk_end"}))
         chips = recv(sock, "chips")
         assert chips == {"type": "chips", "include": ["active"], "exclude": ["clubs"], "budget": 10}
@@ -98,7 +98,7 @@ def test_voice_failure_is_friendly(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(voice, "audio_to_filters", broken)
     with TestClient(app).websocket_connect("/ws") as sock:
         sock.send_text(json.dumps({"type": "talk_start", "purpose": "mood"}))
-        sock.send_bytes(b"\x00\x00" * 160)
+        sock.send_bytes(b"\x00\x30" * 160)
         sock.send_text(json.dumps({"type": "talk_end"}))
         assert recv(sock, "chips")["include"] == []
         assert "typing" in recv(sock, "note")["text"]
@@ -250,3 +250,20 @@ def test_voiceover_paths_become_served_urls(tmp_path: Any, monkeypatch: pytest.M
         ws._voiceover_url("data/voiceovers/missing.mp3") is None
     )  # never link a file that isn't there
     assert ws._voiceover_url(None) is None
+
+
+def test_silent_audio_skips_voxtral(monkeypatch: pytest.MonkeyPatch) -> None:
+    called: list[int] = []
+
+    def fake(*_: Any) -> dict[str, Any]:
+        called.append(1)
+        return {}
+
+    monkeypatch.setattr(voice, "audio_to_filters", fake)
+    with TestClient(app).websocket_connect("/ws") as sock:
+        sock.send_text(json.dumps({"type": "talk_start", "purpose": "mood"}))
+        sock.send_bytes(b"\x00\x00" * 1600)  # silence
+        sock.send_text(json.dumps({"type": "talk_end"}))
+        assert recv(sock, "chips")["include"] == []
+        assert "catch" in recv(sock, "note")["text"]
+    assert not called  # never sent to Voxtral

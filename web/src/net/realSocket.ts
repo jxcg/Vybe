@@ -79,6 +79,9 @@ export function createRealSocket(url: string): VybeSocket {
   connect();
 
   return {
+    sendAudio(frame) {
+      if (ws?.readyState === WebSocket.OPEN) ws.send(frame);
+    },
     send(msg) {
       if (msg.type === 'join') lastJoin = msg;
       if (msg.type === 'prefs') lastPrefs = msg;

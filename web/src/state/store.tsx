@@ -130,6 +130,7 @@ interface Store {
   state: State;
   dispatch: Dispatch<Action>;
   send: (msg: ClientMessage) => void;
+  sendAudio: (frame: ArrayBuffer) => void;
   /** Sends join + current prefs once per connection. */
   join: () => void;
 }
@@ -144,6 +145,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   latest.current = state;
 
   const send = useCallback((msg: ClientMessage) => socketRef.current?.send(msg), []);
+  const sendAudio = useCallback((frame: ArrayBuffer) => socketRef.current?.sendAudio(frame), []);
 
   const join = useCallback(() => {
     if (joinedRef.current) return;
@@ -179,7 +181,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, [vybe, room, onboarded]);
 
   return (
-    <StoreContext.Provider value={{ state, dispatch, send, join }}>
+    <StoreContext.Provider value={{ state, dispatch, send, sendAudio, join }}>
       {children}
     </StoreContext.Provider>
   );

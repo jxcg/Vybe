@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 import { Keyboard } from 'lucide-react';
 import { useStore } from '../state/store';
+import { useTalk } from '../state/useTalk';
 import { useKeyboardOpen } from '../lib/useKeyboardOpen';
 import { fadeIn, fadeOutCopy, ghost, MORPH_MS, prefersReducedMotion, shapeOf, slideFrom } from '../lib/morph';
 import { handoff } from '../lib/handoff';
@@ -43,6 +44,11 @@ export function StartScreen() {
   const morphing = useRef(false);
   const talkCap = useRef<number | undefined>(undefined);
   const keyboardOpen = useKeyboardOpen();
+  // Mic blocked or unavailable: fall back to typing (the hook shows a toast saying why)
+  const talk = useTalk('mood', () => {
+    setPhase('idle');
+    switchMode(true);
+  });
 
   // The server answered with chips: done thinking.
   useEffect(() => {
@@ -59,16 +65,13 @@ export function StartScreen() {
 
   const endTalk = () => {
     window.clearTimeout(talkCap.current);
-    // TODO(P4): stop the mic stream here.
-    send({ type: 'talk_end' });
+    talk.stop(); // sends the last audio, then talk_end
     setPhase('thinking');
   };
 
   const startTalk = () => {
-    // TODO(P4): unlock audio, start mic capture and stream PCM16 frames via the socket;
-    // on permission denied switch to typing mode with the toast "Mic is off, type it instead".
     dispatch({ type: 'clear_transcript' });
-    send({ type: 'talk_start', purpose: 'mood' });
+    talk.start(); // talk_start, then streams PCM16 mic frames
     setPhase('listening');
     talkCap.current = window.setTimeout(endTalk, TALK_MAX_MS);
   };

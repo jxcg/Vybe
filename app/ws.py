@@ -249,6 +249,15 @@ def filters_to_chips(f: dict[str, Any]) -> dict[str, Any]:
     return chips
 
 
+SILENCE_PEAK = 600  # out of 32767: below this the clip is effectively silent
+
+
+def _peak(pcm: bytes) -> int:
+    """Loudest sample in little-endian PCM16."""
+    samples = memoryview(pcm[: len(pcm) - len(pcm) % 2]).cast("h")
+    return max((abs(x) for x in samples), default=0)
+
+
 def pcm_to_wav(pcm: bytes, rate: int = 16000) -> bytes:
     buf = io.BytesIO()
     with wave.open(buf, "wb") as w:
@@ -430,9 +439,11 @@ class Session:
             await self.chips(text_to_chips(text))
 
     async def voice(self) -> None:
-        if not self.audio:
+        if not self.audio or _peak(bytes(self.audio)) < SILENCE_PEAK:
+            # Silence makes speech models guess, so don't ask: just say we didn't hear anything.
+            self.audio.clear()
             await self.chips(
-                {"include": [], "exclude": []}, "Didn't catch any audio. Try typing instead."
+                {"include": [], "exclude": []}, "Didn't catch that. Try again, or type instead."
             )
             return
         context = {"now": self.now().strftime("%H:%M"), "filters": self.prefs}
