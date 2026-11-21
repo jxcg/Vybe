@@ -28,34 +28,22 @@ Built with the Mistral Vibe CLI for the Mistral Vibe Hackathon 2026, London.
 
 FastAPI · WebSocket · React · TypeScript · Vite · Google Places · Mistral Workflows, Agents SDK, Voxtral
 
-## Deploy staging with Railway and Vercel
+## Deploy to Railway
 
-1. In Railway, deploy this repository as a service from the repository root. The start command in
-   `railway.toml` runs FastAPI on Railway's port. Generate a public domain under Networking.
-2. Set `MISTRAL_API_KEY` and optionally `GOOGLE_PLACES_API_KEY` in Railway's service variables.
-3. In Vercel, import the repository with `web` as the root directory and use the Vite preset.
-   Set `VITE_VYBE_WS_URL` in the Preview environment to the full socket URL, for example
-   `wss://your-service.up.railway.app/ws`. Deploy or redeploy the preview to bake in the URL.
-4. Open the preview with `/?reset`, join the board, change a filter, and verify the browser
-   connects to the Railway socket and receives board updates.
+Railway runs one service for Vybe. The Docker build compiles the Vite frontend and
+copies it into the FastAPI image. FastAPI serves the frontend at `/` and the
+WebSocket at `/ws` on the same domain.
 
-## Deploy production from GitHub Actions
-
-Pull requests targeting `main` run the Python tests and frontend build. A push to `main`
-runs the same checks, prepares the Vercel production build, deploys the backend to Railway,
-and publishes the Vercel build after Railway reports success.
-
-Before merging the workflow:
-
-1. Create a Railway production service in the repository root and give it a public domain.
-   Disable Railway's GitHub autodeploy for that service. Keep app secrets in Railway.
-2. Configure the Vercel project with the Vite preset and `web` as its root directory.
-   Set its **Production** `VITE_VYBE_WS_URL` to `wss://<railway-domain>/ws`.
-   The [Vercel config](web/vercel.json) disables Git-driven deployments from `main`.
-3. In GitHub, create a `production` environment and restrict deployments to `main`.
-   Add `RAILWAY_TOKEN` (a Railway production project token) and `VERCEL_TOKEN` as secrets.
-   Add `RAILWAY_PROJECT_ID`, `RAILWAY_SERVICE_ID`, `VERCEL_ORG_ID` and
-   `VERCEL_PROJECT_ID` as variables.
-4. After the first production run succeeds, open Vybe and join the board. In browser
-   DevTools, confirm the Railway `/ws` request returns `101 Switching Protocols` and
-   receives board updates when you change a filter.
+1. Connect the `jxcg/Vybe` GitHub repository to a Railway service in the
+   `production` environment. Set its deployment branch to `main` and leave the
+   root directory at the repository root. Clear any old start-command override
+   so Railway uses the Dockerfile command.
+2. Under **Settings → Networking**, generate a public domain. In the service's
+   **Variables** tab, set `MISTRAL_API_KEY` for voice and optionally
+   `GOOGLE_PLACES_API_KEY` for Google Places.
+3. Keep Railway's GitHub autodeploy enabled. Once the CI workflow is present on
+   `main`, enable **Wait for CI** in the service settings so Railway waits for the
+   tests and production image build to pass before deploying subsequent pushes.
+4. Open the Railway URL, join the board, and change a filter. In browser
+   DevTools under **Network → WS**, confirm that the same-domain `/ws` request
+   returns `101 Switching Protocols` and receives board updates.
