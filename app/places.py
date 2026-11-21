@@ -30,10 +30,9 @@ SEARCHES = {
         "museum",
         "art_gallery",
         "amusement_center",
-        "night_club",
-        "bar",
         "park",
     ],
+    "nightlife": ["night_club", "bar"],
     "food_deal": ["restaurant", "cafe"],
 }
 PRICE_LEVELS = {
@@ -79,7 +78,7 @@ def _post(endpoint: str, body: dict[str, Any], fields: str) -> list[dict[str, An
 
 
 def nearby(lat: float, lng: float) -> list[dict[str, Any]]:
-    """Raw places around a point: 2 calls (activities, food) per cell every 6 hours."""
+    """Raw places around a point: 3 calls (activities, nightlife, food) per cell every 6 hours."""
     cell = (round(lat, 2), round(lng, 2))
     hit = _cache.get(cell)
     if hit and time.time() - hit[0] < CACHE_TTL:
@@ -93,7 +92,9 @@ def nearby(lat: float, lng: float) -> list[dict[str, Any]]:
                 "circle": {"center": {"latitude": lat, "longitude": lng}, "radius": 1500.0}
             },
         }
-        places += [{**p, "_kind": kind} for p in _post("searchNearby", body, FIELDS)]
+        # nightlife is its own search so bars don't crowd out other activities
+        vtype = "activity" if kind == "nightlife" else kind
+        places += [{**p, "_kind": vtype} for p in _post("searchNearby", body, FIELDS)]
     _cache[cell] = (time.time(), places)
     return places
 
@@ -123,6 +124,8 @@ def _hours_today(hours: dict[str, Any], now: datetime) -> tuple[str, str] | None
 
 
 def to_item(place: dict[str, Any], now: datetime) -> dict[str, Any] | None:
+    if "lodging" in place.get("types", []):
+        return None  # hotels match "bar" but aren't a night out
     hours = _hours_today(place.get("regularOpeningHours", {}), now)
     if not hours:
         return None  # closed today or no hours: can't promise it's open
@@ -137,7 +140,8 @@ def to_item(place: dict[str, Any], now: datetime) -> dict[str, Any] | None:
         "name": place["displayName"]["text"],
         "type": place["_kind"],
         "price": float(start) if start else None,
-        "price_level": PRICE_LEVELS.get(place.get("priceLevel", ""), 2),
+        # no price level usually means free entry (museums, galleries, parks)
+        "price_level": PRICE_LEVELS.get(place.get("priceLevel", ""), 1),
         # shortcut: Google has no student data, the Scout agent adds deals later
         "student_price": False,
         "adult_only": bool(ADULT & set(types)),
