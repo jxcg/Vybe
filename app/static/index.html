@@ -4,6 +4,16 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Vybe</title>
+  <style>
+    /* Plain UI: just enough layout for full-screen swipe cards. */
+    body { margin: 0; font-family: system-ui, sans-serif; }
+    .stack { height: 100dvh; overflow-y: scroll; scroll-snap-type: y mandatory; }
+    .card { height: 100dvh; scroll-snap-align: start; scroll-snap-stop: always;
+            box-sizing: border-box; padding: 24px; display: flex; flex-direction: column;
+            justify-content: flex-end; gap: 8px; border-bottom: 1px solid #ccc; }
+    .chips span { border: 1px solid #999; border-radius: 12px; padding: 2px 8px; margin-right: 4px; }
+    .setup { padding: 24px; display: grid; gap: 12px; max-width: 320px; }
+  </style>
 </head>
 <body>
   <div id="root"></div>
@@ -13,20 +23,83 @@
   <script>
     // shortcut: React from a CDN with no build step, move to Vite once the UI grows
     const html = htm.bind(React.createElement);
+    const BADGES = { plenty: "🟢 Plenty of time", soon: "🟡 Leave soon", last: "🔴 Last chance" };
+
+    function load(key, fallback) {
+      try { return JSON.parse(localStorage.getItem(key)) ?? fallback; } catch { return fallback; }
+    }
+    function save(key, value) {
+      try { localStorage.setItem(key, JSON.stringify(value)); } catch {}
+    }
+
+    function Setup({ onDone }) {
+      const [p, setP] = React.useState({ budget: 2, student: false, adult: true });
+      return html`
+        <form class="setup" onSubmit=${e => { e.preventDefault(); onDone(p); }}>
+          <h1>Vybe</h1>
+          <label>Budget
+            <select value=${p.budget} onChange=${e => setP({ ...p, budget: +e.target.value })}>
+              <option value="1">£</option><option value="2">££</option><option value="3">£££</option>
+            </select>
+          </label>
+          <label><input type="checkbox" checked=${p.student}
+            onChange=${e => setP({ ...p, student: e.target.checked })} /> Student</label>
+          <label><input type="checkbox" checked=${p.adult}
+            onChange=${e => setP({ ...p, adult: e.target.checked })} /> 18+</label>
+          <button>Show me what's on</button>
+        </form>`;
+    }
+
+    function Card({ c, liked, onLike }) {
+      return html`
+        <section class="card">
+          <div>${BADGES[c.badge]}</div>
+          <h2 style=${{ margin: 0 }}>${c.name}</h2>
+          <div>${c.score}/10 · ${c.walk_mins} min walk · ${c.price ? `£${c.price.toFixed(2)}` : "Free"}</div>
+          <div class="chips">${c.reasons.map(r => html`<span key=${r}>${r}</span>`)}</div>
+          <div>Leave by <strong>${c.leave_by}</strong></div>
+          <button onClick=${onLike} aria-pressed=${liked}>${liked ? "♥ Liked" : "♡ Like"}</button>
+        </section>`;
+    }
+
+    function Feed({ prefs }) {
+      const [cards, setCards] = React.useState(null);
+      const [liked, setLiked] = React.useState(() => load("vybe.liked", []));
+      const stack = React.useRef(null);
+
+      async function fetchFeed(likedIds) {
+        const q = new URLSearchParams({ ...prefs, liked: likedIds.join(",") });
+        const res = await fetch(`/api/feed?${q}`);
+        return res.ok ? res.json() : [];
+      }
+
+      React.useEffect(() => { fetchFeed(liked).then(setCards); }, []);
+
+      async function toggleLike(id) {
+        const next = liked.includes(id) ? liked.filter(x => x !== id) : [...liked, id];
+        setLiked(next);
+        save("vybe.liked", next);
+        // Keep the cards already swiped past (and the current one); re-rank only what comes next.
+        const el = stack.current;
+        const current = Math.round(el.scrollTop / el.clientHeight);
+        const seen = cards.slice(0, current + 1);
+        const fresh = await fetchFeed(next);
+        setCards([...seen, ...fresh.filter(c => !seen.some(s => s.id === c.id))]);
+      }
+
+      if (cards === null) return html`<p>Loading…</p>`;
+      if (!cards.length) return html`<p style=${{ padding: 24 }}>Nothing open nearby right now.</p>`;
+      return html`
+        <div class="stack" ref=${stack}>
+          ${cards.map(c => html`
+            <${Card} key=${c.id} c=${c} liked=${liked.includes(c.id)} onLike=${() => toggleLike(c.id)} />`)}
+        </div>`;
+    }
 
     function App() {
-      const [items, setItems] = React.useState(null);
-      React.useEffect(() => {
-        fetch("/api/items").then(r => r.json()).then(setItems, () => setItems([]));
-      }, []);
-      if (items === null) return html`<p>Loading…</p>`;
-      return html`
-        <main>
-          <h1>Vybe</h1>
-          <ul>
-            ${items.map(i => html`<li key=${i.id}>${i.name} · ${"£".repeat(i.price_level)} · ★${i.rating}</li>`)}
-          </ul>
-        </main>`;
+      const [prefs, setPrefs] = React.useState(() => load("vybe.prefs", null));
+      if (!prefs) return html`<${Setup} onDone=${p => { save("vybe.prefs", p); setPrefs(p); }} />`;
+      return html`<${Feed} prefs=${prefs} />`;
     }
 
     ReactDOM.createRoot(document.getElementById("root")).render(html`<${App} />`);
