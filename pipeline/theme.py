@@ -383,21 +383,37 @@ async def fetch_size(cand: ImageCandidate) -> ImageCandidate:
     return cand
 
 
+_STYLESHEET = re.compile(r'<link[^>]+rel=["\']stylesheet["\'][^>]+href=["\']([^"\']+)', re.I)
+
+
 async def theme_item(item: dict[str, Any]) -> dict[str, Any]:
     """One venue → its theme dict (agents debate images, code does the rest)."""
     venue = f"{item.get('name', '')} ({item.get('type', '')})"
     html = ""
     cands: list[ImageCandidate] = []
+    texts = [""]  # inline HTML first; linked CSS appended below
     url = item.get("url")
     if url:
         try:
             html = await fetch_text(url)
+            texts[0] = html
             cands = collect_from_html(html, url)
+            sheets = [m.group(1) for m in _STYLESHEET.finditer(html)][:3]
+            css_texts = await asyncio.gather(
+                *[
+                    fetch_text(
+                        s if s.startswith("http") else url.rstrip("/") + "/" + s.lstrip("/"),
+                        100_000,
+                    )
+                    for s in sheets
+                ],
+                return_exceptions=True,
+            )
+            texts += [t for t in css_texts if isinstance(t, str)]
         except Exception:
             html = ""
-    cands = await asyncio.gather(*[fetch_size(c) for c in cands]) if cands else []
-    cands = [c for c in cands if isinstance(c, ImageCandidate)]
-    shortlist = prefilter(list(cands))
+    cands = list(await asyncio.gather(*[fetch_size(c) for c in cands])) if cands else []
+    shortlist = prefilter(cands)
     verdict = await pick_image(venue, shortlist)
-    pal = palette(css_colors(html))
+    pal = palette(css_colors(*texts))
     return {"id": item["id"], "theme": build_theme(verdict, pal, shortlist)}

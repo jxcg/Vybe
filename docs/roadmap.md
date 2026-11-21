@@ -35,14 +35,16 @@ Put `(now)` after the milestone being worked on. Owners: (Claude), (Mistral), (T
 - [ ] Voxtral TTS voiceovers (Mistral)
 - [ ] `/vybe` skill triggers a refresh (Mistral)
 
-## Design (now)
+## Design
 - [x] Teammate's VYBE frontend merged, with the `/ws` backend (Claude)
 - [x] Light mode as primary, venue-colour glow on cards (Claude)
 - [ ] Brand colours from each venue's website (Mistral)
 - [ ] Location from the browser sent to `/ws` (Team)
 - [ ] Voiceover playback with mute (Claude)
 
-## Demo
+## Demo (now)
+- [ ] Serve the React board and voice over HTTP on one Vercel project (Team)
+- [ ] Verify the Vercel Preview on a phone (Team)
 - [ ] Time travel control (Claude)
 - [ ] "Run refresh now" button, new card arrives live (Claude)
 - [ ] HTTPS via cloudflared for phones (Claude)
