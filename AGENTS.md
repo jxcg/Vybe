@@ -20,6 +20,8 @@ The product is called **Vybe**, a play on Mistral Vibe. It is being built for th
 
 ## Workflow rules (mandatory)
 
+**Keep process light: this is a hackathon.** Aim for a handful of key issues in total, roughly one per major feature (e.g. feed and ranking, voice, background refresh, demo mode). Put everything else under one of those. One PR per issue, and merge quickly. Don't spend time polishing issues or PRs.
+
 ### 1. Issue first
 
 Every change starts with a GitHub issue. Before writing any code:
@@ -47,7 +49,7 @@ Issues should be meaningful units of work: worth tracking, explainable, and robu
 2. Do the change on that issue's `feature/Issue-<N>` branch (or a PR already open against it).
 3. Mention the extra change in the PR bullets or as a comment on the issue: `gh issue comment <N> --body "..."`
 
-Only when no related issue is open should you create a new one, and even then keep it broad enough to cover the area (e.g. "Polish onboarding screen copy" rather than "Rename Submit button to Continue").
+Only when no related issue is open should you create a new one, and even then keep it broad enough to cover a whole feature (e.g. "Voice: talk to change the board" rather than "Add mic button").
 
 ### 2. Branching
 
