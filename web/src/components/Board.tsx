@@ -17,15 +17,15 @@ function GroupFilter({ groups, active, onPick }: {
   active: string | null;
   onPick: (group: string | null) => void;
 }) {
-  const present = GROUP_ORDER.filter((g) => groups[g]);
-  if (present.length < 2) return null;
-  const total = present.reduce((n, g) => n + groups[g], 0);
+  const present = GROUP_ORDER.filter((g) => groups[g] || g === active);
+  if (present.length < 2 && !active) return null;
+  const total = present.reduce((n, g) => n + (groups[g] ?? 0), 0);
   return (
     <div className="group-filter" role="group" aria-label="Show">
       {[null, ...present].map((g) => (
         <button key={g ?? 'all'} type="button" className="group-chip" aria-pressed={active === g} onClick={() => onPick(g)}>
           {g ?? 'Everything'}
-          <span className="group-chip-count">{g ? groups[g] : total}</span>
+          <span className="group-chip-count">{g ? groups[g] ?? 0 : total}</span>
         </button>
       ))}
     </div>
@@ -67,7 +67,18 @@ export function Board() {
               />
             )}
             <HeroCarousel rows={board.rows} nowMs={nowMs} student={vybe.student} onOpen={openTicket} />
-            <DepartureList rows={board.rows} nowMs={nowMs} wallMs={wallMs} onOpen={openTicket} />
+            <DepartureList
+              rows={board.rows}
+              byCategory={!board.group}
+              nowMs={nowMs}
+              wallMs={wallMs}
+              onOpen={openTicket}
+            />
+            {board.count <= 3 && (
+              <p className="board-end">
+                {board.count ? 'Nothing else for today.' : 'Nothing to show for today.'}
+              </p>
+            )}
           </>
         )}
       </main>
