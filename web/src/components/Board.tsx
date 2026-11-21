@@ -13,9 +13,16 @@ import { HeroCarousel } from './HeroCarousel';
 import { Meetup } from './Meetup';
 import './Board.css';
 
-const RADIO_INTRO = '/audio/vybe-radio-intro.mp3';
-
 const GROUP_ORDER = ['Food', 'Drinks', 'Entertainment', 'Culture', 'Outdoors'];
+
+function fallbackIntro(row: Row, previous: string | null): string {
+  const group = GROUP_ORDER.find((name) => name === row.group);
+  const isLiveEntertainment = row.category === 'music' || row.category === 'comedy';
+  const category = group && (group !== 'Entertainment' || isLiveEntertainment) ? group.toLowerCase() : 'intro';
+  const base = `/audio/vybe-radio-${category}`;
+  const clips = [`${base}.mp3`, `${base}-alt.mp3`].filter((url) => url !== previous);
+  return clips[Math.floor(Math.random() * clips.length)];
+}
 
 /** Browse by kind. The server rebuilds the whole board (picks, count, list) for the chosen group. */
 function GroupFilter({ groups, active, onPick }: {
@@ -56,6 +63,7 @@ export function Board() {
     : board?.rows ?? [];
   const { nowMs, wallMs } = useClock(board, state.boardAt);
   const lastSurprise = useRef<string | null>(null);
+  const lastIntro = useRef<string | null>(null);
   const [emptySurprise, setEmptySurprise] = useState(false);
   useWakeLock();
 
@@ -74,10 +82,15 @@ export function Board() {
 
     setEmptySurprise(false);
     lastSurprise.current = pick.id;
-    const audio = new Audio(pick.voiceover_url || RADIO_INTRO);
+    const fallback = fallbackIntro(pick, lastIntro.current);
+    const venueIntro = pick.voiceover_url === lastIntro.current ? null : pick.voiceover_url;
+    const intro = venueIntro || fallback;
+    lastIntro.current = intro;
+    const audio = new Audio(intro);
     void audio.play().catch((error: unknown) => {
-      if (!(error instanceof DOMException) || error.name !== 'NotSupportedError' || !pick.voiceover_url) return;
-      audio.src = RADIO_INTRO;
+      if (!(error instanceof DOMException) || error.name !== 'NotSupportedError' || !venueIntro) return;
+      if (lastIntro.current === intro) lastIntro.current = fallback;
+      audio.src = fallback;
       return audio.play().catch(() => undefined);
     });
     openTicket(pick, e, audio);

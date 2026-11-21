@@ -1,7 +1,7 @@
 """Pipeline: fetch venues near a point, enrich them with agents, write data/enriched.json.
 
 The refresh fetches venues, runs the Scout, Enricher and Verifier, writes verified
-claims to data/enriched.json, and starts the child workflow for venue themes.
+claims to data/enriched.json, and starts the venue theme and voiceover workflows.
 
 Worker:   DEPLOYMENT_NAME=vybe-hackathon uv run --env-file .env python -m pipeline.worker
 Trigger:  uv run --env-file .env python -m pipeline.run_once --lat 51.5136 --lng -0.1365
@@ -22,6 +22,7 @@ from typing import Any
 from mistralai.workflows import activity, execute_workflow, workflow
 
 from pipeline.theme_wf import ThemeAreaParams, VybeTheme
+from pipeline.voiceover_wf import VoiceoverAreaParams, VybeVoiceover
 
 
 def _root() -> Path:
@@ -149,4 +150,7 @@ class VybeRefresh:
         claims = await orchestrate(lat, lng, items)
         summary = await write_enriched_activity(items, claims)
         theme = await execute_workflow(VybeTheme, params=ThemeAreaParams(lat=lat, lng=lng))
+        await execute_workflow(
+            VybeVoiceover, params=VoiceoverAreaParams(lat=lat, lng=lng), wait=False
+        )
         return {**summary, **theme}

@@ -11,8 +11,12 @@ from datetime import timedelta
 from typing import Any
 
 from mistralai.workflows import activity, workflow
+from pydantic import BaseModel
 
-from pipeline.refresh import fetch_venues
+
+class VoiceoverAreaParams(BaseModel):
+    lat: float
+    lng: float
 
 
 @activity(
@@ -51,6 +55,8 @@ async def write_voiceovers(mapping: dict[str, str]) -> dict[str, Any]:
 class VybeVoiceover:
     @workflow.entrypoint
     async def run(self, lat: float, lng: float) -> dict[str, Any]:
+        from pipeline.refresh import fetch_venues
+
         items = await fetch_venues(lat, lng)
         mapping = await voiceover_all(items)
         return await write_voiceovers(mapping)
