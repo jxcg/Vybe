@@ -20,6 +20,7 @@ from starlette.concurrency import run_in_threadpool
 from app import geo, voice
 from app.colors import venue_colors
 from app.ranking import rank
+from app.request_parse import parse_request
 
 LONDON = ZoneInfo("Europe/London")
 DEFAULT_PLACE = {"lat": 51.5136, "lng": -0.1365, "label": "Soho"}
@@ -50,6 +51,17 @@ INTO = {
     "live music": "music",
     "late night": "nightlife",
 }
+INTEREST_GROUP = {
+    "food": "Food",
+    "late night": "Drinks",
+    "active": "Entertainment",
+    "competitive": "Entertainment",
+    "a laugh": "Entertainment",
+    "live music": "Entertainment",
+    "culture": "Culture",
+    "chill": "Culture",
+}
+BROWSE_GROUPS = ("Food", "Drinks", "Entertainment", "Culture", "Outdoors")
 # Frontend "not into" tags → our taste tags to drop
 NOT_INTO = {
     "clubs": "club",
@@ -141,6 +153,12 @@ def to_rows(
     cards: list[dict[str, Any]], now: datetime, raining: bool, mixed: bool = True
 ) -> list[dict[str, Any]]:
     """`mixed`: pick the three hero cards from different groups (off when showing one group)."""
+    rows = _board_rows(cards, now, raining)
+    _assign_picks(rows, mixed)
+    return rows
+
+
+def _board_rows(cards: list[dict[str, Any]], now: datetime, raining: bool) -> list[dict[str, Any]]:
     extras = _enriched()
     rows = []
     for c in cards:
@@ -171,10 +189,7 @@ def to_rows(
                 "venue": c["name"],
                 "category": c.get("category") or CATEGORY.get(c["tags"][0], "other"),
                 # Beyond the contract: what people browse by (Food, Drinks, Entertainment, …)
-                "group": c.get("group")
-                or GROUP.get(
-                    c.get("category") or CATEGORY.get(c["tags"][0], "other"), "Entertainment"
-                ),
+                "group": _group_of(c),
                 "departure_time": starts.replace(tzinfo=LONDON).isoformat()
                 if starts
                 else _iso(c["closes_at"]),
@@ -213,6 +228,10 @@ def to_rows(
                 "checked_at": extra.get("checked_at") or now.replace(tzinfo=LONDON).isoformat(),
             }
         )
+    return rows
+
+
+def _assign_picks(rows: list[dict[str, Any]], mixed: bool) -> None:
     # Over-budget places stay in the list but never take a hero pick
     live = [
         r for r in rows if r["status"] not in ("departed", "cancelled") and not r["over_budget"]
@@ -227,25 +246,6 @@ def to_rows(
         if pool:
             pool[0]["pick"] = pick
             used.add(pool[0]["group"])
-    return rows
-
-
-def text_to_chips(text: str) -> dict[str, Any]:
-    """Fallback for typed requests: pick out known tags and budget words.
-
-    shortcut: keyword matching only; swap for a Mistral text→filters call once voice.py has one.
-    """
-    t = text.lower()
-    chips: dict[str, Any] = {"include": [], "exclude": []}
-    for tag in INTO:
-        if tag in t and not any(f"{neg} {tag}" in t for neg in ("no", "not", "nothing")):
-            chips["include"].append(tag)
-    for tag in NOT_INTO:
-        if any(f"{neg} {tag}" in t for neg in ("no", "not", "nothing", "avoid")):
-            chips["exclude"].append(tag)
-    if any(w in t for w in ("cheap", "free", "skint", "broke")):
-        chips["budget"] = 10
-    return chips
 
 
 def filters_to_chips(f: dict[str, Any]) -> dict[str, Any]:
@@ -297,7 +297,8 @@ class Session:
         self.liked: set[str] = set()
         self.skipped: set[str] = set()
         self.offset = timedelta()  # time travel
-        self.group: str | None = None  # show only Food, Drinks, Entertainment, Culture or Outdoors
+        self.group: str | None = None
+        self.group_chosen = False
         self.audio = bytearray()
         self.talking = False
 
@@ -332,12 +333,6 @@ class Session:
             and not drop & set(i["tags"])
             and not any(w in i["name"].lower() for w in words)
         ]
-        counts: dict[str, int] = {}
-        for i in items:
-            g = _group_of(i)
-            counts[g] = counts.get(g, 0) + 1
-        if self.group:
-            items = [i for i in items if _group_of(i) == self.group]
         weather = geo.weather(lat, lng)
         cards = rank(
             items,
@@ -353,7 +348,21 @@ class Session:
             company=self.prefs.get("company", 1),
         )
         raining = bool(weather and weather.raining)
-        rows = to_rows(cards, now, raining, mixed=self.group is None)
+        rows = _board_rows(cards, now, raining)
+        counts: dict[str, int] = {}
+        for row in rows:
+            if row["status"] not in ("departed", "cancelled"):
+                g = row["group"]
+                counts[g] = counts.get(g, 0) + 1
+        group = self.group
+        if not self.group_chosen:
+            group = next(
+                (g for tag in self.prefs["include"] if (g := INTEREST_GROUP.get(tag)) in counts),
+                None,
+            )
+        if group:
+            rows = [row for row in rows if row["group"] == group]
+        _assign_picks(rows, mixed=group is None)
         if weather is None:
             summary = ""
         else:
@@ -373,12 +382,18 @@ class Session:
             "boarded": {},
             "decision": None,
             "groups": counts,
-            "group": self.group,
+            "group": group,
         }
 
     async def board(self) -> None:
         if self.room:
             await self.send(await run_in_threadpool(self.build_board))
+
+    def resolve(self, chips: dict[str, Any]) -> dict[str, Any]:
+        """Relative requests: "cheaper" steps the budget down one notch (999 → 20 → 10)."""
+        if chips.pop("cheaper", False):
+            chips["budget"] = {999: 20, 20: 10, 10: 10}[self.prefs.get("budget", 999)]
+        return chips
 
     async def chips(self, chips: dict[str, Any], heard: str = "") -> None:
         await self.send({"type": "chips", **chips})
@@ -392,6 +407,7 @@ class Session:
             await self.send({"type": "joined", "room": self.room, "you": msg.get("name") or "You"})
             await self.board()
         elif kind == "prefs":
+            previous_interests = self.prefs["include"]
             self.prefs = {
                 "budget": msg.get("budget", 999) if msg.get("budget") in BUDGETS else 999,
                 "student": bool(msg.get("student")),
@@ -402,6 +418,9 @@ class Session:
                 "age": msg.get("age") if msg.get("age") in AGES else None,
                 "vibe": msg.get("vibe") if msg.get("vibe") in ("chill", "lively") else None,
             }
+            if previous_interests != self.prefs["include"]:
+                self.group_chosen = False
+                self.group = None
             if self.prefs["age"] == "under18":
                 self.prefs["adult"] = False
             await self.board()
@@ -433,9 +452,8 @@ class Session:
             await self.board()
         elif kind == "show":
             g = msg.get("group")
-            self.group = (
-                g if g in ("Food", "Drinks", "Entertainment", "Culture", "Outdoors") else None
-            )
+            self.group_chosen = True
+            self.group = g if g in BROWSE_GROUPS else None
             await self.board()
         elif kind == "refresh_now":
             await self.send({"type": "note", "text": "Refreshing what's on…"})
@@ -449,7 +467,7 @@ class Session:
         elif kind == "talk_text" and isinstance(msg.get("text"), str):
             text = msg["text"][:300]
             await self.send({"type": "transcript", "text": text, "final": True})
-            await self.chips(text_to_chips(text))
+            await self.chips(self.resolve(parse_request(text)))
 
     async def voice(self) -> None:
         if not self.audio or _peak(bytes(self.audio)) < SILENCE_PEAK:
@@ -471,7 +489,22 @@ class Session:
             return
         finally:
             self.audio.clear()
-        await self.chips(filters_to_chips(filters), filters.get("reply", ""))
+        transcript = filters.get("transcript", "")
+        if transcript:
+            await self.send({"type": "transcript", "text": transcript, "final": True})
+            # Exact amounts, group size and student come from the words said, not a vague level.
+            chips = parse_request(transcript)
+            # Keep specific things Voxtral picked out that were really said (e.g. "bowling")
+            said = transcript.lower()
+            extra = [
+                w
+                for w in filters.get("include_text", [])
+                if w in said and w not in chips["include"]
+            ]
+            chips["include"] += extra
+        else:
+            chips = filters_to_chips(filters)
+        await self.chips(self.resolve(chips), filters.get("reply", ""))
 
 
 async def serve(ws: WebSocket, items_near: Any) -> None:

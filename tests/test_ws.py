@@ -104,8 +104,10 @@ def test_voice_failure_is_friendly(monkeypatch: pytest.MonkeyPatch) -> None:
         assert "typing" in recv(sock, "note")["text"]
 
 
-def test_text_to_chips() -> None:
-    assert ws.text_to_chips("cheap, active, no clubs") == {
+def test_typed_text_uses_the_parser() -> None:
+    from app.request_parse import parse_request
+
+    assert parse_request("cheap, active, no clubs") == {
         "include": ["active"],
         "exclude": ["clubs"],
         "budget": 10,
@@ -303,3 +305,48 @@ def test_cached_card_photo_requires_credit(monkeypatch: pytest.MonkeyPatch) -> N
     assert row["photo_url"] is None
     assert row["photo_credit"] is None
     assert row["colors"] is not None
+
+
+@pytest.mark.parametrize(
+    ("interest", "group"),
+    [
+        ("food", "Food"),
+        ("a laugh", "Entertainment"),
+        ("active", "Entertainment"),
+        ("competitive", "Entertainment"),
+        ("live music", "Entertainment"),
+        ("chill", "Culture"),
+        ("culture", "Culture"),
+        ("late night", "Drinks"),
+    ],
+)
+def test_saved_interest_selects_available_group(
+    monkeypatch: pytest.MonkeyPatch, interest: str, group: str
+) -> None:
+    from datetime import datetime
+
+    from app.main import items_near
+
+    sample = items_near(51.51, -0.13, datetime(2026, 11, 21, 18))[0]
+    items = [
+        dict(sample, id=str(i), group=name, opens="10:00", closes="23:00", adult_only=False)
+        for i, name in enumerate(("Food", "Entertainment", "Culture", "Drinks"))
+    ]
+    monkeypatch.setattr("app.main.items_near", lambda *args: items)
+    monkeypatch.setattr(ws.Session, "now", lambda self: datetime(2026, 11, 21, 18))
+    with TestClient(app).websocket_connect("/ws") as sock:
+        sock.send_json({"type": "join"})
+        recv(sock, "board")
+        sock.send_json({"type": "prefs", "include": [interest]})
+        board = recv(sock, "board")
+        assert board["group"] == group
+        assert board["count"] == 1
+        assert {r["group"] for r in board["rows"]} == {group}
+        sock.send_json({"type": "show", "group": None})
+        assert recv(sock, "board")["count"] == 4
+        sock.send_json({"type": "prefs", "include": [interest], "budget": 10})
+        assert recv(sock, "board")["group"] is None
+        sock.send_json({"type": "prefs", "include": []})
+        assert recv(sock, "board")["group"] is None
+        sock.send_json({"type": "prefs", "include": ["not a suggestion", interest]})
+        assert recv(sock, "board")["group"] == group

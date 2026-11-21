@@ -11,6 +11,7 @@ const COLLAPSE_MS = 320;
 
 interface Props {
   rows: Row[];
+  byCategory: boolean;
   nowMs: number;
   wallMs: number;
   onOpen: (row: Row, e: MouseEvent<HTMLElement>) => void;
@@ -37,7 +38,7 @@ function useDepartedPhase(rows: Row[], wallMs: number): (row: Row) => Phase {
   };
 }
 
-export function DepartureList({ rows, nowMs, wallMs, onOpen }: Props) {
+export function DepartureList({ rows, byCategory, nowMs, wallMs, onOpen }: Props) {
   const phaseOf = useDepartedPhase(rows, wallMs);
   const rest = rows
     .filter((r) => !r.pick)
@@ -46,12 +47,22 @@ export function DepartureList({ rows, nowMs, wallMs, onOpen }: Props) {
   const cutoff = nowMs + SOON_MIN * MINUTE;
   // Urgent things first; walk-in places that are simply open come next; timed things later on.
   const soon = (r: { row: Row }) => Date.parse(r.row.leave_by) <= cutoff;
-  const groups = [
+  const timeGroups = [
     { title: 'Next 30 minutes', items: rest.filter(soon) },
     { title: 'Open now', items: rest.filter((r) => !soon(r) && r.row.timed === false && !r.row.needs_booking) },
     { title: 'Book for tonight', items: rest.filter((r) => !soon(r) && r.row.timed === false && r.row.needs_booking) },
     { title: `Later ${dayWord(nowMs)}`, items: rest.filter((r) => !soon(r) && r.row.timed !== false) },
-  ].filter((g) => g.items.length > 0);
+  ];
+  const categories = [...new Set(rest.map(({ row }) => row.group ?? 'Other'))];
+  const groups = (byCategory && rest.some(({ row }) => row.group)
+    ? categories.map((title) => ({
+        title,
+        items: timeGroups.flatMap(({ items }) =>
+          items.filter(({ row }) => (row.group ?? 'Other') === title),
+        ),
+      }))
+    : timeGroups
+  ).filter((group) => group.items.length > 0);
 
   return (
     <div className="dlist">

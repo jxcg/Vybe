@@ -69,8 +69,13 @@ FILTER_TOOL: dict[str, Any] = {
                     "description": "True only when the user asks to reset their filters.",
                 },
                 "reply": {"type": "string", "description": "One short sentence for the UI."},
+                "transcript": {
+                    "type": "string",
+                    "description": "Exactly what the user said, word for word, including "
+                    "amounts of money (e.g. 'under £20') and how many people.",
+                },
             },
-            "required": ["reply"],
+            "required": ["reply", "transcript"],
             "additionalProperties": False,
         },
     },
@@ -117,6 +122,9 @@ def _clean(raw: Any) -> dict[str, Any]:
     reply = raw.get("reply")
     if isinstance(reply, str) and reply.strip():
         out["reply"] = reply.strip()
+    transcript = raw.get("transcript")
+    if isinstance(transcript, str) and transcript.strip():
+        out["transcript"] = transcript.strip()[:500]  # shown once as "You said …", never stored
     return out
 
 

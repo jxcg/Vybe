@@ -8,12 +8,14 @@ Put `(now)` after the milestone being worked on. Owners: (Claude), (Mistral), (T
 - [x] Ruff, strict mypy, tests (Claude)
 - [x] AGENTS.md, README pitch, partner brief (Claude)
 
-## Feed and ranking
+## Feed and ranking (now)
 - [x] Swipe-up/down full-screen cards (Claude)
 - [x] Setup (budget, student, 18+) and likes saved in the browser (Claude)
 - [x] Ranking: open soon, budget, 18+, badges, leave-by (Claude)
 - [x] Google rating and personal match % shown separately (Claude)
 - [x] Weather (rain and cold) in the match (Claude)
+- [ ] Open the board on a saved interest, group additional results, and mark short lists (Team)
+- [ ] Keep runner-up and wildcard details visible on desktop cards (Team)
 
 ## Real places
 - [x] Google Places near the user (Claude)

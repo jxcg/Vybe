@@ -9,6 +9,16 @@ const LEAVE_BUFFER_MIN = 5;
 const DEPARTED_KEEP_MIN = 10;
 const PICK_SLOTS: Pick[] = ['best', 'runner_up', 'wildcard'];
 
+const MOCK_GROUPS: Record<string, string> = {
+  food: 'Food', bar: 'Drinks', culture: 'Culture',
+};
+
+const INTEREST_GROUP: Record<string, string> = {
+  food: 'Food', 'late night': 'Drinks', active: 'Entertainment',
+  competitive: 'Entertainment', 'a laugh': 'Entertainment',
+  'live music': 'Entertainment', culture: 'Culture', chill: 'Culture',
+};
+
 const DEFAULT_PREFS: Prefs = {
   budget: 999,
   student: false,
@@ -64,6 +74,7 @@ export function createMockSocket(): VybeSocket {
   const rainFrom = londonWallTime(day, '19:30').getTime();
   let clock = londonWallTime(day, '18:45').getTime();
   let prefs: Prefs = DEFAULT_PREFS;
+  let chosenGroup: string | null | undefined;
   let intervals: number[] = [];
   let joined = false;
   const hidden = new Set<string>();
@@ -90,6 +101,7 @@ export function createMockSocket(): VybeSocket {
     if (status !== 'departed' && outdoor && rainFrom <= departure) status = 'delayed_rain';
     return {
       ...rest,
+      group: MOCK_GROUPS[item.category] ?? 'Entertainment',
       departure_time: new Date(departure).toISOString(),
       leave_by: new Date(leaveBy).toISOString(),
       status,
@@ -113,10 +125,20 @@ export function createMockSocket(): VybeSocket {
   }
 
   function board(): BoardMsg {
-    const rows = MOCK_ITEMS.filter((item) => !hidden.has(item.id) && matches(item))
+    const allRows = MOCK_ITEMS.filter((item) => !hidden.has(item.id) && matches(item))
       .map((item) => toRow(item, clock))
       .filter((r) => Date.parse(r.leave_by) > clock - DEPARTED_KEEP_MIN * MINUTE)
       .sort((a, b) => Date.parse(a.leave_by) - Date.parse(b.leave_by));
+    const groups: Record<string, number> = {};
+    for (const row of allRows) {
+      if (row.group && row.status !== 'departed' && row.status !== 'cancelled') {
+        groups[row.group] = (groups[row.group] ?? 0) + 1;
+      }
+    }
+    const group = chosenGroup === undefined
+      ? prefs.include.map((tag) => INTEREST_GROUP[tag]).find((g) => Object.hasOwn(groups, g)) ?? null
+      : chosenGroup;
+    const rows = group ? allRows.filter((row) => row.group === group) : allRows;
     assignPicks(rows);
     return {
       type: 'board',
@@ -128,6 +150,8 @@ export function createMockSocket(): VybeSocket {
       rows,
       boarded: {},
       decision: null,
+      groups,
+      group,
     };
   }
 
@@ -158,10 +182,17 @@ export function createMockSocket(): VybeSocket {
           break;
         case 'prefs': {
           const { type, ...next } = msg;
+          if (JSON.stringify(prefs.include) !== JSON.stringify(next.include)) {
+            chosenGroup = undefined;
+          }
           prefs = next;
           if (joined) emit(board());
           break;
         }
+        case 'show':
+          chosenGroup = msg.group;
+          emit(board());
+          break;
         case 'talk_start': {
           const words = MOCK_SENTENCE.split(' ');
           spoken = 0;
