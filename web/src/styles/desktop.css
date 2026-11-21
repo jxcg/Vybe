@@ -62,7 +62,7 @@
     display: grid;
     grid-template-columns: 1.45fr 1fr;
     /* Fit above the floating talk bar on a laptop screen */
-    grid-template-rows: repeat(2, clamp(190px, calc((100dvh - 480px) / 2), 320px));
+    grid-template-rows: repeat(2, minmax(min-content, clamp(208px, calc((100dvh - 480px) / 2), 320px)));
     gap: 16px;
     overflow: visible;
     padding: 0;
@@ -78,6 +78,22 @@
   }
   .hero-card:first-child {
     grid-row: 1 / span 2;
+  }
+  .hero-card:not(:first-child) {
+    padding: 16px;
+  }
+  .hero-card:not(:first-child) .hero-card-when {
+    padding-top: 12px;
+  }
+  .hero-card:not(:first-child) .hero-card-time {
+    font-size: clamp(32px, 3.5vw, 48px);
+  }
+  .hero-card:not(:first-child) .hero-card-name {
+    margin-top: 6px;
+    font-size: 17px;
+  }
+  .hero-card:not(:first-child) .hero-card-bottom {
+    margin-top: 8px;
   }
   .hero-card:hover {
     transform: translateY(-3px);
