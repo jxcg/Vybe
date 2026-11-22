@@ -98,3 +98,11 @@ def test_personal_fit_from_reviews_and_guesses() -> None:
     # Groups: only claimed when the data says so
     grouped = [{**i, "good_for_groups": True} if i["id"] == "food-1" else i for i in items]
     assert "Good for groups" in by_id(rank(grouped, at(19), company=4))["food-1"]["reasons"]
+
+
+def test_student_price_reason_stays_in_top_three() -> None:
+    items = load_items()
+    cards = {c["id"]: c for c in rank(items, at(18), student=True)}
+    assert "Student price" in cards["bowl-1"]["reasons"]  # student_price: true in the fixture
+    assert cards["bowl-1"]["match"] > {c["id"]: c for c in rank(items, at(18))}["bowl-1"]["match"]
+    assert "Student price" not in cards["comedy-1"]["reasons"]

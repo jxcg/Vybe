@@ -207,6 +207,8 @@ def _board_rows(
                 "over_budget": bool(c.get("over_budget")),
                 "price_unknown": bool(c.get("price_unknown")),
                 "was_price": None,
+                # Server extension: this venue has a student price (shown as "£x student")
+                "student_deal": bool(c.get("student_deal")),
                 "score": round(c["match"] / 10, 1),
                 "pick": None,
                 "reasons": [{"icon": _icon(r), "text": r} for r in c["reasons"]][:3],

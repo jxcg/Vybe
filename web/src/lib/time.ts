@@ -55,6 +55,10 @@ export function minutesUntil(iso: string, nowMs: number): number {
 /** Display-only countdown derived from leave_by. Never decides status. */
 export function leaveHint(row: Row, nowMs: number): string {
   if (row.status === 'delayed_rain') return 'outdoors, raining';
+  if (row.timed === false) {
+    if (row.needs_booking) return 'check booking times';
+    return row.departure_label === 'Open 24 hours' ? 'open 24 hours' : `closes ${formatHM(row.departure_time)}`;
+  }
   const mins = minutesUntil(row.leave_by, nowMs);
   if (mins <= 0) return 'leave now';
   if (mins < 60) return `leave in ${mins} min`;

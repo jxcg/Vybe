@@ -30,8 +30,12 @@ const PHASE_LABEL: Record<TalkPhase, string> = {
 const isTouch = window.matchMedia('(pointer: coarse)').matches;
 
 export function StartScreen() {
-  const { state, dispatch, send, join } = useStore();
+  const { state, dispatch, send, setPlace, join } = useStore();
   const settings = state.onboarded || state.shared !== null;
+  const [area, setArea] = useState(state.place?.label ?? '');
+  const [locating, setLocating] = useState(false);
+  const [locationError, setLocationError] = useState('');
+  const areaRef = useRef<HTMLInputElement>(null);
   const [phase, setPhase] = useState<TalkPhase>('idle');
   const [typing, setTyping] = useState(false);
   const [sheet, setSheet] = useState<RowKey | null>(null);
@@ -156,15 +160,58 @@ export function StartScreen() {
 
   const setVybe = (vybe: Vybe) => dispatch({ type: 'set_vybe', vybe });
 
+  const useMyLocation = () => {
+    setLocationError('');
+    if (!navigator.geolocation) {
+      setLocationError('Browser location is unavailable. Enter an area or postcode instead.');
+      areaRef.current?.focus();
+      return;
+    }
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(({ coords }) => {
+      setPlace({ type: 'location', lat: coords.latitude, lng: coords.longitude, label: 'Near you' });
+      setLocating(false);
+    }, () => {
+      setLocationError('Couldn’t get your location. Allow location access or enter an area or postcode.');
+      setLocating(false);
+      areaRef.current?.focus();
+    }, { enableHighAccuracy: true, timeout: 10_000, maximumAge: 60_000 });
+  };
+
+  const findArea = async () => {
+    const query = area.trim();
+    if (query.length < 2 || locating) return;
+    setLocating(true);
+    setLocationError('');
+    try {
+      const response = await fetch(`/api/geocode?${new URLSearchParams({ q: query })}`);
+      if (!response.ok) throw new Error('lookup');
+      const { lat, lng } = await response.json();
+      if (!Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) {
+        throw new Error('coordinates');
+      }
+      setPlace({ type: 'location', lat, lng, label: query });
+    } catch {
+      setLocationError('Couldn’t find that place. Try another area or postcode.');
+    } finally {
+      setLocating(false);
+    }
+  };
+
   const go = (vybe?: Vybe, force = false): boolean => {
     if (state.shared && (state.conn !== 'open' || state.roomConnecting)) return false;
+    // Solo boards need a session-only location: never fall back to a fixed area silently.
+    if (!state.shared && (!state.place || locating)) {
+      setLocationError('Choose your location before we find what’s nearby.');
+      areaRef.current?.focus();
+      return false;
+    }
     if (!force && phase === 'thinking') return false;
     if (!force && phase === 'listening') {
       endTalk(); // chips arrive a moment later; pendingGo applies them instead of an earlier request
       pendingGo.current = true;
       return false;
     }
-    // TODO(P4): unlock audio (resume AudioContext) and request geolocation, silent fallback.
     if (vybe) setVybe(vybe);
     join(vybe);
     // First time in: the loading screen covers the wait, and the mic glides into its orb.
@@ -220,6 +267,25 @@ export function StartScreen() {
           )}
 
           <div ref={cardRef} className="start-card">
+            {!state.shared && (
+              <section className="start-location" aria-labelledby="location-title" aria-busy={locating}>
+                <h2 id="location-title">Where are you?</h2>
+                <p>Use your location or choose an area to explore. Only used for this session.</p>
+                <button type="button" className="start-location-button" disabled={locating} onClick={useMyLocation}>
+                  {locating ? 'Finding location…' : 'Use my location'}
+                </button>
+                <form onSubmit={(event) => { event.preventDefault(); void findArea(); }}>
+                  <label htmlFor="location-area">Or enter an area or postcode</label>
+                  <div className="start-location-search">
+                    <input id="location-area" ref={areaRef} value={area} onChange={(event) => setArea(event.target.value)}
+                      autoComplete="off" minLength={2} maxLength={100} required disabled={locating} />
+                    <button type="submit" className="start-location-button" disabled={locating || area.trim().length < 2}>Find area</button>
+                  </div>
+                </form>
+                {state.place && <p role="status">Using {state.place.label}</p>}
+                {locationError && <p role="alert">{locationError}</p>}
+              </section>
+            )}
             <VybeCard vybe={state.vybe} onChange={setVybe} onOpen={setSheet} />
             <p className="start-hint">Tap any row to change it.</p>
           </div>

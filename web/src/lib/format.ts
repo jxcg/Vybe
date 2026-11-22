@@ -30,7 +30,8 @@ export function formatPrice(row: Row, student: boolean): string | null {
   if (row.your_price === null) return row.price_level ? '£'.repeat(row.price_level) : null;
   if (row.your_price === 0) return 'Free';
   const base = pounds(row.your_price);
-  return student && row.was_price !== null ? `${base} student` : base;
+  const hasDeal = row.was_price !== null || row.student_deal === true;
+  return student && hasDeal ? `${base} student` : base;
 }
 
 /** Venue ratings arrive on a five-point scale. */

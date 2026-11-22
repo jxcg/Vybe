@@ -57,6 +57,8 @@ export interface Row {
   /** Server extension: pricier than the user's budget (kept as an option, ranked lower) */
   over_budget?: boolean;
   was_price: number | null;
+  /** Server extension: the venue offers a student price (show the "student" qualifier). */
+  student_deal?: boolean;
   /** 0–10 */
   score: number;
   pick: Pick | null;
@@ -189,6 +191,7 @@ type RoomCommand =
 
 export type ClientMessage =
   | JoinMsg
+  | { type: 'location'; lat: number; lng: number; label: string }
   | PrefsMsg
   | TalkStartMsg
   | TalkEndMsg

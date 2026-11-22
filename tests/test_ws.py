@@ -780,3 +780,34 @@ def test_solo_board_drops_known_over_budget_places(monkeypatch: pytest.MonkeyPat
         recv(sock, "joined")
         board = recv(sock, "board")
         assert [r["id"] for r in board["rows"]] == ["cheap"]
+
+
+def test_student_discount_is_visible_and_ranks(monkeypatch: pytest.MonkeyPatch) -> None:
+    """student=true must surface the student deal on the row and in the top-3 reasons."""
+    from datetime import datetime
+
+    from app.main import load_samples
+
+    items = [dict(i, walk_mins=8) for i in load_samples()]  # bowl-1 has student_price: true
+    monkeypatch.setattr("app.main.items_near", lambda *args: [dict(i) for i in items])
+    monkeypatch.setattr(ws.Session, "now", lambda self: datetime(2026, 11, 21, 18))
+    with TestClient(app).websocket_connect("/ws") as sock:
+        sock.send_json(
+            {
+                "type": "prefs",
+                "budget": 999,
+                "student": True,
+                "adult": True,
+                "include": [],
+                "exclude": [],
+            }
+        )
+        sock.send_json({"type": "join"})
+        recv(sock, "joined")
+        board = recv(sock, "board")
+        bowl = next(r for r in board["rows"] if r["id"] == "bowl-1")
+        assert bowl["student_deal"] is True
+        assert any(r["text"] == "Student price" for r in bowl["reasons"])
+        plain = next(r for r in board["rows"] if r["id"] == "comedy-1")
+        assert plain["student_deal"] is False
+        assert bowl["score"] > plain["score"]

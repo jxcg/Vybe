@@ -30,6 +30,7 @@ interface Props {
 
 function LeaveText({ row, nowMs }: { row: Row; nowMs: number }) {
   if (row.status === 'delayed_rain') return <>Outdoors, raining</>;
+  if (row.timed === false) return <>{row.needs_booking ? 'Check available booking times' : 'No fixed start time'}</>;
   const mins = minutesUntil(row.leave_by, nowMs);
   if (mins <= 0) return <>Leave now</>;
   if (mins >= 60) return <>Leave by {formatHM(row.leave_by)}</>;
@@ -97,7 +98,7 @@ export function HeroCard({ row, nowMs, student, onOpen }: Props) {
           </span>
         )}
       </span>
-      <FuseLine fraction={fuse} />
+      {row.timed !== false && <FuseLine fraction={fuse} />}
     </button>
   );
 }

@@ -9,7 +9,7 @@ export default defineConfig({
   server: {
     host: true,
     proxy: {
-      '/api/places': { target: server, changeOrigin: true },
+      '/api': { target: server, changeOrigin: true },
       '/ws': { target: server, ws: true, changeOrigin: true },
     },
   },

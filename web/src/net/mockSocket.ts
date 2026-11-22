@@ -13,12 +13,6 @@ const MOCK_GROUPS: Record<string, string> = {
   food: 'Food', bar: 'Drinks', culture: 'Culture',
 };
 
-const INTEREST_GROUP: Record<string, string> = {
-  food: 'Food', 'late night': 'Drinks', active: 'Entertainment',
-  competitive: 'Entertainment', 'a laugh': 'Entertainment',
-  'live music': 'Entertainment', culture: 'Culture', chill: 'Culture',
-};
-
 const DEFAULT_PREFS: Prefs = {
   budget: 999,
   student: false,
@@ -63,7 +57,8 @@ const INCLUDE_KEYWORDS: [string[], string][] = [
   [['active', 'bowling', 'ping', 'darts', 'climbing', 'golf', 'karaoke', 'arcade', 'games'], 'active'],
   [['competitive', 'compete', 'tournament'], 'competitive'],
   [['art', 'gallery', 'museum', 'culture', 'exhibition', 'theatre'], 'culture'],
-  [['dance', 'club', 'rave', 'party', 'pint', 'beer', 'drink', 'pub', 'bar', 'late'], 'late night'],
+  [['dance', 'dancing', 'club', 'clubbing', 'rave', 'party', 'pint', 'beer', 'drink', 'drinking',
+    'pub', 'bar', 'late'], 'late night'],
 ];
 
 /** Tiny keyword reader standing in for the server's language model. */
@@ -96,7 +91,8 @@ export function chipsFromText(text: string): ChipsMsg {
   if (mates) company = 1 + (['one', 'two', 'three', 'four'].indexOf(mates) + 1 || Number(mates));
   else if (has('on my own', 'just me', 'solo')) company = 1;
   else if (has('date', 'girlfriend', 'boyfriend', 'partner')) company = 2;
-  return { type: 'chips', include, exclude, budget, company };
+  const student = has('student', 'uni', 'university') ? true : undefined;
+  return { type: 'chips', include, exclude, budget, company, student };
 }
 
 /**
@@ -108,7 +104,8 @@ export function createMockSocket(): VybeSocket {
   const rainFrom = londonWallTime(day, '19:30').getTime();
   let clock = londonWallTime(day, '18:45').getTime();
   let prefs: Prefs = DEFAULT_PREFS;
-  let chosenGroup: string | null | undefined;
+  let chosenGroup: string | null = null;
+  let area = 'Demo board';
   let intervals: number[] = [];
   let joined = false;
   const hidden = new Set<string>();
@@ -135,9 +132,10 @@ export function createMockSocket(): VybeSocket {
     if (status !== 'departed' && outdoor && rainFrom <= departure) status = 'delayed_rain';
     // Into-tags lift a row the way the server's ranking does, so picks follow the filters.
     const intoHit = prefs.include.some((tag) => INCLUDE_CATEGORY[tag]?.includes(item.category));
+    const studentDeal = prefs.student && item.was_price !== null;
     return {
       ...rest,
-      score: Math.max(0, Math.min(10, item.score + (intoHit ? 2 : 0))),
+      score: Math.max(0, Math.min(10, item.score + (intoHit ? 2 : 0) + (studentDeal ? 0.5 : 0))),
       group: MOCK_GROUPS[item.category] ?? 'Entertainment',
       departure_time: new Date(departure).toISOString(),
       leave_by: new Date(leaveBy).toISOString(),
@@ -172,15 +170,13 @@ export function createMockSocket(): VybeSocket {
         groups[row.group] = (groups[row.group] ?? 0) + 1;
       }
     }
-    const group = chosenGroup === undefined
-      ? prefs.include.map((tag) => INTEREST_GROUP[tag]).find((g) => Object.hasOwn(groups, g)) ?? null
-      : chosenGroup;
+    const group = chosenGroup;
     const rows = group ? allRows.filter((row) => row.group === group) : allRows;
     assignPicks(rows);
     return {
       type: 'board',
       now: new Date(clock).toISOString(),
-      area: 'London Bridge',
+      area,
       weather: { summary: 'Light rain', rain_from: new Date(rainFrom).toISOString() },
       count: rows.filter((r) => r.status !== 'departed' && r.status !== 'cancelled').length,
       members: ['You'],
@@ -211,6 +207,10 @@ export function createMockSocket(): VybeSocket {
     },
     send(msg: ClientMessage) {
       switch (msg.type) {
+        case 'location':
+          area = msg.label;
+          if (joined) emit(board());
+          break;
         case 'join':
           joined = true;
           emit({ type: 'joined', room: msg.room ?? 'mock-room', you: msg.name ?? 'You' });
@@ -220,7 +220,7 @@ export function createMockSocket(): VybeSocket {
         case 'prefs': {
           const { type, ...next } = msg;
           if (JSON.stringify(prefs.include) !== JSON.stringify(next.include)) {
-            chosenGroup = undefined;
+            chosenGroup = null;
           }
           prefs = next;
           if (joined) emit(board());

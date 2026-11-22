@@ -304,12 +304,13 @@ def named_requests(text: str) -> tuple[list[str], list[str]]:
         negation = re.match(rf"^(?:i )?{NEG}\b\s*", clause)
         if negation:
             clause = _strip_lead_in(clause[negation.end() :])
-        clause = CONTEXT.split(clause, maxsplit=1)[0].strip()
-        # Drop a leading group phrase ("two mates want pizza" → "want pizza" → "pizza").
+        # Drop a leading group phrase before the context split, so "with three friends i want
+        # sushi" keeps "sushi" instead of the split on "with" eating the request.
         clause = re.sub(
             r"^(?:me and |with )?\w+ (?:mates|friends|pals|others|people)\b\s*", "", clause
         )
         clause = _strip_lead_in(clause.strip())
+        clause = CONTEXT.split(clause, maxsplit=1)[0].strip()
         for qualifier in CHEAP:
             if clause.startswith(qualifier + " "):
                 clause = _strip_lead_in(clause[len(qualifier) :].strip())

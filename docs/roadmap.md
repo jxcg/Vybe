@@ -28,15 +28,18 @@ Put `(now)` after the milestone being worked on. Owners: (Claude), (Mistral), (T
 - [ ] Show only the best pick above the list when four activities are available (Team)
 - [ ] Hide the sidebar panel when there are no additional activities (Team)
 - [ ] Keep the desktop board aligned when category changes hide the sidebar (Team)
+- [ ] Rank solo interests and dislikes without hiding alternative activities (Team)
+- [ ] Show closing or booking guidance instead of leave-by deadlines for walk-ins (Team)
 
 ## Shared plans
 - [x] Invite friends to a live shared board (Team)
 - [ ] Show the participant count in the shared plan header (Team)
 
-## Real places
+## Real places (now)
 - [x] Google Places near the user (Claude)
 - [x] Browser location or typed postcode/area (Claude)
 - [x] OpenStreetMap and sample-data fallback (Claude)
+- [x] Require a session-only browser location or area before opening a solo board (Team)
 
 ## Voice
 - [x] `audio_to_filters`: Voxtral turns speech into filters (Mistral)
