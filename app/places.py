@@ -46,6 +46,8 @@ REQUEST_SEARCHES = {
     "pizza": (["pizza_restaurant"], "food_deal"),
     "sushi": (["sushi_restaurant"], "food_deal"),
     "ramen": (["ramen_restaurant"], "food_deal"),
+    "curry": (["indian_restaurant"], "food_deal"),
+    "tacos": (["mexican_restaurant"], "food_deal"),
     "ice cream": (["ice_cream_shop"], "food_deal"),
     "comedy": (["comedy_club"], "activity"),
     "dancing": (["night_club"], "activity"),
@@ -148,7 +150,7 @@ def nearby(lat: float, lng: float) -> list[dict[str, Any]]:
 def requested_nearby(lat: float, lng: float, terms: set[str]) -> list[dict[str, Any]]:
     """Give each supported request its own result limit, including mixed requests."""
     results = []
-    scopes = {"Food" if term == "food" else term for term in terms}
+    scopes = {{"food": "Food", "culture": "Culture"}.get(term, term) for term in terms}
     for term in sorted(scopes & FOCUSED_SEARCHES.keys()):
         key = (round(lat, 2), round(lng, 2), term)
         hit = _request_cache.get(key)

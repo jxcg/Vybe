@@ -49,6 +49,20 @@ CASES = [
     ("hungry af", {"include": ["food"]}),
     ("UNDER £20!!!", {"budget": 20}),
     ("", {}),
+    # Everyday phrasing must not become a junk concrete search that empties the board
+    ("just somewhere to eat", {"include": ["food"], "no": ["requested"]}),
+    ("a quiet pint", {"include": ["chill", "late night"], "no": ["requested"]}),
+    ("quiz night at the pub", {"no": ["requested"]}),
+    (
+        "no clubs, just somewhere to eat",
+        {"include": ["food"], "exclude": ["clubs"], "no": ["requested"]},
+    ),
+    # A known activity phrase wins over the words around it
+    ("karaoke night with the lads", {"requested": ["karaoke"]}),
+    ("stand-up comedy", {"requested": ["comedy"], "include": ["comedy"]}),
+    ("chill museum or gallery", {"requested": ["culture"], "include": ["chill", "culture"]}),
+    ("I want to dance tonight", {"requested": ["dancing"], "include": ["late night"]}),
+    ("i fancy a curry tonight", {"requested": ["curry"]}),
 ]
 
 
@@ -106,3 +120,13 @@ def test_cheaper_is_relative() -> None:
 )
 def test_named_requests_keep_the_requested_things(text: str, terms: set[str]) -> None:
     assert terms <= set(parse_request(text)["include"])
+
+
+def test_group_phrase_does_not_swallow_the_request() -> None:
+    assert parse_request("me and two mates want pizza under £20") == {
+        "include": ["pizza"],
+        "exclude": [],
+        "requested": ["pizza"],
+        "budget": 20,
+        "company": 3,
+    }

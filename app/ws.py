@@ -20,6 +20,7 @@ from fastapi import WebSocket, WebSocketDisconnect
 from starlette.concurrency import run_in_threadpool
 
 from app import geo, rooms, voice
+from app.categories import TAG_KIND
 from app.colors import venue_colors
 from app.ranking import rank
 from app.request_parse import matches_specific_interests, parse_request, specific_interests
@@ -38,19 +39,15 @@ PERSONAL_FIELDS = (
     "good_for_groups",
     "audience_note",
 )  # frontend budget (£ cap) → our price level
-# Fallback when an item has no category (sample data): taste tag → frontend category
-CATEGORY = {"active": "games", "culture": "culture", "nightlife": "bar", "food": "food"}
-GROUP = {"food": "Food", "bar": "Drinks", "culture": "Culture", "other": "Outdoors"}
-INTEREST_GROUP = {
-    "food": "Food",
-    "late night": "Drinks",
-    "active": "Entertainment",
-    "competitive": "Entertainment",
-    "a laugh": "Entertainment",
-    "live music": "Entertainment",
-    "culture": "Culture",
-    "chill": "Culture",
-}
+# Fallbacks for items without a category/group (sample data), derived from the kind tables:
+# taste tag → frontend category, category → browse group, interest chip → its browse group.
+CATEGORY = {tag: kind.category for tag, kind in TAG_KIND.items()}
+GROUP: dict[str, str] = {}
+for _kind in TAG_KIND.values():
+    GROUP.setdefault(_kind.category, _kind.group)
+    if _kind.tag == _kind.category:  # canonical kind wins (museum → Culture, park → Outdoors)
+        GROUP[_kind.category] = _kind.group
+INTEREST_GROUP = {chip: TAG_KIND[tag].group for chip, tag in INTO.items() if tag in TAG_KIND}
 BROWSE_GROUPS = ("Food", "Drinks", "Entertainment", "Culture", "Outdoors")
 ICONS = {
     "Open now": "Clock",
@@ -118,13 +115,27 @@ def _voiceover_url(path: object) -> str | None:
     return f"/voiceovers/{name}" if (VOICEOVERS / name).is_file() else None
 
 
+_enriched_cache: tuple[float, dict[str, Any]] = (-1.0, {})
+
+
 def _enriched() -> dict[str, Any]:
-    """Mistral's pipeline output (Contract 1). Missing or broken file means no extras."""
+    """Mistral's pipeline output (Contract 1), re-read only when the file changes on disk.
+
+    Called from threadpool threads; the check-then-set race is benign under the GIL (worst
+    case: two threads read the file once each). Callers must treat the result as read-only.
+    """
+    global _enriched_cache
     try:
-        data = json.loads(ENRICHED.read_text())
-        return data if isinstance(data, dict) else {}
-    except (OSError, ValueError):
+        mtime = ENRICHED.stat().st_mtime
+    except OSError:
         return {}
+    if mtime != _enriched_cache[0]:
+        try:
+            data = json.loads(ENRICHED.read_text())
+        except (OSError, ValueError):
+            data = {}
+        _enriched_cache = (mtime, data if isinstance(data, dict) else {})
+    return _enriched_cache[1]
 
 
 def _group_of(item: dict[str, Any]) -> str:
@@ -543,7 +554,7 @@ class Session:
                 if isinstance(item_id, str) and 0 < len(item_id) <= 256:
                     member.feedback(item_id, msg.get("kind"))
                     await self.publish(room)
-            elif monotonic() - room.published_at >= BOARD_EVERY:
+            elif kind == "refresh_now" or monotonic() - room.published_at >= BOARD_EVERY:
                 await self.publish(room)
         if refresh_solo:
             await self.board()

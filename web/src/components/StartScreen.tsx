@@ -43,6 +43,8 @@ export function StartScreen() {
   const cardRef = useRef<HTMLDivElement>(null);
   const morphing = useRef(false);
   const talkCap = useRef<number | undefined>(undefined);
+  /** Set when the user asked to go while voice/typing was still being parsed: go once chips land. */
+  const pendingGo = useRef(false);
   const keyboardOpen = useKeyboardOpen();
   // Mic blocked or unavailable: fall back to typing (the hook shows a toast saying why)
   const talk = useTalk('mood', () => {
@@ -50,9 +52,11 @@ export function StartScreen() {
     switchMode(true);
   });
 
-  // The server answered with chips: done thinking.
+  // The server answered with chips: done thinking. A queued "go" now runs on the fresh filters.
   useEffect(() => {
     setPhase((p) => (p === 'thinking' ? 'idle' : p));
+    if (pendingGo.current && go(undefined, true)) pendingGo.current = false;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.chipsSeq]);
 
   useEffect(() => {
@@ -152,12 +156,13 @@ export function StartScreen() {
 
   const setVybe = (vybe: Vybe) => dispatch({ type: 'set_vybe', vybe });
 
-  const go = (vybe?: Vybe) => {
-    if (state.shared && (state.conn !== 'open' || state.roomConnecting)) return;
-    if (phase === 'thinking') return;
-    if (phase === 'listening') {
-      endTalk();
-      return;
+  const go = (vybe?: Vybe, force = false): boolean => {
+    if (state.shared && (state.conn !== 'open' || state.roomConnecting)) return false;
+    if (!force && phase === 'thinking') return false;
+    if (!force && phase === 'listening') {
+      endTalk(); // chips arrive a moment later; pendingGo applies them instead of an earlier request
+      pendingGo.current = true;
+      return false;
     }
     // TODO(P4): unlock audio (resume AudioContext) and request geolocation, silent fallback.
     if (vybe) setVybe(vybe);
@@ -166,10 +171,11 @@ export function StartScreen() {
     // Coming back from settings: straight back to the board.
     if (state.board) {
       dispatch({ type: 'go', screen: 'board' });
-      return;
+      return true;
     }
     if (micRef.current) handoff.put('orb', shapeOf(micRef.current));
     dispatch({ type: 'go', screen: 'loading' });
+    return true;
   };
 
   return (
@@ -190,10 +196,13 @@ export function StartScreen() {
               <TypeField
                 inputRef={inputRef}
                 formRef={formRef}
-                onSend={(text) => {
-                  if (phase === 'thinking' || state.conn !== 'open') return;
+                onSend={(text, viaEnter) => {
+                  if (state.conn !== 'open') return;
+                  if (!viaEnter && phase === 'thinking') return; // don't stack debounced sends
                   setPhase('thinking');
                   send({ type: 'talk_text', text });
+                  // Enter means "go": open the board once the chips for this prompt arrive.
+                  if (viaEnter) pendingGo.current = true;
                 }}
                 onVoice={() => switchMode(false)}
               />
