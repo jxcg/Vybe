@@ -17,7 +17,7 @@ Put `(now)` after the milestone being worked on. Owners: (Claude), (Mistral), (T
 - [x] Reset board filters and apply mixed activity requests (Team)
 - [ ] Return to Vybe setup with Reset & redo (Team)
 - [x] Apply explicit activity requests, exclusions, and budgets reliably (Team)
-- [ ] Search for pizza and comedy directly when requested (Team)
+- [x] Search for pizza and comedy directly when requested (Team)
 - [ ] Search each board category and supported activity directly when selected (Team)
 - [x] Match specific typed and spoken requests to venue evidence (Team)
 - [x] Keep everyday phrasing ("a quiet pint", "stand-up comedy") from becoming junk concrete searches that empty the board (Team)
