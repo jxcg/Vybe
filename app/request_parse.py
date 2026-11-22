@@ -9,6 +9,8 @@ import re
 from difflib import get_close_matches
 from typing import Any
 
+from app.categories import GOOGLE, OSM
+
 NUMBER_WORDS = {
     "one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7, "eight": 8,
     "nine": 9, "ten": 10, "eleven": 11, "twelve": 12, "fifteen": 15, "twenty": 20,
@@ -34,7 +36,8 @@ INTO_WORDS: dict[str, tuple[str, ...]] = {
     "competitive": ("competitive", "compete", "win", "beat my mates", "tournament"),
     "culture": ("culture", "museum", "gallery", "art", "exhibition", "theatre", "theater", "show"),
     "late night": ("late night", "late one", "out late", "dance", "dancing", "club", "clubbing",
-                   "rave", "party", "night out"),
+                   "rave", "party", "night out", "pint", "pints", "beer", "ale", "wine", "drink",
+                   "drinks", "cocktail", "cocktails", "pub", "bar"),
 }  # fmt: skip
 # Activity phrasing and evidence from the catalogue. These describe venue capabilities,
 # so a nightclub can match dancing without treating every venue named "Club" as a nightclub.
@@ -46,18 +49,31 @@ ACTIVITY_TERMS = {
     "film": ("film", "films", "movie", "movies", "cinema"),
     "climbing": ("climb", "climbing"),
     "music": ("music", "live music", "gig", "gigs"),
+    "bowling": ("bowling",),
+    "games": ("games", "board games"),
+    "culture": ("museum", "gallery", "art", "exhibition", "culture"),
 }
 ACTIVITY_NAMES = {
     phrase: activity for activity, phrases in ACTIVITY_TERMS.items() for phrase in phrases
 }
-ACTIVITY_EVIDENCE = {"dancing": {"club", "night club", "nightclub"}}
+
+
+def _evidence_for(tag: str) -> set[str]:
+    """Source metadata values that prove a venue offers `tag` (e.g. club types for dancing)."""
+    values = {tag}
+    values |= {primary.replace("_", " ") for primary, kind in GOOGLE.items() if kind.tag == tag}
+    values |= {value for (_key, value), kind in OSM.items() if kind.tag == tag}
+    return values
+
+
+ACTIVITY_EVIDENCE = {"dancing": _evidence_for("club")}
 
 CLAUSES = re.compile(r"[,;.!?]+|\b(?:and|or|but|then|followed by)\b")
 LEAD_IN = re.compile(
     r"^(?:i (?:really )?(?:would (?:like|love)|want|fancy|feel like|am looking for)|"
     r"i'd (?:like|love)|can we|let's|looking for|want|fancy|find|"
     r"to|go(?: get| for| to| out)?|get|eat(?:ing)?|have|see|hear|watch|"
-    r"some|a|an|the|something like|something|maybe|please)\b\s*"
+    r"some|a|an|the|something like|something|maybe|please|just)\b\s*"
 )
 CONTEXT = re.compile(
     r"\b(?:under|within|less than|nothing over|max(?:imum)?|up to|"
@@ -68,7 +84,21 @@ NOT_INTO_WORDS: dict[str, tuple[str, ...]] = {
     "clubs": ("club", "clubs", "clubbing", "nightclub"),
     "loud music": ("loud", "loud music", "noisy"),
     "outdoors": ("outdoors", "outdoor", "outside"),
-    "late nights": ("late night", "late nights", "staying out late"),
+    "late nights": (
+        "late night",
+        "late nights",
+        "staying out late",
+        "bar",
+        "bars",
+        "pub",
+        "pubs",
+        "pint",
+        "pints",
+        "drink",
+        "drinks",
+        "cocktail",
+        "cocktails",
+    ),
     "queues": ("queue", "queues", "waiting", "lines"),
 }
 # Single words we fuzzy-match against, to forgive typos like "pizzza" or "comdey"
@@ -166,7 +196,7 @@ def _has(t: str, phrase: str) -> bool:
 
 
 def _negated(t: str, phrase: str) -> bool:
-    return re.search(rf"\b{NEG}\s+(?:\w+\s+){{0,2}}{re.escape(phrase)}", t) is not None
+    return re.search(rf"\b{NEG}\s+(?:\w+\s+){{0,3}}{re.escape(phrase)}", t) is not None
 
 
 def parse_request(text: str) -> dict[str, Any]:
@@ -269,12 +299,40 @@ def named_requests(text: str) -> tuple[list[str], list[str]]:
         "me",
         "me too",
     }
-    context_words = ("student", "tonight", "raining", "want", "mates", "loud", "object", "skint")
-    for clause in CLAUSES.split(text):
+    context_words = (
+        "student",
+        "tonight",
+        "raining",
+        "want",
+        "mates",
+        "loud",
+        "object",
+        "skint",
+        "night",
+    )
+    blocked_words = broad_words | set(context_words)
+    # Longest phrases first so "live music" wins over "music" when both appear.
+    activity_phrases = sorted(ACTIVITY_NAMES.items(), key=lambda kv: -len(kv[0]))
+    # Split keeping the conjunct: "no museum or gallery" negates both sides of the "or".
+    parts = re.split(r"(\b(?:and|or|but|then|followed by)\b|[,;.!?]+)", text)
+    clauses = [parts[i] for i in range(0, len(parts), 2)]
+    conjuncts = [parts[i] for i in range(1, len(parts), 2)]
+    negated = False
+    for clause, conjunct in zip(clauses, ["", *conjuncts], strict=True):
         clause = _strip_lead_in(clause.strip())
         negation = re.match(rf"^(?:i )?{NEG}\b\s*", clause)
+        is_negated = negation is not None
         if negation:
             clause = _strip_lead_in(clause[negation.end() :])
+        if conjunct.strip().lower() == "or" and negated:
+            is_negated = True  # "no X or Y" means neither X nor Y
+        negated = is_negated
+        # Drop a leading group phrase before the context split, so "with three friends i want
+        # sushi" keeps "sushi" instead of the split on "with" eating the request.
+        clause = re.sub(
+            r"^(?:me and |with )?\w+ (?:mates|friends|pals|others|people)\b\s*", "", clause
+        )
+        clause = _strip_lead_in(clause.strip())
         clause = CONTEXT.split(clause, maxsplit=1)[0].strip()
         for qualifier in CHEAP:
             if clause.startswith(qualifier + " "):
@@ -287,13 +345,20 @@ def named_requests(text: str) -> tuple[list[str], list[str]]:
             not clause
             or not re.fullmatch(r"[a-z][a-z &'\-]*(?:[a-z])?", clause)
             or len(clause.split()) > 5
-            or (clause in broad_words and clause not in ACTIVITY_NAMES)
-            or any(_has(clause, word) for word in context_words)
-            or any(clause in words for words in NOT_INTO_WORDS.values())
         ):
             continue
-        term = normalise_interest(clause)
-        (exclude if negation else include).append(term)
+        # A known activity phrase wins over the words around it ("karaoke night" → karaoke).
+        activity = next((a for phrase, a in activity_phrases if _has(clause, phrase)), None)
+        if activity is not None:
+            (exclude if is_negated else include).append(activity)
+            continue
+        # Otherwise only a concrete noun phrase is worth keeping; a clause with any broad or
+        # filler word ("just somewhere to eat") is mood talk, not a search.
+        if any(_has(clause, word) for word in blocked_words) or any(
+            clause in words for words in NOT_INTO_WORDS.values()
+        ):
+            continue
+        (exclude if is_negated else include).append(normalise_interest(clause))
     return include, exclude
 
 

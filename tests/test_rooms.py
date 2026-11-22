@@ -1,3 +1,4 @@
+from collections.abc import Iterator
 from datetime import datetime
 from time import monotonic
 
@@ -7,6 +8,14 @@ from test_ws import recv
 
 from app import geo, rooms, ws
 from app.main import app, load_samples
+
+
+@pytest.fixture(autouse=True)
+def clean_rooms() -> Iterator[None]:
+    """Room state is module-global: never leak rooms into the next test, even on failure."""
+    rooms.rooms.clear()
+    yield
+    rooms.rooms.clear()
 
 
 def test_shared_board_lifecycle(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -167,3 +176,113 @@ def test_group_ranking_prefers_the_worst_off_member_then_the_average() -> None:
     assert [row["id"] for row in results] == ["stronger", "balanced", "polar"]
     assert results[0]["match"] == results[1]["match"] > results[2]["match"]
     assert results[0]["average"] > results[1]["average"]
+
+
+def test_room_capacity_limits_and_expired_resume(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Full rooms/member caps and expired invites produce the friendly errors, not crashes."""
+    monkeypatch.setattr(rooms, "MAX_ROOMS", 0)  # any create is "too many plans"
+    rooms.rooms.clear()
+    with TestClient(app).websocket_connect("/ws") as sock:
+        sock.send_json({"type": "room_create", "name": "Host", "prefs": {}})
+        assert "too many" in recv(sock, "room_error")["message"]
+
+    monkeypatch.setattr(rooms, "MAX_ROOMS", 256)
+    monkeypatch.setattr(rooms, "MAX_MEMBERS", 1)  # host alone fills the plan
+    with TestClient(app) as client, client.websocket_connect("/ws") as host:
+        host.send_json({"type": "room_create", "name": "Host", "prefs": {}})
+        owner = recv(host, "room_joined")
+        invite, credential = owner["invite"], owner["credential"]
+        recv(host, "board")
+        with client.websocket_connect("/ws") as friend:
+            friend.send_json({"type": "room_join", "invite": invite, "name": "Friend", "prefs": {}})
+            assert "full" in recv(friend, "room_error")["message"]
+        # expire the room, then a resume with the right credential must fail cleanly
+        rooms.rooms[invite].expires = monotonic() - 1
+        with client.websocket_connect("/ws") as late:
+            late.send_json({"type": "room_resume", "invite": invite, "credential": credential})
+            assert "expired" in recv(late, "room_error")["message"]
+    rooms.rooms.clear()
+
+
+def test_disconnect_mid_room_then_resume_reattaches(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A dropped socket stops receiving boards without breaking others; resume re-attaches."""
+    from datetime import datetime
+
+    from app.main import items_near
+
+    now = datetime(2026, 11, 21, 18)
+    sample = items_near(51.51, -0.13, now)[0]
+    items = [
+        dict(sample, id="only", name="Only Place", tags=["food"], opens="00:00", closes="00:00")
+    ]
+    monkeypatch.setattr("app.main.items_near", lambda *args: items)
+    monkeypatch.setattr(ws.Session, "now", lambda _: now)
+    rooms.rooms.clear()
+    friend_key = "ab" * 32
+    with TestClient(app) as client, client.websocket_connect("/ws") as host:
+        host.send_json({"type": "room_create", "name": "Host", "prefs": {}})
+        invite = recv(host, "room_joined")["invite"]
+        recv(host, "board")
+        with client.websocket_connect("/ws") as friend:
+            friend.send_json(
+                {
+                    "type": "room_join",
+                    "invite": invite,
+                    "credential": friend_key,
+                    "name": "Friend",
+                    "prefs": {},
+                }
+            )
+            recv(friend, "room_joined")
+            recv(friend, "board")
+            recv(host, "board")
+        # friend's socket is gone now; the host must still get boards when prefs change
+        host.send_json({"type": "room_prefs", "prefs": {"include": ["food"]}})
+        assert recv(host, "board")["members"] == ["Host", "Friend"]
+        # a fresh socket resumes the same seat
+        with client.websocket_connect("/ws") as friend2:
+            friend2.send_json({"type": "room_resume", "invite": invite, "credential": friend_key})
+            assert recv(friend2, "room_joined")["credential"] == friend_key
+            board = recv(friend2, "board")
+            assert board["members"] == ["Host", "Friend"]
+            assert [r["id"] for r in board["rows"]] == ["only"]
+    rooms.rooms.clear()
+
+
+def test_shared_skip_hides_the_place_for_that_member(monkeypatch: pytest.MonkeyPatch) -> None:
+    from datetime import datetime
+
+    from app.main import items_near
+
+    now = datetime(2026, 11, 21, 18)
+    sample = items_near(51.51, -0.13, now)[0]
+    items = [
+        dict(sample, id="keep", name="Keep Me", tags=["food"], opens="00:00", closes="00:00"),
+        dict(sample, id="drop", name="Drop Me", tags=["culture"], opens="00:00", closes="00:00"),
+    ]
+    monkeypatch.setattr("app.main.items_near", lambda *args: items)
+    monkeypatch.setattr(ws.Session, "now", lambda _: now)
+    rooms.rooms.clear()
+    with TestClient(app) as client, client.websocket_connect("/ws") as host:
+        host.send_json({"type": "room_create", "name": "Host", "prefs": {}})
+        invite = recv(host, "room_joined")["invite"]
+        assert {r["id"] for r in recv(host, "board")["rows"]} == {"keep", "drop"}
+        with client.websocket_connect("/ws") as friend:
+            friend.send_json({"type": "room_join", "invite": invite, "name": "Friend", "prefs": {}})
+            recv(friend, "room_joined")
+            recv(friend, "board")
+            recv(host, "board")
+            friend.send_json({"type": "feedback", "item_id": "drop", "kind": "skip"})
+            board = recv(friend, "board")
+            assert [r["id"] for r in board["rows"]] == ["keep"]
+            assert [r["id"] for r in recv(host, "board")["rows"]] == ["keep"]
+    rooms.rooms.clear()
+
+
+def test_known_price_accepts_only_real_numbers() -> None:
+    assert rooms.known_price(5) == 5
+    assert rooms.known_price(4.5) == 4.5
+    assert rooms.known_price(True) is None  # bool is not a price
+    assert rooms.known_price(-1) is None
+    assert rooms.known_price("5") is None
+    assert rooms.known_price(None) is None

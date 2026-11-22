@@ -141,3 +141,9 @@ def tags_for(kind: Kind, outdoors: bool) -> list[str]:
         tags.append(FAMILY[kind.tag])
     tags.append("outdoors" if outdoors or kind.tag == "outdoors" else "indoors")
     return list(dict.fromkeys(tags))
+
+
+# tag → its canonical kind, so fallbacks (category/group per tag) never re-list the tables above
+TAG_KIND: dict[str, Kind] = {}
+for _kind in (*GOOGLE.values(), *OSM.values()):
+    TAG_KIND.setdefault(_kind.tag, _kind)

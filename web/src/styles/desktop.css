@@ -146,9 +146,9 @@
     --start-x: 0px;
     display: grid;
     grid-template-columns: minmax(0, 1fr) 460px;
-    grid-template-rows: auto auto auto 1fr auto;
+    grid-template-rows: auto auto auto auto auto;
     column-gap: clamp(48px, 7vw, 120px);
-    align-content: center;
+    align-content: safe center;
     width: 100%;
     max-width: 1200px;
     margin: 0 auto;

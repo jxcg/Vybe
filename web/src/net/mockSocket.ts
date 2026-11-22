@@ -13,6 +13,7 @@ const MOCK_GROUPS: Record<string, string> = {
   food: 'Food', bar: 'Drinks', culture: 'Culture',
 };
 
+/** Mirrors the server: one matching interest narrows the board to its group until re-chosen. */
 const INTEREST_GROUP: Record<string, string> = {
   food: 'Food', 'late night': 'Drinks', active: 'Entertainment',
   competitive: 'Entertainment', 'a laugh': 'Entertainment',
@@ -36,33 +37,69 @@ const THINK_MS = 700;
 /** How the mock reads "not into" tags against its items. */
 const EXCLUDES: Record<string, (item: MockItem) => boolean> = {
   outdoors: (i) => i.outdoor,
+  clubs: (i) => i.category === 'bar' && i.adult,
   'loud music': (i) => i.category === 'music' || i.id === 'booth-nine',
   'late nights': (i) => i.depart >= '22:00',
+  queues: (i) => i.walk_min >= 15,
 };
 
+/** Include chip → the mock categories it should lift (mirrors the server's tag families). */
+const INCLUDE_CATEGORY: Record<string, string[]> = {
+  'a laugh': ['comedy'],
+  chill: ['culture'],
+  food: ['food'],
+  'live music': ['music'],
+  active: ['games'],
+  competitive: ['games'],
+  culture: ['culture'],
+  'late night': ['bar'],
+};
+
+const INCLUDE_KEYWORDS: [string[], string][] = [
+  [['laugh', 'comedy', 'funny', 'stand-up', 'stand up', 'standup'], 'a laugh'],
+  [['chill', 'relax', 'quiet', 'calm', 'low key'], 'chill'],
+  [['eat', 'eating', 'food', 'hungry', 'dinner', 'lunch', 'brunch', 'pizza', 'burger', 'sushi',
+    'ramen', 'curry', 'tacos', 'noodles', 'bite', 'dessert'], 'food'],
+  [['music', 'jazz', 'gig', 'concert', 'band'], 'live music'],
+  [['active', 'bowling', 'ping', 'darts', 'climbing', 'golf', 'karaoke', 'arcade', 'games'], 'active'],
+  [['competitive', 'compete', 'tournament'], 'competitive'],
+  [['art', 'gallery', 'museum', 'culture', 'exhibition', 'theatre'], 'culture'],
+  [['dance', 'dancing', 'club', 'clubbing', 'rave', 'party', 'pint', 'beer', 'drink', 'drinking',
+    'pub', 'bar', 'late'], 'late night'],
+];
+
 /** Tiny keyword reader standing in for the server's language model. */
-function chipsFromText(text: string): ChipsMsg {
+export function chipsFromText(text: string): ChipsMsg {
   const t = text.toLowerCase();
+  // Whole words only (plurals ok): "art" must not fire inside "party", "bar" not inside "embarrassed".
+  const has = (...words: string[]) =>
+    words.some((w) => new RegExp(`\\b${w.replace(/ /g, '\\s+')}(?:s)?\\b`).test(t));
   const include: string[] = [];
+  for (const [words, chip] of INCLUDE_KEYWORDS) {
+    if (has(...words) && !include.includes(chip)) include.push(chip);
+  }
+  if (has('competitive') && !include.includes('active')) include.push('active');
   const exclude: string[] = [];
-  const has = (...words: string[]) => words.some((w) => t.includes(w));
-  if (has('laugh', 'comedy', 'funny')) include.push('a laugh');
-  if (has('chill', 'relax', 'quiet')) include.push('chill');
-  if (has('eat', 'food', 'hungry', 'dinner')) include.push('food');
-  if (has('music', 'jazz', 'gig')) include.push('live music');
-  if (has('active', 'bowling', 'ping')) include.push('active');
-  if (has('art', 'gallery', 'culture')) include.push('culture');
-  if (has('outdoor', 'outside')) exclude.push('outdoors');
-  if (has('loud')) exclude.push('loud music');
+  if (has('outdoor', 'outside') || /\braining\b/.test(t)) exclude.push('outdoors');
+  if (has('loud', 'noisy') || /\bnot?\s*loud\b/.test(t)) exclude.push('loud music');
+  if (/\bno clubs?\b|\bnot into clubs\b/.test(t)) exclude.push('clubs');
+  if (/\bno late nights?\b/.test(t)) exclude.push('late nights');
+  // "no clubs" shouldn't also mean wanting a late night (same rule as the server parser)
+  if (exclude.includes('clubs') && !has('late')) {
+    const i = include.indexOf('late night');
+    if (i >= 0) include.splice(i, 1);
+  }
   let budget: Budget | undefined;
   const amount = /(?:under|less than|max|over)\s*£?\s*(\d+)/.exec(t)?.[1];
-  if (has('tenner', 'cheap', 'skint')) budget = 10;
+  if (has('tenner', 'cheap', 'skint', 'fiver')) budget = 10;
   else if (amount) budget = Number(amount) <= 10 ? 10 : Number(amount) <= 20 ? 20 : 999;
   let company: number | undefined;
   const mates = /(one|two|three|four|\d) (?:mates|friends|people)/.exec(t)?.[1];
   if (mates) company = 1 + (['one', 'two', 'three', 'four'].indexOf(mates) + 1 || Number(mates));
   else if (has('on my own', 'just me', 'solo')) company = 1;
-  return { type: 'chips', include, exclude, budget, company };
+  else if (has('date', 'girlfriend', 'boyfriend', 'partner')) company = 2;
+  const student = has('student', 'uni', 'university') ? true : undefined;
+  return { type: 'chips', include, exclude, budget, company, student };
 }
 
 /**
@@ -75,6 +112,7 @@ export function createMockSocket(): VybeSocket {
   let clock = londonWallTime(day, '18:45').getTime();
   let prefs: Prefs = DEFAULT_PREFS;
   let chosenGroup: string | null | undefined;
+  let area = 'Demo board';
   let intervals: number[] = [];
   let joined = false;
   const hidden = new Set<string>();
@@ -99,8 +137,12 @@ export function createMockSocket(): VybeSocket {
     let status: Status =
       mins >= 20 ? 'on_time' : mins >= 5 ? 'boarding' : mins >= 0 ? 'last_call' : 'departed';
     if (status !== 'departed' && outdoor && rainFrom <= departure) status = 'delayed_rain';
+    // Into-tags lift a row the way the server's ranking does, so picks follow the filters.
+    const intoHit = prefs.include.some((tag) => INCLUDE_CATEGORY[tag]?.includes(item.category));
+    const studentDeal = prefs.student && item.was_price !== null;
     return {
       ...rest,
+      score: Math.max(0, Math.min(10, item.score + (intoHit ? 2 : 0) + (studentDeal ? 0.5 : 0))),
       group: MOCK_GROUPS[item.category] ?? 'Entertainment',
       departure_time: new Date(departure).toISOString(),
       leave_by: new Date(leaveBy).toISOString(),
@@ -143,7 +185,7 @@ export function createMockSocket(): VybeSocket {
     return {
       type: 'board',
       now: new Date(clock).toISOString(),
-      area: 'London Bridge',
+      area,
       weather: { summary: 'Light rain', rain_from: new Date(rainFrom).toISOString() },
       count: rows.filter((r) => r.status !== 'departed' && r.status !== 'cancelled').length,
       members: ['You'],
@@ -174,6 +216,10 @@ export function createMockSocket(): VybeSocket {
     },
     send(msg: ClientMessage) {
       switch (msg.type) {
+        case 'location':
+          area = msg.label;
+          if (joined) emit(board());
+          break;
         case 'join':
           joined = true;
           emit({ type: 'joined', room: msg.room ?? 'mock-room', you: msg.name ?? 'You' });
@@ -183,7 +229,7 @@ export function createMockSocket(): VybeSocket {
         case 'prefs': {
           const { type, ...next } = msg;
           if (JSON.stringify(prefs.include) !== JSON.stringify(next.include)) {
-            chosenGroup = undefined;
+            chosenGroup = undefined; // a new interest re-opens the auto-narrowing
           }
           prefs = next;
           if (joined) emit(board());

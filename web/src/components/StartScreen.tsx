@@ -31,8 +31,12 @@ const PHASE_LABEL: Record<TalkPhase, string> = {
 const isTouch = window.matchMedia('(pointer: coarse)').matches;
 
 export function StartScreen() {
-  const { state, dispatch, send, join } = useStore();
+  const { state, dispatch, send, setPlace, join } = useStore();
   const settings = state.onboarded || state.shared !== null;
+  const [area, setArea] = useState(state.place?.label ?? '');
+  const [locating, setLocating] = useState(false);
+  const [locationError, setLocationError] = useState('');
+  const areaRef = useRef<HTMLInputElement>(null);
   const [phase, setPhase] = useState<TalkPhase>('idle');
   const [typing, setTyping] = useState(false);
   const [sheet, setSheet] = useState<RowKey | null>(null);
@@ -44,6 +48,10 @@ export function StartScreen() {
   const cardRef = useRef<HTMLDivElement>(null);
   const morphing = useRef(false);
   const talkCap = useRef<number | undefined>(undefined);
+  /** Set when the user asked to go while voice/typing was still being parsed: go once chips land. */
+  const pendingGo = useRef(false);
+  /** Last prompt sent to the server, so Enter on unchanged text doesn't send a duplicate. */
+  const lastSentText = useRef('');
   const keyboardOpen = useKeyboardOpen();
   // Mic blocked or unavailable: fall back to typing (the hook shows a toast saying why)
   const talk = useTalk('mood', () => {
@@ -51,9 +59,11 @@ export function StartScreen() {
     switchMode(true);
   });
 
-  // The server answered with chips: done thinking.
+  // The server answered with chips: done thinking. A queued "go" now runs on the fresh filters.
   useEffect(() => {
     setPhase((p) => (p === 'thinking' ? 'idle' : p));
+    if (pendingGo.current && go(undefined, true)) pendingGo.current = false;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.chipsSeq]);
 
   useEffect(() => {
@@ -153,24 +163,69 @@ export function StartScreen() {
 
   const setVybe = (vybe: Vybe) => dispatch({ type: 'set_vybe', vybe });
 
-  const go = (vybe?: Vybe) => {
-    if (state.shared && (state.conn !== 'open' || state.roomConnecting)) return;
-    if (phase === 'thinking') return;
-    if (phase === 'listening') {
-      endTalk();
+  const useMyLocation = () => {
+    setLocationError('');
+    if (!navigator.geolocation) {
+      setLocationError('Browser location is unavailable. Enter an area or postcode instead.');
+      areaRef.current?.focus();
       return;
     }
-    // TODO(P4): unlock audio (resume AudioContext) and request geolocation, silent fallback.
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(({ coords }) => {
+      setPlace({ type: 'location', lat: coords.latitude, lng: coords.longitude, label: 'Near you' });
+      setLocating(false);
+    }, () => {
+      setLocationError('Couldn’t get your location. Allow location access or enter an area or postcode.');
+      setLocating(false);
+      areaRef.current?.focus();
+    }, { enableHighAccuracy: true, timeout: 10_000, maximumAge: 60_000 });
+  };
+
+  const findArea = async () => {
+    const query = area.trim();
+    if (query.length < 2 || locating) return;
+    setLocating(true);
+    setLocationError('');
+    try {
+      const response = await fetch(`/api/geocode?${new URLSearchParams({ q: query })}`);
+      if (!response.ok) throw new Error('lookup');
+      const { lat, lng } = await response.json();
+      if (!Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) {
+        throw new Error('coordinates');
+      }
+      setPlace({ type: 'location', lat, lng, label: query });
+    } catch {
+      setLocationError('Couldn’t find that place. Try another area or postcode.');
+    } finally {
+      setLocating(false);
+    }
+  };
+
+  const go = (vybe?: Vybe, force = false): boolean => {
+    if (state.shared && (state.conn !== 'open' || state.roomConnecting)) return false;
+    // Solo boards need a session-only location: never fall back to a fixed area silently.
+    if (!state.shared && (!state.place || locating)) {
+      setLocationError('Choose your location before we find what’s nearby.');
+      areaRef.current?.focus();
+      return false;
+    }
+    if (!force && phase === 'thinking') return false;
+    if (!force && phase === 'listening') {
+      endTalk(); // chips arrive a moment later; pendingGo applies them instead of an earlier request
+      pendingGo.current = true;
+      return false;
+    }
     if (vybe) setVybe(vybe);
     join(vybe);
     // First time in: the loading screen covers the wait, and the mic glides into its orb.
     // Coming back from settings: straight back to the board.
     if (state.board) {
       dispatch({ type: 'go', screen: 'board' });
-      return;
+      return true;
     }
     if (micRef.current) handoff.put('orb', shapeOf(micRef.current));
     dispatch({ type: 'go', screen: 'loading' });
+    return true;
   };
 
   return (
@@ -191,10 +246,17 @@ export function StartScreen() {
               <TypeField
                 inputRef={inputRef}
                 formRef={formRef}
-                onSend={(text) => {
-                  if (phase === 'thinking' || state.conn !== 'open') return;
-                  setPhase('thinking');
-                  send({ type: 'talk_text', text });
+                onSend={(text, viaEnter) => {
+                  if (state.conn !== 'open') return;
+                  if (!viaEnter && phase === 'thinking') return; // don't stack debounced sends
+                  // Enter on already-sent text arrives without a fresh send; still queue the go.
+                  if (text !== lastSentText.current) {
+                    lastSentText.current = text;
+                    setPhase('thinking');
+                    send({ type: 'talk_text', text });
+                  }
+                  // Enter means "go": open the board once the chips for this prompt arrive.
+                  if (viaEnter) pendingGo.current = true;
                 }}
                 onVoice={() => switchMode(false)}
               />
@@ -213,6 +275,25 @@ export function StartScreen() {
           )}
 
           <div ref={cardRef} className="start-card">
+            {!state.shared && (
+              <section className="start-location" aria-labelledby="location-title" aria-busy={locating}>
+                <h2 id="location-title">Where are you?</h2>
+                <p>Use your location or choose an area to explore. Only used for this session.</p>
+                <button type="button" className="start-location-button" disabled={locating} onClick={useMyLocation}>
+                  {locating ? 'Finding location…' : 'Use my location'}
+                </button>
+                <form onSubmit={(event) => { event.preventDefault(); void findArea(); }}>
+                  <label htmlFor="location-area">Or enter an area or postcode</label>
+                  <div className="start-location-search">
+                    <input id="location-area" ref={areaRef} value={area} onChange={(event) => setArea(event.target.value)}
+                      autoComplete="off" minLength={2} maxLength={100} required disabled={locating} />
+                    <button type="submit" className="start-location-button" disabled={locating || area.trim().length < 2}>Find area</button>
+                  </div>
+                </form>
+                {state.place && <p role="status">Using {state.place.label}</p>}
+                {locationError && <p role="alert">{locationError}</p>}
+              </section>
+            )}
             <VybeCard vybe={state.vybe} onChange={setVybe} onOpen={setSheet} />
             <p className="start-hint">Tap any row to change it.</p>
           </div>
@@ -225,7 +306,7 @@ export function StartScreen() {
           <FadePill
             label={phase === 'thinking' ? 'Applying filters…' : phase === 'listening'
               ? 'Finish recording' : settings ? 'Update board' : 'See what’s on'}
-            disabled={phase === 'thinking'}
+            disabled={phase === 'thinking' || locating}
             onClick={() => go()}
           />
           <button

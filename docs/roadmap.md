@@ -17,9 +17,10 @@ Put `(now)` after the milestone being worked on. Owners: (Claude), (Mistral), (T
 - [x] Reset board filters and apply mixed activity requests (Team)
 - [ ] Return to Vybe setup with Reset & redo (Team)
 - [x] Apply explicit activity requests, exclusions, and budgets reliably (Team)
-- [ ] Search for pizza and comedy directly when requested (Team)
+- [x] Search for pizza and comedy directly when requested (Team)
 - [ ] Search each board category and supported activity directly when selected (Team)
 - [x] Match specific typed and spoken requests to venue evidence (Team)
+- [x] Keep everyday phrasing ("a quiet pint", "stand-up comedy") from becoming junk concrete searches that empty the board (Team)
 - [ ] Show current conditions and temperature beside the board location (Team)
 - [ ] Open the board on a saved interest, group additional results, and mark short lists (Team)
 - [ ] Keep runner-up and wildcard details visible on desktop cards (Team)
@@ -27,15 +28,18 @@ Put `(now)` after the milestone being worked on. Owners: (Claude), (Mistral), (T
 - [ ] Show only the best pick above the list when four activities are available (Team)
 - [ ] Hide the sidebar panel when there are no additional activities (Team)
 - [ ] Keep the desktop board aligned when category changes hide the sidebar (Team)
+- [ ] Rank solo interests and dislikes without hiding alternative activities (Team)
+- [ ] Show closing or booking guidance instead of leave-by deadlines for walk-ins (Team)
 
 ## Shared plans
 - [x] Invite friends to a live shared board (Team)
 - [ ] Show the participant count in the shared plan header (Team)
 
-## Real places
+## Real places (now)
 - [x] Google Places near the user (Claude)
 - [x] Browser location or typed postcode/area (Claude)
 - [x] OpenStreetMap and sample-data fallback (Claude)
+- [x] Require a session-only browser location or area before opening a solo board (Team)
 
 ## Voice
 - [x] `audio_to_filters`: Voxtral turns speech into filters (Mistral)
@@ -43,7 +47,7 @@ Put `(now)` after the milestone being worked on. Owners: (Claude), (Mistral), (T
 - [x] Ranking applies voice filters (Claude)
 - [ ] Mic capture in the web frontend, sending PCM to `/ws` (Team)
 - [ ] Simplify mobile onboarding and enlarge voice and typing controls (Team)
-- [ ] Open the board when Enter submits a typed prompt (Team)
+- [x] Open the board when Enter submits a typed prompt (Team)
 - [ ] Open board settings from one full-width Change your vibe button (Team)
 - [x] Reveal a pick from the board with the Voxtral radio host (Team)
 - [ ] `text_to_filters` and transcripts from Voxtral (Mistral)

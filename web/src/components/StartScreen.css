@@ -95,6 +95,58 @@
   margin-top: 14px;
 }
 
+.start-location {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 16px;
+  padding: 18px;
+  border: var(--hairline);
+  border-radius: var(--r-card);
+  background: var(--card);
+}
+
+.start-location h2 {
+  font-size: 20px;
+}
+
+.start-location p,
+.start-location label {
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text-2);
+}
+
+.start-location-search {
+  display: flex;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.start-location input {
+  min-width: 0;
+  width: 100%;
+  padding: 10px;
+  border: var(--hairline);
+  border-radius: 12px;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 16px;
+}
+
+.start-location-button {
+  min-height: 44px;
+  flex-shrink: 0;
+  padding: 10px 14px;
+  border-radius: var(--r-pill);
+  background: var(--neutral-bg);
+  color: var(--text);
+  font-weight: 600;
+}
+
+.start-location-button:disabled {
+  opacity: 0.55;
+}
+
 .start-hint {
   margin-top: 8px;
   font-size: 13px;
@@ -164,7 +216,8 @@
 }
 
 @media (max-width: 767px), (max-width: 1023px) and (pointer: coarse) {
-  .start--onboarding .start-card {
+  .start--onboarding .start-card > .vcard,
+  .start--onboarding .start-card > .start-hint {
     display: none;
   }
 

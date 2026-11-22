@@ -75,7 +75,7 @@ export function Ticket({ row, radioAudio, next, nowMs, student, liked, onBack, o
   const colors = useVenueColors(row, isPhoto ? photoUrl : null);
 
   const minsToLeave = (Date.parse(row.leave_by) - nowMs) / MINUTE;
-  const urgency = Math.min(1, Math.max(0, (DARKEN_WINDOW_MIN - minsToLeave) / DARKEN_WINDOW_MIN));
+  const urgency = row.timed === false ? 0 : Math.min(1, Math.max(0, (DARKEN_WINDOW_MIN - minsToLeave) / DARKEN_WINDOW_MIN));
   const deep = isPhoto ? colors.deep : darken(colors.deep, DARKEN_MAX * urgency);
 
   const voiceoverUrl = radioAudio?.src || row.voiceover_url;
@@ -179,8 +179,8 @@ export function Ticket({ row, radioAudio, next, nowMs, student, liked, onBack, o
 
         <div className="ticket-leave">
           <div className="ticket-leave-by">
-            <span className="ticket-leave-label">LEAVE BY</span>
-            <span className="ticket-leave-time tnum">{formatHM(row.leave_by)}</span>
+            <span className="ticket-leave-label">{row.timed !== false ? 'LEAVE BY' : row.departure_label === 'Open 24 hours' ? 'OPEN' : 'CLOSES AT'}</span>
+            <span className="ticket-leave-time tnum">{row.timed === false && row.departure_label === 'Open 24 hours' ? '24 hours' : formatHM(row.timed === false ? row.departure_time : row.leave_by)}</span>
           </div>
           <a className="ticket-directions" href={directions} target="_blank" rel="noreferrer">
             Directions

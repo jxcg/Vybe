@@ -7,7 +7,8 @@ const DEBOUNCE_MS = 900;
 interface Props {
   inputRef: Ref<HTMLInputElement>;
   formRef: Ref<HTMLFormElement>;
-  onSend: (text: string) => void;
+  /** viaEnter: the user pressed Enter (not the debounce) — a signal to open the board. */
+  onSend: (text: string, viaEnter: boolean) => void;
   onVoice: () => void;
 }
 
@@ -16,12 +17,17 @@ export function TypeField({ inputRef, formRef, onSend, onVoice }: Props) {
   const timer = useRef<number | undefined>(undefined);
   const lastSent = useRef('');
 
-  const flush = (text: string) => {
+  const flush = (text: string, viaEnter = false) => {
     window.clearTimeout(timer.current);
     const trimmed = text.trim();
-    if (!trimmed || trimmed === lastSent.current) return;
+    if (!trimmed) return;
+    if (trimmed === lastSent.current) {
+      // Already sent by the debounce: Enter still signals "go", just without a duplicate send.
+      if (viaEnter) onSend(trimmed, true);
+      return;
+    }
     lastSent.current = trimmed;
-    onSend(trimmed);
+    onSend(trimmed, viaEnter);
   };
 
   useEffect(() => () => window.clearTimeout(timer.current), []);
@@ -32,7 +38,7 @@ export function TypeField({ inputRef, formRef, onSend, onVoice }: Props) {
       className="typefield"
       onSubmit={(e) => {
         e.preventDefault();
-        flush(value);
+        flush(value, true);
       }}
     >
       <Keyboard className="typefield-icon" size={18} strokeWidth={2} aria-hidden="true" />

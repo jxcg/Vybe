@@ -30,6 +30,7 @@ export interface Toast {
 
 export interface State {
   conn: ConnStatus;
+  place: Extract<ClientMessage, { type: 'location' }> | null;
   shared: RoomCredential | null;
   roomConnecting: boolean;
   invite: string | null;
@@ -57,6 +58,7 @@ export interface State {
 export type Action =
   | { type: 'server'; msg: ServerMessage; at: number }
   | { type: 'conn'; status: ConnStatus }
+  | { type: 'set_place'; place: NonNullable<State['place']> }
   | { type: 'set_vybe'; vybe: Vybe }
   | { type: 'reset_filters'; vybe: Vybe }
   | { type: 'go'; screen: Screen }
@@ -76,6 +78,7 @@ function init(): State {
   const resume = room && (invite === null || invite === room.invite) ? room : null;
   return {
     conn: 'connecting',
+    place: null,
     shared: resume && resume.invite !== null ? { ...resume, invite: resume.invite } : null,
     roomConnecting: resume !== null,
     invite,
@@ -86,7 +89,7 @@ function init(): State {
     soloLiked: saved.liked,
     board: null,
     boardAt: 0,
-    screen: resume ? 'board' : invite !== null ? 'invite' : saved.onboarded ? 'loading' : 'start',
+    screen: resume ? 'board' : invite !== null ? 'invite' : 'start',
     onboarded: saved.onboarded,
     vybe: saved.vybe,
     transcript: '',
@@ -101,6 +104,8 @@ let toastId = 0;
 
 function reducer(state: State, action: Action): State {
   switch (action.type) {
+    case 'set_place':
+      return { ...state, place: action.place };
     case 'conn':
       return { ...state, conn: action.status, roomConnecting: state.roomConnecting ||
         (action.status === 'reconnecting' && state.shared !== null) };
@@ -139,7 +144,7 @@ function reducer(state: State, action: Action): State {
     case 'dismiss_invite':
       return {
         ...state, invite: null, inviteArea: null, roomError: null, roomConnecting: false, board: null,
-        screen: 'loading', onboarded: true,
+        screen: 'start',
       };
     case 'clear_room_error':
       return { ...state, roomError: null };
@@ -162,10 +167,10 @@ function reducer(state: State, action: Action): State {
         case 'room_left':
           return {
             ...state, shared: null, vybe: state.soloVybe, liked: state.soloLiked,
-            board: null, screen: 'board', onboarded: true, ticket: null, transcript: '',
+            board: null, screen: state.place ? 'board' : 'start', onboarded: true, ticket: null, transcript: '',
           };
         case 'board':
-          return { ...state, board: msg, boardAt: action.at };
+          return state.place || state.shared ? { ...state, board: msg, boardAt: action.at } : state;
         case 'transcript':
           return { ...state, transcript: msg.text };
         case 'note':
@@ -186,6 +191,7 @@ interface Store {
   dispatch: Dispatch<Action>;
   send: (msg: ClientMessage) => void;
   sendAudio: (frame: ArrayBuffer) => void;
+  setPlace: (place: NonNullable<State['place']>) => void;
   join: (vybe?: Vybe) => void;
   dismissInvite: () => void;
   enterRoom: (entry: RoomEntry) => void;
@@ -196,7 +202,8 @@ const StoreContext = createContext<Store | null>(null);
 export function StoreProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(reducer, undefined, init);
   const socketRef = useRef<VybeSocket | null>(null);
-  const started = useRef(state.onboarded);
+  const started = useRef(false);
+  const place = useRef<State['place']>(null);
   const soloJoined = useRef(false);
   const resume = useRef<RoomResume | null>(state.roomConnecting ? readRoom() : null);
   const pendingEntry = useRef<(RoomEntry & { credential: string }) | null>(null);
@@ -206,9 +213,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const send = useCallback((msg: ClientMessage) => socketRef.current?.send(msg), []);
   const sendAudio = useCallback((frame: ArrayBuffer) => socketRef.current?.sendAudio(frame), []);
 
+  const setPlace = useCallback((next: NonNullable<State['place']>) => {
+    place.current = next;
+    dispatch({ type: 'set_place', place: next });
+    send(next);
+  }, [send]);
+
   const joinSolo = useCallback((vybe: Vybe, liked: string[]) => {
-    if (soloJoined.current) return;
+    if (soloJoined.current || !place.current) return;
     soloJoined.current = true;
+    send(place.current);
     send({ type: 'prefs', ...toPrefs(vybe), liked });
     send({ type: 'join', room: null });
   }, [send]);
@@ -219,6 +233,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       send({ type: 'room_prefs', prefs: toPrefs(vybe) });
       return;
     }
+    if (!place.current) return;
     started.current = true;
     if (latest.current.conn === 'open') joinSolo(vybe, latest.current.soloLiked);
   }, [joinSolo, send]);
@@ -260,8 +275,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         pendingEntry.current = null;
       }
       if (msg.type === 'room_left') {
-        started.current = true;
-        soloJoined.current = true;
+        started.current = place.current !== null;
+        soloJoined.current = place.current !== null;
       }
       dispatch({ type: 'server', msg, at: Date.now() });
     });
@@ -270,6 +285,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       if (status !== 'open') return;
       soloJoined.current = false;
       const current = latest.current;
+      if (place.current) send(place.current);
       if (resume.current) {
         send({ type: 'prefs', ...toPrefs(current.soloVybe), liked: current.soloLiked });
         send(pendingEntry.current ?? { type: 'room_resume', ...resume.current });
@@ -300,7 +316,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, [personal, soloLiked, onboarded]);
 
   return (
-    <StoreContext.Provider value={{ state, dispatch, send, sendAudio, join, dismissInvite, enterRoom }}>
+    <StoreContext.Provider value={{ state, dispatch, send, sendAudio, setPlace, join, dismissInvite, enterRoom }}>
       {children}
     </StoreContext.Provider>
   );

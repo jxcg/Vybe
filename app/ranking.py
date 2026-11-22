@@ -177,10 +177,10 @@ def rank(
         # match %, and "indoors" would be on nearly every card, so it isn't a reason.
         reasons = [
             "Pricier than your budget" if over else None,
+            "Student price" if student_deal else None,  # a concrete deal: keep it in the top 3
             "Open now" if opens <= now else f"Opens {opens:%H:%M}",
             "Matches your likes" if overlap else None,
             fit_reason,
-            "Student price" if student_deal else None,
             "Free entry" if item.get("price") == 0 else None,
             "Nice out" if weather and not weather.bad and outdoors else None,
             "Indoors, it's raining" if weather and weather.raining and not outdoors else None,
@@ -194,6 +194,7 @@ def rank(
                 **item,
                 "match": max(0, round(match) - 25 * over),
                 "over_budget": bool(over),
+                "student_deal": bool(student_deal),
                 "badge": badge,
                 "leave_by": f"{leave_by:%H:%M}",
                 "leave_by_at": leave_by.isoformat(),
