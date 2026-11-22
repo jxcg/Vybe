@@ -13,6 +13,13 @@ const MOCK_GROUPS: Record<string, string> = {
   food: 'Food', bar: 'Drinks', culture: 'Culture',
 };
 
+/** Mirrors the server: one matching interest narrows the board to its group until re-chosen. */
+const INTEREST_GROUP: Record<string, string> = {
+  food: 'Food', 'late night': 'Drinks', active: 'Entertainment',
+  competitive: 'Entertainment', 'a laugh': 'Entertainment',
+  'live music': 'Entertainment', culture: 'Culture', chill: 'Culture',
+};
+
 const DEFAULT_PREFS: Prefs = {
   budget: 999,
   student: false,
@@ -104,7 +111,7 @@ export function createMockSocket(): VybeSocket {
   const rainFrom = londonWallTime(day, '19:30').getTime();
   let clock = londonWallTime(day, '18:45').getTime();
   let prefs: Prefs = DEFAULT_PREFS;
-  let chosenGroup: string | null = null;
+  let chosenGroup: string | null | undefined;
   let area = 'Demo board';
   let intervals: number[] = [];
   let joined = false;
@@ -170,7 +177,9 @@ export function createMockSocket(): VybeSocket {
         groups[row.group] = (groups[row.group] ?? 0) + 1;
       }
     }
-    const group = chosenGroup;
+    const group = chosenGroup === undefined
+      ? prefs.include.map((tag) => INTEREST_GROUP[tag]).find((g) => Object.hasOwn(groups, g)) ?? null
+      : chosenGroup;
     const rows = group ? allRows.filter((row) => row.group === group) : allRows;
     assignPicks(rows);
     return {
@@ -220,7 +229,7 @@ export function createMockSocket(): VybeSocket {
         case 'prefs': {
           const { type, ...next } = msg;
           if (JSON.stringify(prefs.include) !== JSON.stringify(next.include)) {
-            chosenGroup = null;
+            chosenGroup = undefined; // a new interest re-opens the auto-narrowing
           }
           prefs = next;
           if (joined) emit(board());

@@ -1,3 +1,4 @@
+from collections.abc import Iterator
 from datetime import datetime
 from time import monotonic
 
@@ -7,6 +8,14 @@ from test_ws import recv
 
 from app import geo, rooms, ws
 from app.main import app, load_samples
+
+
+@pytest.fixture(autouse=True)
+def clean_rooms() -> Iterator[None]:
+    """Room state is module-global: never leak rooms into the next test, even on failure."""
+    rooms.rooms.clear()
+    yield
+    rooms.rooms.clear()
 
 
 def test_shared_board_lifecycle(monkeypatch: pytest.MonkeyPatch) -> None:

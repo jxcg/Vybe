@@ -24,8 +24,8 @@ VYBE_SERVER=http://localhost:8000 npm run dev   # proxies /ws to your server (de
 - **Binary frames = mic audio** (coming in P4): mono **PCM16 little-endian at 16 000 Hz**, ~100 ms per
   frame, sent only between `talk_start` and `talk_end`.
 - Reconnect: the client retries with exponential backoff (0.5 s → 15 s). On every reconnect it re-sends
-  the last `join` (with the `room` you gave it in `joined`) and the last `prefs`. Treat a repeated `join` for
-  an existing room as "resume".
+  the session-only `location`, the last `prefs`, and either a fresh `join` (solo) or `room_resume` with the
+  saved credential (shared plan).
 
 All types are in [`web/src/contract.ts`](web/src/contract.ts). Times are **ISO 8601 strings with a timezone** (e.g.
 `2026-11-21T19:30:00Z`). The UI shows them in Europe/London.
@@ -34,14 +34,15 @@ All types are in [`web/src/contract.ts`](web/src/contract.ts). Times are **ISO 8
 
 | Message | When the client sends it |
 |---|---|
-| `{type:"join", room: string\|null, name?: string}` | On "See what's on" / "Skip" (first visit), on page load if already onboarded, and on every reconnect |
+| `{type:"join", room: string\|null, name?: string}` | On "See what's on" / "Skip" (first visit), and on every reconnect (solo) |
+| `{type:"location", lat: number, lng: number, label: string}` | Session-only: browser geolocation, or the area/postcode the user picked. Sent before `join` once chosen, and again on every reconnect. Never persisted by the client |
 | `{type:"prefs", budget: 10\|20\|999, student, adult, include: string[], exclude: string[], company: number}` | On **every** change to the user's vybe, right after `join`, and on reconnect. `company` = people including the user (1 = just me) |
 | `{type:"talk_start", purpose:"mood"\|"command"\|"reason", item_id?}` | User taps the mic: `"mood"` on the start screen, `"command"` on the board. `"reason"` (+ `item_id`) is reserved and not sent yet |
 | binary PCM frames | Between `talk_start` and `talk_end` (P4) |
 | `{type:"talk_end"}` | User taps again, or after 15 s |
 | `{type:"talk_text", text}` | Typed alternative to talking (900 ms after the user stops typing, or on Enter). Reply with `chips`, same as for speech |
 | `{type:"feedback", item_id, kind:"like"\|"skip"}` | Bookmark / "Not for me" on a ticket |
-| `{type:"board_on", item_id\|null}` | "I'm in" toggle (group mode, P6) |
+| `{type:"board_on", item_id\|null}` | Reserved (P6 "I'm in" toggle): in the contract, not sent yet; the server ignores it |
 | `{type:"time_travel", now: ISO}` / `{type:"refresh_now"}` | Demo panel (P5) |
 
 ⚠️ **Important:** the start screen sends `prefs`, `talk_start`, `talk_end` and `talk_text` **before** `join`
@@ -57,8 +58,8 @@ socket. If that's hard, tell us and the client will send `join` as soon as the s
 | `{type:"transcript", text, final}` | Live "You said …" under the mic. Send partials while talking, then `final:true` |
 | `{type:"chips", include, exclude, budget?, student?, company?}` | **Merged** into the user's vybe (adds tags; a tag can't be in both lists; `budget`/`student`/`company` overwrite when present). The client then sends `prefs` back. The start screen shows "Got it…" until this arrives (8 s timeout) |
 | `{type:"note", text}` | Shown as a 3 s toast, e.g. "Removed 2 outdoor, budget now under £10" |
-| `{type:"announce", item_id, kind, url, caption}` | (P4) Plays the PCM clip at `url` (PCM16, 24 000 Hz) with a caption |
-| `{type:"decision", item_id, by, plan:{leave_in_min, walk_min}}` | (P6) Group decision screen |
+| `{type:"announce", item_id, kind, url, caption}` | Reserved (P4 station voice): in the contract, not sent yet |
+| `{type:"decision", item_id, by, plan:{leave_in_min, walk_min}}` | Reserved (P6): in the contract; `board.decision` is always `null` for now |
 
 ### `board` details that matter for the UI
 
@@ -281,44 +282,43 @@ Send an `announce` when one of the user's **picked** rows changes status:
 
 ```
 → {"type":"feedback","item_id":"basement-stand-up","kind":"like"}
-← {"type":"note","text":"Saved Basement Stand-Up"}
 → {"type":"feedback","item_id":"basement-stand-up","kind":"skip"}
-← {"type":"note","text":"Hidden Basement Stand-Up. We'll show fewer like it."}
-← {"type":"board", ...without that row...}
+← {"type":"board", ...without that row, re-ranked...}   (a `note` toast is welcome but optional)
 ```
 
 The client hides a skipped row immediately; your `board` should leave it out from then on, and use likes
 and skips to re-rank.
 
-### 8. Location (P4, needs agreeing, see open decisions)
+### 8. Location (session-only)
 
 ```
-→ {"type":"location","lat":51.5045,"lng":-0.0865,"label":"Near you","source":"gps"}
-← {"type":"board","area":"London Bridge", ...walking times recomputed...}
+→ {"type":"location","lat":51.5045,"lng":-0.0865,"label":"Near you"}
+← {"type":"board","area":"Near you", ...walking times recomputed...}
 ```
 
-`source` is `gps` (phone location), `search` (the user picked an area or station) or `default` (location
-denied, so the server picks the default demo area).
+The web client asks for the browser location first (area/postcode lookup if denied) and only then opens a
+solo board; coordinates live in the WebSocket session only and are re-sent on reconnect. A bare `join`
+with no prior `location` still gets a board at the server's default demo area.
 
 ### Backend "done" checklist
 
 - [ ] `/ws` accepts `prefs`, `talk_*`, `talk_text` **before** `join`
-- [ ] `join` → `joined` + `board` within ~1 s; a repeated `join` with a room resumes that room
+- [x] `join` → `joined` + `board` within ~1 s; shared plans resume via `room_resume` + credential
 - [ ] every `prefs` → re-ranked `board`
 - [ ] speech: binary frames between `talk_start`/`talk_end` → partial + final `transcript` → `chips` (always)
 - [ ] `talk_text` → `chips`
 - [ ] `purpose:"command"` → `chips` + `note` + `board`
 - [ ] statuses, `leave_by`, picks and `count` computed server-side; departed rows kept briefly
 - [ ] `announce` when a pick turns boarding / last call, with PCM16 24 kHz mono audio
-- [ ] `feedback` skip removes the row for that user, like/skip re-rank, each answered with a `note`
+- [x] `feedback` skip removes the row for that user, like/skip re-rank (answered with a fresh `board`)
 - [ ] photos: good or `null`, served from your origin, `colors` sent with them
-- [ ] `location` handled (once agreed)
+- [x] `location` handled: validated, drives nearby search + weather, re-boards with the new `area`
 
 ## Open decisions (please reply)
 
 1. **Pre-join messages:** OK to receive `prefs` / `talk_*` before `join`? (see ⚠️ above)
-2. **Location:** not in the contract yet. Proposal: `{type:"location", lat, lng, label, source:"gps"|"search"|"default"}`
-   sent after `join` and when the user changes area. Reply with a fresh `board` (its `area` = the label).
+2. **Location:** resolved — see §8. `{type:"location", lat, lng, label}` is in the contract; the client sends
+   it before `join` and on reconnect; the server replies with a fresh `board` whose `area` is the label.
 3. **Groups (P6):** optional per-row `fits: string[]` (members it suits) and `clashes: {name, reason}[]`.
    Merge rules we're assuming: lowest budget wins, anyone's "not into" flags a row, shared "into" ranks higher,
    anyone under 18 removes adult-only places.

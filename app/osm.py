@@ -9,6 +9,7 @@ import httpx
 
 from app.categories import OSM as KINDS
 from app.categories import tags_for
+from app.geo import cache_set
 
 OVERPASS = "https://overpass-api.de/api/interpreter"
 NOMINATIM = "https://nominatim.openstreetmap.org/search"
@@ -41,7 +42,7 @@ def nearby(lat: float, lng: float) -> list[dict[str, Any]]:
     r = httpx.post(OVERPASS, data={"data": _query(lat, lng)}, headers=HEADERS, timeout=8)
     r.raise_for_status()
     elements: list[dict[str, Any]] = r.json().get("elements", [])
-    _cache[cell] = (time.time(), elements)
+    cache_set(_cache, cell, elements, CACHE_TTL)
     return elements
 
 

@@ -8,6 +8,7 @@ from typing import Any
 import httpx
 
 from app.categories import GOOGLE, google_kind, tags_for
+from app.geo import cache_set
 
 API = "https://places.googleapis.com/v1/places"
 FIELDS = ",".join(
@@ -143,7 +144,7 @@ def nearby(lat: float, lng: float) -> list[dict[str, Any]]:
         vtype = "food_deal" if kind == "food_deal" else "activity"
         places.extend(_search(lat, lng, types, vtype))
     places = list({p["id"]: p for p in places}.values())  # one place can match several searches
-    _cache[cell] = (time.time(), places)
+    cache_set(_cache, cell, places, CACHE_TTL)
     return places
 
 
@@ -162,7 +163,7 @@ def requested_nearby(lat: float, lng: float, terms: set[str]) -> list[dict[str, 
             found = _search(lat, lng, types, kind, closest=term in GROUP_SEARCHES)
         except httpx.HTTPError:
             continue  # the ordinary feed and other requested activities are still usable
-        _request_cache[key] = (time.time(), found)
+        cache_set(_request_cache, key, found, CACHE_TTL)
         results.extend(found)
     return results
 

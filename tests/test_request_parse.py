@@ -63,6 +63,12 @@ CASES = [
     ("chill museum or gallery", {"requested": ["culture"], "include": ["chill", "culture"]}),
     ("I want to dance tonight", {"requested": ["dancing"], "include": ["late night"]}),
     ("i fancy a curry tonight", {"requested": ["curry"]}),
+    # Negation: drink words exclude late nights; "or" carries the negation; "just" is a lead-in
+    ("no bars", {"exclude": ["late nights"], "no_include": ["late night"]}),
+    ("no pub, somewhere for curry", {"exclude": ["late nights"]}),
+    ("just pizza", {"requested": ["pizza"]}),
+    ("no museum or gallery", {"exclude": ["culture"], "no_include": ["culture"]}),
+    ("avoid loud music or queues", {"exclude": ["loud music", "queues"]}),
 ]
 
 

@@ -683,7 +683,12 @@ def test_location_message_contract(monkeypatch: pytest.MonkeyPatch) -> None:
         sock.send_json({"type": "join"})
         recv(sock, "joined")
         assert recv(sock, "board")["area"] == "Manchester"
-        for bad in ({"lat": 91, "lng": 0}, {"lat": "51", "lng": 0}, {"lat": None, "lng": None}):
+        for bad in (
+            {"lat": 91, "lng": 0},
+            {"lat": "51", "lng": 0},
+            {"lat": None, "lng": None},
+            {"lat": True, "lng": 0},
+        ):  # bool is an int in Python: must not pass
             sock.send_json({"type": "location", **bad})
         sock.send_json({"type": "refresh_now"})
         assert recv(sock, "note")["text"]
@@ -698,6 +703,8 @@ def test_malformed_messages_never_break_the_session(monkeypatch: pytest.MonkeyPa
     with TestClient(app).websocket_connect("/ws") as sock:
         sock.send_text("not json at all")
         sock.send_text("[1, 2, 3]")
+        sock.send_text("[" * 100_000)  # deep-nested JSON bomb: RecursionError, not a crash
+        sock.send_json({"type": "board_on", "item_id": None})  # reserved message: ignored
         sock.send_bytes(b"\x00\x30" * 100)  # audio while not talking: ignored
         sock.send_json({"type": "prefs", "budget": "20", "include": "food", "company": 999})
         sock.send_json({"type": "feedback", "item_id": 42, "kind": "explode"})

@@ -49,6 +49,8 @@ export function StartScreen() {
   const talkCap = useRef<number | undefined>(undefined);
   /** Set when the user asked to go while voice/typing was still being parsed: go once chips land. */
   const pendingGo = useRef(false);
+  /** Last prompt sent to the server, so Enter on unchanged text doesn't send a duplicate. */
+  const lastSentText = useRef('');
   const keyboardOpen = useKeyboardOpen();
   // Mic blocked or unavailable: fall back to typing (the hook shows a toast saying why)
   const talk = useTalk('mood', () => {
@@ -246,8 +248,12 @@ export function StartScreen() {
                 onSend={(text, viaEnter) => {
                   if (state.conn !== 'open') return;
                   if (!viaEnter && phase === 'thinking') return; // don't stack debounced sends
-                  setPhase('thinking');
-                  send({ type: 'talk_text', text });
+                  // Enter on already-sent text arrives without a fresh send; still queue the go.
+                  if (text !== lastSentText.current) {
+                    lastSentText.current = text;
+                    setPhase('thinking');
+                    send({ type: 'talk_text', text });
+                  }
                   // Enter means "go": open the board once the chips for this prompt arrive.
                   if (viaEnter) pendingGo.current = true;
                 }}
@@ -298,7 +304,7 @@ export function StartScreen() {
           <FadePill
             label={phase === 'thinking' ? 'Applying filters…' : phase === 'listening'
               ? 'Finish recording' : settings ? 'Update board' : 'See what’s on'}
-            disabled={phase === 'thinking'}
+            disabled={phase === 'thinking' || locating}
             onClick={() => go()}
           />
           <button

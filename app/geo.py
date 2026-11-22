@@ -12,6 +12,18 @@ DETOUR = 1.3  # streets aren't straight lines
 _weather_cache: dict[tuple[float, float], tuple[float, "Weather | None"]] = {}
 
 
+def cache_set(cache: dict[Any, tuple[float, Any]], key: Any, value: Any, ttl: float) -> None:
+    """Store in a TTL cache, first purging expired entries.
+
+    The caches are keyed by user-supplied ~1 km cells (location message, /api/feed), so
+    without eviction any client could grow them without bound.
+    """
+    now = time.time()
+    for stale in [k for k, (fetched, _) in cache.items() if now - fetched >= ttl]:
+        del cache[stale]
+    cache[key] = (now, value)
+
+
 def walk_mins(lat1: float, lng1: float, lat2: float, lng2: float) -> int:
     """Straight-line (haversine) distance turned into minutes on foot."""
     p1, p2 = math.radians(lat1), math.radians(lat2)
@@ -61,5 +73,5 @@ def weather(lat: float, lng: float) -> Weather | None:
         w: Weather | None = Weather(float(cur["precipitation"]) > 0, float(cur["temperature_2m"]))
     except (httpx.HTTPError, KeyError, ValueError):
         w = None  # weather is a nice-to-have; never block the feed on it
-    _weather_cache[cell] = (time.time(), w)
+    cache_set(_weather_cache, cell, w, 1800)
     return w

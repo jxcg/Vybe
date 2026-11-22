@@ -20,7 +20,12 @@ export function TypeField({ inputRef, formRef, onSend, onVoice }: Props) {
   const flush = (text: string, viaEnter = false) => {
     window.clearTimeout(timer.current);
     const trimmed = text.trim();
-    if (!trimmed || trimmed === lastSent.current) return;
+    if (!trimmed) return;
+    if (trimmed === lastSent.current) {
+      // Already sent by the debounce: Enter still signals "go", just without a duplicate send.
+      if (viaEnter) onSend(trimmed, true);
+      return;
+    }
     lastSent.current = trimmed;
     onSend(trimmed, viaEnter);
   };

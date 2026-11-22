@@ -608,8 +608,10 @@ class Session:
         elif kind == "location":
             lat, lng = msg.get("lat"), msg.get("lng")
             if (
-                isinstance(lat, int | float)
-                and isinstance(lng, int | float)
+                isinstance(lat, (int, float))
+                and not isinstance(lat, bool)  # bool is an int in Python: reject it explicitly
+                and isinstance(lng, (int, float))
+                and not isinstance(lng, bool)
                 and -90 <= lat <= 90
                 and -180 <= lng <= 180
             ):
@@ -619,7 +621,11 @@ class Session:
                     "label": str(msg.get("label") or "Near you")[:40],
                 }
                 await self.board()
-        elif kind == "feedback" and isinstance(msg.get("item_id"), str):
+        elif (
+            kind == "feedback"
+            and isinstance(msg.get("item_id"), str)
+            and 0 < len(msg["item_id"]) <= 256
+        ):
             if msg.get("kind") == "like":
                 self.liked.add(msg["item_id"])
             elif msg.get("kind") == "unlike":
@@ -709,7 +715,7 @@ async def serve(ws: WebSocket, items_near: Any) -> None:
                 continue
             try:
                 msg = json.loads(frame.get("text") or "")
-            except ValueError:
+            except (ValueError, RecursionError):  # RecursionError: deep-nested JSON bombs
                 continue
             if isinstance(msg, dict):
                 await session.handle(msg)
